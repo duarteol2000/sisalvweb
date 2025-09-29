@@ -1,0 +1,68 @@
+# ---- SISTEMA & OS ----
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# ---- PYTHON ----
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.Python
+.python-version
+
+# Ambiente virtual
+venv/
+.venv/
+env/
+ENV/
+.env
+.env.*
+.envrc
+
+# Arquivos de banco locais
+*.log
+db.sqlite3
+db.sqlite3-journal
+
+# uploads e arquivos gerados pelo usuário
+media/
+
+# Cache do Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+
+# Arquivos de migração compilados
+*/migrations/__pycache__/
+
+# Arquivos de IDE/Editor
+.vscode/
+.idea/
+
+# Arquivos de sistema
+.DS_Store
+Thumbs.db
+
+# Arquivos estáticos coletados
+staticfiles/
+static_root/
+
+# ---- BUILD / DIST ----
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# ---- IDEs / EDITORES ----
+.vscode/
+.idea/
+*.iml
+*.code-workspace
+
+# ---- RELATÓRIOS TEMP / PDF TOOLS ----
+weasyprint_temp/

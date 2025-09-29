@@ -1,0 +1,124 @@
+{% extends "core/base.html" %}
+{% block title %}{{ denuncia.protocolo }} — SISALVWEB{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>Denúncia {{ denuncia.protocolo }}</h2>
+  <p><strong>Status:</strong> {{ denuncia.get_status_display }} &middot; <strong>Procedência:</strong> {{ denuncia.get_procedencia_display }}</p>
+
+  <!-- ORIGEM -->
+  <h3>Origem</h3>
+  <p><strong>Origem:</strong> {{ denuncia.get_origem_denuncia_display }}</p>
+  {% if denuncia.origem_denuncia == 'CONTRIBUINTE' %}
+    <p><strong>Anônima?</strong> {{ denuncia.denunciante_anonimo|yesno:"Sim,Não" }}</p>
+    {% if not denuncia.denunciante_anonimo %}
+      <p><strong>Nome:</strong> {{ denuncia.denunciante_nome|default:"—" }}</p>
+      <p><strong>Contato:</strong> {{ denuncia.denunciante_email|default:"—" }} {{ denuncia.denunciante_telefone|default:"" }}</p>
+    {% endif %}
+  {% else %}
+    <p><strong>Fiscal denunciante:</strong> {{ denuncia.denunciante_fiscal|default:"—" }}</p>
+  {% endif %}
+
+  <!-- DENUNCIADO -->
+  <h3>Denunciado</h3>
+  <p><strong>Nome/Razão:</strong> {{ denuncia.denunciado_nome_razao }}</p>
+  <p><strong>Contato:</strong> {{ denuncia.denunciado_email|default:"—" }} {{ denuncia.denunciado_telefone|default:"" }}</p>
+  <p><strong>Endereço:</strong>
+    {{ denuncia.denunciado_res_logradouro|default:"—" }},
+    {{ denuncia.denunciado_res_numero|default:"s/n" }}
+    {% if denuncia.denunciado_res_bairro %}- {{ denuncia.denunciado_res_bairro }}{% endif %}
+    {% if denuncia.denunciado_res_cidade and denuncia.denunciado_res_uf %}- {{ denuncia.denunciado_res_cidade }}/{{ denuncia.denunciado_res_uf }}{% endif %}
+  </p>
+
+  <!-- LOCAL -->
+  <h3>Local da ocorrência</h3>
+  <p><strong>Endereço:</strong>
+    {{ denuncia.local_oco_logradouro }},
+    {{ denuncia.local_oco_numero|default:"s/n" }}
+    - {{ denuncia.local_oco_bairro }}
+    - {{ denuncia.local_oco_cidade }}/{{ denuncia.local_oco_uf }}
+  </p>
+  {% if denuncia.local_oco_lat or denuncia.local_oco_lng %}
+    <p><strong>Coordenadas:</strong>
+      {% if denuncia.local_oco_lat %}Lat: {{ denuncia.local_oco_lat }}{% endif %}
+      {% if denuncia.local_oco_lng %}{% if denuncia.local_oco_lat %} · {% endif %}Lng: {{ denuncia.local_oco_lng }}{% endif %}
+    </p>
+  {% endif %}
+  <p><strong>Descrição:</strong> {{ denuncia.descricao_oco|linebreaks }}</p>
+
+  <!-- DOCUMENTOS DO IMÓVEL -->
+  <h3>Documentos do imóvel</h3>
+  <ul>
+    {% for doc in denuncia.documentos_imovel.all %}
+      <li>
+        {{ doc.get_tipo_display }} —
+        <a class="link" href="{{ doc.arquivo.url }}" target="_blank" rel="noopener">abrir</a>
+      </li>
+    {% empty %}
+      <li>Nenhum documento enviado.</li>
+    {% endfor %}
+  </ul>
+
+  <!-- FOTOS (FOTO em DenunciaAnexo) -->
+  <h3>Fotos (evidências)</h3>
+  {% with fotos=denuncia.anexos.filter(tipo='FOTO').order_by('-criada_em') %}
+    {% if fotos %}
+      <div class="preview-grid">
+        {% for a in fotos %}
+          <div class="preview-item" title="{{ a.observacao|default:'Foto' }}">
+            <a href="{{ a.arquivo.url }}" target="_blank" rel="noopener" style="display:block;">
+              <img src="{{ a.arquivo.url }}" alt="Foto da denúncia {{ denuncia.protocolo }}">
+            </a>
+            <div class="preview-name">
+              {{ a.criada_em|date:"d/m/Y H:i" }}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+      <p style="margin-top:8px; font-size:0.92rem; color:#555;">
+        As imagens são exibidas na versão otimizada (padrão 1000×667).
+      </p>
+    {% else %}
+      <p style="color:#666;">Nenhuma foto anexada.</p>
+    {% endif %}
+  {% endwith %}
+
+  <!-- AÇÕES -->
+  <p class="text-center" style="margin-top:16px;">
+    <a class="btn btn-secondary" href="{% url 'denuncias:denuncias_listar' %}">&larr; Voltar</a>
+    <a class="btn btn-primary" href="{% url 'denuncias:denuncias_editar' denuncia.pk %}">✎ Editar denúncia</a>
+  </p>
+</div>
+
+<!-- estilos da grade (mesmos usados no cadastro/edição) -->
+<style>
+  .preview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .preview-item {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 6px;
+    text-align: center;
+    background: #fafafa;
+  }
+  .preview-item img {
+    display: block;
+    width: 100%;
+    height: 78px;
+    object-fit: cover;
+    border-radius: 6px;
+  }
+  .preview-name {
+    margin-top: 4px;
+    font-size: 0.78rem;
+    color: #555;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+</style>
+{% endblock %}

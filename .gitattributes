@@ -1,0 +1,12 @@
+* text=auto eol=lf
+*.sh text eol=lf
+*.bat text eol=crlf
+
+# Arquivos binários
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.woff binary
+*.woff2 binary

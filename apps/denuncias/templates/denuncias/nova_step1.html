@@ -1,0 +1,69 @@
+{% extends "core/base.html" %}
+{% block title %}Nova Denúncia — Passo 1 (Origem){% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>Nova Denúncia — Passo 1 (Origem)</h2>
+
+  {% if messages %}
+    {% for m in messages %}
+      <div class="alert {% if m.tags %}alert-{{ m.tags }}{% endif %}">{{ m }}</div>
+    {% endfor %}
+  {% endif %}
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <div class="section">
+      <div class="form-grid">
+        <div class="field">
+          <label>Origem</label>
+          {{ form.origem_denuncia }}
+          {% for e in form.origem_denuncia.errors %}<small class="text-danger">{{ e }}</small>{% endfor %}
+        </div>
+
+        <div class="field">
+          <label>Anônima?</label>
+          {{ form.denunciante_anonimo }}
+          {% for e in form.denunciante_anonimo.errors %}<small class="text-danger">{{ e }}</small>{% endfor %}
+        </div>
+
+        <div class="field">
+          <label>Fiscal denunciante</label>
+          {{ form.denunciante_fiscal }}
+          {% for e in form.denunciante_fiscal.errors %}<small class="text-danger">{{ e }}</small>{% endfor %}
+        </div>
+
+        <div class="field">
+          <label>Nome (contribuinte)</label>
+          {{ form.denunciante_nome }}
+          {% for e in form.denunciante_nome.errors %}<small class="text-danger">{{ e }}</small>{% endfor %}
+        </div>
+
+        <div class="field">
+          <label>E-mail (contribuinte)</label>
+          {{ form.denunciante_email }}
+          {% for e in form.denunciante_email.errors %}<small class="text-danger">{{ e }}</small>{% endfor %}
+        </div>
+
+        <div class="field">
+          <label>Telefone (contribuinte)</label>
+          {{ form.denunciante_telefone }}
+          {% for e in form.denunciante_telefone.errors %}<small class="text-danger">{{ e }}</small>{% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <button type="submit">Salvar passo 1</button>
+  </form>
+
+  <p style="margin-top:12px; color:#666; font-size:0.9rem;">
+    <em>Obs.: Campos mínimos obrigatórios do endereço/denunciado são preenchidos
+    temporariamente com valores padrão. Você completará no próximo passo.</em>
+  </p>
+</div>
+{% endblock %}

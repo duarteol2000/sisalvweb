@@ -1,0 +1,224 @@
+/* Reset mínimo */
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #222;
+}
+
+/* Layout básico */
+.topbar {
+    background: #0c4a6e;
+    color: #fff;
+    padding: 12px 16px;
+}
+
+.app-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: .5px;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 24px auto;
+    padding: 0 16px;
+}
+
+.footer {
+    border-top: 1px solid #eee;
+    padding: 12px 16px;
+    text-align: center;
+    color: #666;
+}
+
+/* Mensagens */
+.messages {
+    list-style: inside;
+    margin: 8px 0 16px;
+    padding: 0;
+}
+
+.msg {
+    margin: 4px 0;
+}
+
+.msg.error {
+    color: #b00020;
+}
+
+.msg.success {
+    color: #0a7a0a;
+}
+
+.msg.info {
+    color: #0c4a6e;
+}
+
+/* Cartão/box padrão */
+.card {
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+.card h2 {
+    margin-top: 0;
+}
+
+/* Form padrão */
+label {
+    display: block;
+    margin-top: 10px;
+    font-weight: bold;
+}
+
+input,
+button,
+select,
+textarea {
+    width: 100%;
+    padding: 10px;
+    margin-top: 4px;
+}
+
+button {
+    cursor: pointer;
+    background: #0c4a6e;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+}
+
+button:hover {
+    filter: brightness(1.05);
+}
+
+/* Helpers */
+.hint {
+    font-size: 12px;
+    color: #555;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.link {
+    color: #0c4a6e;
+    text-decoration: none;
+}
+
+.link:hover {
+    text-decoration: underline;
+}
+
+/* Grids simples (antigas) */
+.grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+}
+
+.row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+/* Campo com label acima */
+.field {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Campo com label ao lado (se quiser usar em algum lugar) */
+.field-inline {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Seções */
+.section {
+    margin-top: 18px;
+}
+
+.section h3 {
+    margin: 8px 0 12px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 6px;
+}
+
+/* Responsivo para .grid-2/.grid-3 */
+@media (max-width: 840px) {
+
+    .grid-2,
+    .grid-3 {
+        grid-template-columns: 1fr;
+    }
+
+    .field-inline {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Altura visual mínima em inputs */
+input[type="text"],
+input[type="email"],
+input[type="tel"],
+select,
+textarea {
+    min-height: 38px;
+}
+
+/* Grade moderna para formulários grandes */
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(220px, 1fr));
+    /* 3 colunas */
+    gap: 12px;
+}
+
+.form-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+    /* 2 colunas */
+    gap: 12px;
+}
+
+/* Itens que ocupam mais colunas */
+.span-2 {
+    grid-column: span 2;
+}
+
+.span-3 {
+    grid-column: 1 / -1;
+}
+
+/* Responsivo da grade moderna */
+@media (max-width: 1100px) {
+    .form-grid {
+        grid-template-columns: repeat(2, minmax(220px, 1fr));
+    }
+}
+
+@media (max-width: 720px) {
+
+    .form-grid,
+    .form-grid-2 {
+        grid-template-columns: 1fr;
+    }
+}

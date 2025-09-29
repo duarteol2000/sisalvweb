@@ -1,0 +1,24 @@
+{% extends "core/base.html" %}
+{% block title %}Home — SISALVWEB{% endblock %}
+
+{% block content %}
+  <div class="card">
+    <h2 class="text-center">Bem-vindo(a) ao SISALVWEB</h2>
+
+    <p><strong>Usuário:</strong> {{ usuario.get_full_name|default:usuario.email }}</p>
+    <p><strong>E-mail:</strong> {{ usuario.email }}</p>
+    <p><strong>Tipo:</strong> {{ usuario.tipo }}</p>
+
+    <hr>
+
+    <h3>Prefeitura ativa</h3>
+    <p><strong>Nome:</strong> {{ prefeitura.nome }}</p>
+    <p><strong>Cidade:</strong> {{ prefeitura.cidade }} ({{ prefeitura.sigla_cidade }})</p>
+    <p><strong>Código IBGE:</strong> {{ prefeitura.codigo_ibge }}</p>
+
+    <hr>
+    <p class="text-center">
+      <a class="link" href="{% url 'logout' %}">Sair</a>
+    </p>
+  </div>
+{% endblock %}

@@ -1,0 +1,393 @@
+{% extends "core/base.html" %}
+{% block title %}Nova Denúncia — SISALVWEB{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2 class="text-center">Cadastrar Denúncia</h2>
+  {# ---- Sessão / Prefeitura ---- #}
+  {% if request.session.prefeitura_id %}
+    <div class="alert alert-info" style="margin:10px 0;">
+      Prefeitura selecionada: <strong>{{ request.session.prefeitura_id }}</strong>
+    </div>
+  {% else %}
+    <div class="alert alert-danger" style="margin:10px 0;">
+      Sessão sem prefeitura vinculada. Faça login novamente para selecionar a prefeitura.
+    </div>
+  {% endif %}
+
+  {# ---- Área de debug opcional (mostra exceções em DEV, se a view passar 'debug_exception') ---- #}
+  {% if debug_exception %}
+    <div class="alert alert-warning" style="white-space:pre-wrap; margin:10px 0;">
+      <strong>DEBUG:</strong> {{ debug_exception }}
+    </div>
+  {% endif %}
+  <p style="margin:6px 0 14px; color:#555; font-size:0.95rem;">
+    <strong>(*) Campos obrigatórios</strong>
+  </p>
+
+  <form method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+
+    {# === Resumo automático de erros de todos os campos (facilita depuração) === #}
+    {% if form.errors %}
+      <div class="alert alert-danger" style="margin-top:10px;">
+        <strong>Erros encontrados:</strong>
+        <ul style="margin:6px 0 0 18px;">
+          {% for field in form %}
+            {% for err in field.errors %}
+              <li><strong>{{ field.label }}:</strong> {{ err }}</li>
+            {% endfor %}
+          {% endfor %}
+          {% for err in form.non_field_errors %}
+            <li>{{ err }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+    {# ======================================================================== #}
+
+    <!-- bloco para identificar temporariamente erros gerais do form -->
+    {% if form.non_field_errors %}
+      <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+    {% endif %}
+    {% if form.errors %}
+      <div class="alert alert-danger">Erros no formulário principal.</div>
+    {% endif %}
+
+    {% if doc_formset.non_form_errors %}
+      <div class="alert alert-danger">{{ doc_formset.non_form_errors }}</div>
+    {% endif %}
+    {% for f in doc_formset.forms %}
+      {% if f.errors %}
+        <div class="alert alert-warning">Erros em um Documento do Imóvel: {{ f.errors }}</div>
+      {% endif %}
+    {% endfor %}
+
+    {% if fotos_form %}
+      {% if fotos_form.non_field_errors %}
+        <div class="alert alert-danger">{{ fotos_form.non_field_errors }}</div>
+      {% endif %}
+    {% endif %}
+    <!--fim do bloco de erros-->
+
+    <!-- ORIGEM -->
+    <div class="section">
+      <h3>Origem da denúncia</h3>
+      <div class="form-grid">
+        <div class="field">
+          <label>Origem</label>
+          {{ form.origem_denuncia }}
+        </div>
+        <div class="field">
+          <label>Anônima?</label>
+          {{ form.denunciante_anonimo }}
+        </div>
+        <div class="field">
+          <label>Fiscal denunciante</label>
+          {{ form.denunciante_fiscal }}
+        </div>
+
+        <div class="field">
+          <label>Nome (contribuinte)</label>
+          {{ form.denunciante_nome }}
+        </div>
+        <div class="field">
+          <label>E-mail (contribuinte)</label>
+          {{ form.denunciante_email }}
+        </div>
+        <div class="field">
+          <label>Telefone (contribuinte)</label>
+          {{ form.denunciante_telefone }}
+        </div>
+      </div>
+    </div>
+
+    <!-- DENUNCIADO -->
+    <div class="section">
+      <h3>Denunciado (alvo)</h3>
+      <div class="form-grid">
+        <div class="field">
+          <label>Tipo de pessoa</label>
+          {{ form.denunciado_tipo_pessoa }}
+        </div>
+        <div class="field">
+          <label>Nome/Razão social <span aria-hidden="true" style="color:#c00">*</span></label>
+          {{ form.denunciado_nome_razao }}
+          {% if form.denunciado_nome_razao.errors %}
+            <small class="text-danger">{{ form.denunciado_nome_razao.errors }}</small>
+          {% endif %}
+        </div>
+        <div class="field">
+          <label>CPF/CNPJ</label>
+          {{ form.denunciado_cpf_cnpj }}
+        </div>
+
+        <div class="field">
+          <label>RG/IE</label>
+          {{ form.denunciado_rg_ie }}
+        </div>
+        <div class="field">
+          <label>E-mail</label>
+          {{ form.denunciado_email }}
+        </div>
+        <div class="field">
+          <label>Telefone</label>
+          {{ form.denunciado_telefone }}
+        </div>
+
+        <div class="field">
+          <label>Logradouro</label>
+          {{ form.denunciado_res_logradouro }}
+        </div>
+        <div class="field">
+          <label>Número</label>
+          {{ form.denunciado_res_numero }}
+        </div>
+        <div class="field">
+          <label>Complemento</label>
+          {{ form.denunciado_res_complemento }}
+        </div>
+
+        <div class="field">
+          <label>Bairro</label>
+          {{ form.denunciado_res_bairro }}
+        </div>
+        <div class="field">
+          <label>Cidade</label>
+          {{ form.denunciado_res_cidade }}
+        </div>
+        <div class="field">
+          <label>UF</label>
+          {{ form.denunciado_res_uf }}
+        </div>
+
+        <div class="field">
+          <label>CEP</label>
+          {{ form.denunciado_res_cep }}
+        </div>
+      </div>
+    </div>
+
+    <!-- LOCAL DA OCORRÊNCIA -->
+    <div class="section">
+      <h3>Local da ocorrência</h3>
+      <div class="form-grid">
+        <div class="field">
+          <label>Logradouro <span aria-hidden="true" style="color:#c00">*</span></label>
+          {{ form.local_oco_logradouro }}
+          {% if form.local_oco_logradouro.errors %}
+            <small class="text-danger">{{ form.local_oco_logradouro.errors }}</small>
+          {% endif %}
+        </div>
+        <div class="field">
+          <label>Nº / Lote / Quadra</label>
+          {{ form.local_oco_numero }}
+        </div>
+        <div class="field">
+          <label>Complemento</label>
+          {{ form.local_oco_complemento }}
+        </div>
+
+        <div class="field">
+          <label>Bairro <span aria-hidden="true" style="color:#c00">*</span></label>
+          {{ form.local_oco_bairro }}
+          {% if form.local_oco_bairro.errors %}
+            <small class="text-danger">{{ form.local_oco_bairro.errors }}</small>
+          {% endif %}
+        </div>
+        <div class="field">
+          <label>Cidade <span aria-hidden="true" style="color:#c00">*</span></label>
+          {{ form.local_oco_cidade }}
+          {% if form.local_oco_cidade.errors %}
+            <small class="text-danger">{{ form.local_oco_cidade.errors }}</small>
+          {% endif %}
+        </div>
+        <div class="field">
+          <label>UF <span aria-hidden="true" style="color:#c00">*</span></label>
+          {{ form.local_oco_uf }}
+          {% if form.local_oco_uf.errors %}
+            <small class="text-danger">{{ form.local_oco_uf.errors }}</small>
+          {% endif %}
+        </div>
+
+        <div class="field">
+          <label>CEP</label>
+          {{ form.local_oco_cep }}
+        </div>
+        <div class="field">
+          <label>Latitude</label>
+          {{ form.local_oco_lat }}
+        </div>
+        <div class="field">
+          <label>Longitude</label>
+          {{ form.local_oco_lng }}
+        </div>
+
+        <div class="field span-3">
+          <label>Descrição detalhada <span aria-hidden="true" style="color:#c00">*</span></label>
+          {{ form.descricao_oco }}
+          {% if form.descricao_oco.errors %}
+            <small class="text-danger">{{ form.descricao_oco.errors }}</small>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- DOCUMENTOS DO IMÓVEL -->
+    <div class="section">
+      <h3>Documentos do imóvel</h3>
+      <p style="margin:-6px 0 8px; color:#666; font-size:0.9rem;">
+        “Tipo” e “Arquivo” são obrigatórios para cada linha utilizada.
+      </p>
+      {{ doc_formset.management_form }}
+      <div class="form-grid-2">
+        {% for f in doc_formset.forms %}
+          <div style="border:1px dashed #ccc; padding:10px; border-radius:6px;">
+            <div class="form-grid-2">
+              <div class="field">
+                <label>Tipo <span aria-hidden="true" style="color:#c00">*</span></label> {{ f.tipo }}
+                {% if f.tipo.errors %}
+                  <small class="text-danger">{{ f.tipo.errors }}</small>
+                {% endif %}
+              </div>
+              <div class="field">
+                <label>Arquivo <span aria-hidden="true" style="color:#c00">*</span></label> {{ f.arquivo }}
+                {% if f.arquivo.errors %}
+                  <small class="text-danger">{{ f.arquivo.errors }}</small>
+                {% endif %}
+              </div>
+            </div>
+            <div class="field" style="margin-top:8px;">
+              <label>Observação</label> {{ f.observacao }}
+              {% if f.observacao.errors %}
+                <small class="text-danger">{{ f.observacao.errors }}</small>
+              {% endif %}
+            </div>
+            {% if f.instance.pk %}
+              <div class="field" style="margin-top:6px;">
+                <label>Excluir</label> {{ f.DELETE }}
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- FOTOS (múltiplas com preview/contador) -->
+    <div class="section">
+      <h3>Fotos da ocorrência <small>(até 4)</small></h3>
+
+      {% if fotos_form %}
+        {% if fotos_form.non_field_errors %}
+          <div class="alert alert-danger">{{ fotos_form.non_field_errors }}</div>
+        {% endif %}
+
+        <div class="field">
+          <label>Fotos</label>
+          {{ fotos_form.fotos }}
+
+          {% if fotos_form.fotos.errors %}
+            <small class="text-danger">{{ fotos_form.fotos.errors }}</small>
+          {% endif %}
+
+          <div style="margin-top:6px; font-size:0.9rem; color:#555;">
+            <span id="foto-counter">0/4 selecionadas</span> — formatos aceitos: imagem. As fotos serão otimizadas (1000×667, ~103 KB).
+          </div>
+        </div>
+
+        <div id="preview-grid" class="preview-grid" aria-live="polite"></div>
+
+        <div class="field" style="margin-top:8px;">
+          <label>Observação (opcional)</label>
+          {{ fotos_form.observacao }}
+        </div>
+      {% endif %}
+    </div>
+
+    <button type="submit" style="margin-top:16px;">Salvar</button>
+  </form>
+</div>
+
+<!-- Estilos mínimos para a grade de previews -->
+<style>
+  .preview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .preview-item {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 6px;
+    text-align: center;
+    background: #fafafa;
+  }
+  .preview-item img {
+    display: block;
+    width: 100%;
+    height: 78px;
+    object-fit: cover;
+    border-radius: 6px;
+  }
+  .preview-name {
+    margin-top: 4px;
+    font-size: 0.78rem;
+    color: #555;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+</style>
+
+<!-- JS para contador + miniaturas + limite client-side -->
+<script>
+(function () {
+  const input = document.querySelector('input[name="fotos"]');
+  const counter = document.getElementById('foto-counter');
+  const grid = document.getElementById('preview-grid');
+  const MAX = 4;
+
+  if (!input) return;
+
+  input.setAttribute('accept', 'image/*');
+  input.setAttribute('multiple', 'multiple');
+  input.setAttribute('capture', 'environment');
+
+  input.addEventListener('change', function () {
+    const files = Array.from(input.files || []);
+    if (!files.length) {
+      counter.textContent = `0/${MAX} selecionadas`;
+      grid.innerHTML = '';
+      return;
+    }
+
+    if (files.length > MAX) {
+      const allow = files.slice(0, MAX);
+      const dt = new DataTransfer();
+      allow.forEach(f => dt.items.add(f));
+      input.files = dt.files;
+      alert(`Você selecionou ${files.length} arquivos. Permitidos apenas ${MAX}. Mantive os ${MAX} primeiros.`);
+    }
+
+    const current = Array.from(input.files || []);
+    counter.textContent = `${current.length}/${MAX} selecionadas`;
+
+    grid.innerHTML = '';
+    current.forEach(f => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const div = document.createElement('div');
+        div.className = 'preview-item';
+        div.innerHTML = `
+          <img src="${e.target.result}" alt="pré-visualização">
+          <div class="preview-name" title="${f.name}">${f.name}</div>
+        `;
+        grid.appendChild(div);
+      };
+      reader.readAsDataURL(f);
+    });
+  });
+})();
+</script>
+{% endblock %}
