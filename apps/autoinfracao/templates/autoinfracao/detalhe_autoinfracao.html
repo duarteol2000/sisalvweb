@@ -1,0 +1,159 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'autoinfracao/css/autoinfracao.css' %}">
+{% endblock %}
+{% block menu_autoinfracao_active %}active{% endblock %}
+{% block content %}
+
+<header class="detail-header">
+  <div class="left">
+    <h1 class="page-title">🔎 Detalhe do Auto de Infração</h1>
+    <div class="actions">
+      <a href="{% url 'autoinfracao:listar' %}" class="btn btn-sm btn-secondary">← Voltar</a>
+      <a href="{% url 'autoinfracao:editar' obj.pk %}" class="btn btn-sm btn-outline-primary">Editar</a>
+      {% if obj.status != 'REGULARIZADO' %}
+        <a href="{% url 'autoinfracao:gerar_embargo' obj.pk %}" class="btn btn-sm btn-outline-primary">⛔ Gerar Embargo</a>
+        <a href="{% url 'autoinfracao:gerar_interdicao' obj.pk %}" class="btn btn-sm btn-outline-primary">🚫 Gerar Interdição</a>
+      {% endif %}
+      {% if obj.notificacao %}
+      <a href="{% url 'notificacoes:detalhe' obj.notificacao.pk %}" class="btn btn-sm btn-outline-primary">Ver Notificação</a>
+      {% endif %}
+      {% if obj.denuncia %}
+      <a href="{% url 'denuncias:detalhe' obj.denuncia.pk %}" class="btn btn-sm btn-outline-primary">Ver Denúncia</a>
+      {% endif %}
+    </div>
+  </div>
+  <div class="right detail-meta">
+    <div><strong>Protocolo:</strong> <code class="proto">{{ obj.protocolo }}</code></div>
+    <div><strong>Status:</strong> {{ obj.get_status_display }}</div>
+    <div><strong>Criado em:</strong> {{ obj.criada_em|date:"d/m/Y H:i" }}</div>
+    <div><strong>Val. Infração (AIF):</strong> R$ {{ obj.valor_infracao|default:obj.total_infracao_itens|floatformat:2 }}</div>
+    <div><strong>Val. Homologado (AIF):</strong> R$ {{ obj.valor_multa_homologado|default:obj.total_multa|floatformat:2 }}</div>
+  </div>
+</header>
+
+<section class="detail-body">
+  <h3>Documentos Relacionados</h3>
+  <p>
+    <strong>Denúncia:</strong>
+    {% if obj.denuncia %}
+      <a href="{% url 'denuncias:detalhe' obj.denuncia.pk %}"><code class="proto">{{ obj.denuncia.protocolo }}</code></a>
+    {% else %}
+      —
+    {% endif %}
+  </p>
+  <p>
+    <strong>Notificação:</strong>
+    {% if obj.notificacao %}
+      <a href="{% url 'notificacoes:detalhe' obj.notificacao.pk %}"><code class="proto">{{ obj.notificacao.protocolo }}</code></a>
+    {% else %}
+      —
+    {% endif %}
+  </p>
+  <p>
+    <strong>Auto de Infração:</strong>
+    <code class="proto">{{ obj.protocolo }}</code>
+  </p>
+</section>
+
+<section class="detail-body">
+  <h3>Notificado</h3>
+  <p><strong>Nome/Razão:</strong> {{ obj.nome_razao }}</p>
+  <p><strong>CPF/CNPJ:</strong> {{ obj.cpf_cnpj }}</p>
+  <p><strong>Contato:</strong> {{ obj.telefone }} | {{ obj.email }}</p>
+
+  <h3>Endereço</h3>
+  <p>
+    {{ obj.logradouro }}, {{ obj.numero }} {{ obj.complemento }} – {{ obj.bairro }} – {{ obj.cidade }}/{{ obj.uf }}<br>
+    CEP: {{ obj.cep }}
+  </p>
+
+  {% if obj.latitude or obj.longitude %}
+  <p><strong>Geo:</strong> {{ obj.latitude }} , {{ obj.longitude }}</p>
+  {% endif %}
+
+  <h3>Descrição</h3>
+  <p style="white-space: pre-line">{{ obj.descricao }}</p>
+
+  <h3>Tipos de Infração</h3>
+  {% if obj.tipos.all %}
+    <ul>
+      {% for t in obj.tipos.all %}
+        <li>{{ t }}</li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p><em>Nenhum tipo selecionado.</em></p>
+  {% endif %}
+
+  <h3>Fiscais</h3>
+  {% with fs=obj.fiscais.all %}
+    {% if fs %}
+      <ul>
+        {% for f in fs %}
+          <li>{{ f.get_full_name|default:f.email }}</li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p><em>Nenhum fiscal vinculado.</em></p>
+    {% endif %}
+  {% endwith %}
+</section>
+
+<section class="detail-body">
+  <h3>💰 Multas / Enquadramentos</h3>
+  {% with items=obj.multas.all %}
+    {% if items %}
+      <div class="table-wrapper">
+        <table class="table table-striped table-sm">
+          <thead>
+            <tr>
+              <th>Enquadramento</th>
+              <th class="text-right">Val. Infração (AIF)</th>
+              <th class="text-right">Vlr. Homologado (item)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for it in items %}
+            <tr>
+              <td>{{ it.enquadramento }}{% if it.descricao %}<div class="hint">{{ it.descricao }}</div>{% endif %}</td>
+              <td class="text-right">R$ {{ obj.valor_infracao|default:obj.total_infracao_itens|floatformat:2 }}</td>
+              <td class="text-right"><strong>R$ {{ it.valor_homologado|default:it.valor_unitario }}</strong></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      
+    {% else %}
+      <p><em>Nenhum item de multa.</em></p>
+    {% endif %}
+  {% endwith %}
+
+  <h3>📷 Fotos e Anexos</h3>
+  {% if anexos %}
+    <div class="anexos-grid">
+      {% for a in anexos %}
+        <div class="anexo-item">
+          {% if a.tipo == "FOTO" %}
+            <a href="{{ a.arquivo.url }}" target="_blank" rel="noopener">
+              <img src="{{ a.arquivo.url }}" alt="Foto" class="thumb" loading="lazy">
+            </a>
+          {% else %}
+            <a href="{{ a.arquivo.url }}" target="_blank" rel="noopener" class="doc-link">
+              {{ a.arquivo.name|cut:"autoinfracao/anexos/" }}
+            </a>
+          {% endif %}
+          {% if a.observacao %}
+            <p class="anexo-legenda">{{ a.observacao }}</p>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p><em>Sem anexos.</em></p>
+  {% endif %}
+</section>
+
+{% endblock %}

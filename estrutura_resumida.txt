@@ -1,0 +1,58 @@
+.
+├── apps
+│   ├── __init__.py
+│   ├── denuncias
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── apps.py
+│   │   ├── forms.py
+│   │   ├── migrations
+│   │   ├── models.py
+│   │   ├── templates
+│   │   ├── tests.py
+│   │   ├── urls.py
+│   │   └── views.py
+│   ├── prefeituras
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── apps.py
+│   │   ├── migrations
+│   │   ├── models.py
+│   │   ├── tests.py
+│   │   └── views.py
+│   └── usuarios
+│       ├── __init__.py
+│       ├── admin.py
+│       ├── apps.py
+│       ├── migrations
+│       ├── models.py
+│       ├── templates
+│       ├── tests.py
+│       └── views.py
+├── db.sqlite3
+├── estrutura_pastas.txt
+├── manage.py
+├── requirements-dev.txt
+├── requirements.txt
+├── sisalvweb
+│   ├── __init__.py
+│   ├── asgi.py
+│   ├── settings.py
+│   ├── urls.py
+│   └── wsgi.py
+├── static
+│   ├── css
+│   │   └── sisalv.css
+│   └── sisalv
+│       ├── css
+│       ├── img
+│       └── js
+├── templates
+│   └── core
+│       └── base.html
+└── utils
+    ├── __init__.py
+    ├── choices.py
+    └── protocolo.py
+
+20 directories, 36 files

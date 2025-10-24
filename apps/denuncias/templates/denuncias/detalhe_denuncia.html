@@ -1,124 +1,179 @@
 {% extends "core/base.html" %}
-{% block title %}{{ denuncia.protocolo }} — SISALVWEB{% endblock %}
+{% load static %}
 
 {% block content %}
-<div class="card">
-  <h2>Denúncia {{ denuncia.protocolo }}</h2>
-  <p><strong>Status:</strong> {{ denuncia.get_status_display }} &middot; <strong>Procedência:</strong> {{ denuncia.get_procedencia_display }}</p>
+<div class="container mt-4">
 
-  <!-- ORIGEM -->
-  <h3>Origem</h3>
-  <p><strong>Origem:</strong> {{ denuncia.get_origem_denuncia_display }}</p>
-  {% if denuncia.origem_denuncia == 'CONTRIBUINTE' %}
-    <p><strong>Anônima?</strong> {{ denuncia.denunciante_anonimo|yesno:"Sim,Não" }}</p>
-    {% if not denuncia.denunciante_anonimo %}
-      <p><strong>Nome:</strong> {{ denuncia.denunciante_nome|default:"—" }}</p>
-      <p><strong>Contato:</strong> {{ denuncia.denunciante_email|default:"—" }} {{ denuncia.denunciante_telefone|default:"" }}</p>
-    {% endif %}
-  {% else %}
-    <p><strong>Fiscal denunciante:</strong> {{ denuncia.denunciante_fiscal|default:"—" }}</p>
-  {% endif %}
+  <!-- Header -->
+  <!-- Cabeçalho Detalhe -->
+  <div class="detail-header">
+    <div class="detail-left">
+      <h2 class="page-title mb-0">🔎 Detalhe da Denúncia</h2>
 
-  <!-- DENUNCIADO -->
-  <h3>Denunciado</h3>
-  <p><strong>Nome/Razão:</strong> {{ denuncia.denunciado_nome_razao }}</p>
-  <p><strong>Contato:</strong> {{ denuncia.denunciado_email|default:"—" }} {{ denuncia.denunciado_telefone|default:"" }}</p>
-  <p><strong>Endereço:</strong>
-    {{ denuncia.denunciado_res_logradouro|default:"—" }},
-    {{ denuncia.denunciado_res_numero|default:"s/n" }}
-    {% if denuncia.denunciado_res_bairro %}- {{ denuncia.denunciado_res_bairro }}{% endif %}
-    {% if denuncia.denunciado_res_cidade and denuncia.denunciado_res_uf %}- {{ denuncia.denunciado_res_cidade }}/{{ denuncia.denunciado_res_uf }}{% endif %}
-  </p>
+      <div class="detail-actions">
+        <a href="{% url 'denuncias:listar' %}" class="btn btn-sm btn-secondary">← Voltar</a>
+        <a href="{% url 'denuncias:editar_basico' obj.pk %}" class="btn btn-sm btn-success">✏️ Editar (básico)</a>
+        <a href="{% url 'notificacoes:from_denuncia' obj.pk %}" class="btn btn-sm btn-primary">📄 Gerar Notificação</a>
+        <a href="{% url 'autoinfracao:from_denuncia' obj.pk %}" class="btn btn-sm btn-outline-primary">⚖️ Gerar Auto de Infração</a>
+      </div>
+    </div>
 
-  <!-- LOCAL -->
-  <h3>Local da ocorrência</h3>
-  <p><strong>Endereço:</strong>
-    {{ denuncia.local_oco_logradouro }},
-    {{ denuncia.local_oco_numero|default:"s/n" }}
-    - {{ denuncia.local_oco_bairro }}
-    - {{ denuncia.local_oco_cidade }}/{{ denuncia.local_oco_uf }}
-  </p>
-  {% if denuncia.local_oco_lat or denuncia.local_oco_lng %}
-    <p><strong>Coordenadas:</strong>
-      {% if denuncia.local_oco_lat %}Lat: {{ denuncia.local_oco_lat }}{% endif %}
-      {% if denuncia.local_oco_lng %}{% if denuncia.local_oco_lat %} · {% endif %}Lng: {{ denuncia.local_oco_lng }}{% endif %}
+  <div class="detail-meta">
+      <span class="meta-item">
+        <strong>Protocolo:</strong>
+        <code class="proto">{{ obj.protocolo }}</code>
+      </span>
+      <span class="meta-sep">•</span>
+      <span class="meta-item">
+        <strong>Criada em:</strong> {{ obj.criada_em|date:"d/m/Y H:i" }}
+      </span>
+      <span class="meta-sep">•</span>
+      <span class="meta-item">
+        <strong>Status:</strong>
+        <span class="badge bg-{% if obj.status == 'ABERTA' %}warning{% elif obj.status == 'ENCERRADA' %}success{% else %}secondary{% endif %}">
+          {{ obj.get_status_display }}
+        </span>
+      </span>
+    </div>
+  </div>
+
+  <hr class="detail-divider">
+
+  <section class="detail-body">
+    <h3>Documentos Relacionados</h3>
+    <p>
+      <strong>Denúncia:</strong> <code class="proto">{{ obj.protocolo }}</code>
     </p>
-  {% endif %}
-  <p><strong>Descrição:</strong> {{ denuncia.descricao_oco|linebreaks }}</p>
+    <p>
+      <strong>Notificações:</strong>
+      {% if notificacoes %}
+        {% for n in notificacoes %}
+          <a href="{% url 'notificacoes:detalhe' n.pk %}"><code class="proto">{{ n.protocolo }}</code></a>{% if not forloop.last %}, {% endif %}
+        {% endfor %}
+      {% else %}
+        —
+      {% endif %}
+    </p>
+    <p>
+      <strong>Autos de Infração:</strong>
+      {% if autos %}
+        {% for a in autos %}
+          <a href="{% url 'autoinfracao:detalhe' a.pk %}"><code class="proto">{{ a.protocolo }}</code></a>{% if not forloop.last %}, {% endif %}
+        {% endfor %}
+      {% else %}
+        —
+      {% endif %}
+    </p>
+  </section>
 
-  <!-- DOCUMENTOS DO IMÓVEL -->
-  <h3>Documentos do imóvel</h3>
-  <ul>
-    {% for doc in denuncia.documentos_imovel.all %}
-      <li>
-        {{ doc.get_tipo_display }} —
-        <a class="link" href="{{ doc.arquivo.url }}" target="_blank" rel="noopener">abrir</a>
-      </li>
-    {% empty %}
-      <li>Nenhum documento enviado.</li>
-    {% endfor %}
-  </ul>
 
-  <!-- FOTOS (FOTO em DenunciaAnexo) -->
-  <h3>Fotos (evidências)</h3>
-  {% with fotos=denuncia.anexos.filter(tipo='FOTO').order_by('-criada_em') %}
-    {% if fotos %}
-      <div class="preview-grid">
-        {% for a in fotos %}
-          <div class="preview-item" title="{{ a.observacao|default:'Foto' }}">
-            <a href="{{ a.arquivo.url }}" target="_blank" rel="noopener" style="display:block;">
-              <img src="{{ a.arquivo.url }}" alt="Foto da denúncia {{ denuncia.protocolo }}">
-            </a>
-            <div class="preview-name">
-              {{ a.criada_em|date:"d/m/Y H:i" }}
+  <!-- Grid de cartões -->
+  <div class="row g-3">
+
+    <!-- Situação -->
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-header bg-light"><strong>Situação</strong></div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-3"><small class="text-muted d-block">Procedência:  </small>{{ obj.get_procedencia_display }}</div>
+            <div class="col-md-3"><small class="text-muted d-block">Origem:  </small>{{ obj.get_origem_denuncia_display }}</div>
+            <div class="col-md-3"><small class="text-muted d-block">Ativo?       </small>{{ obj.ativo|yesno:"Sim,Não" }}</div>
+            <div class="col-md-3"><small class="text-muted d-block">Canal:  </small>{{ obj.get_canal_registro_display }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Denunciado (alvo) -->
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-header bg-light"><strong>Denunciado (alvo)</strong></div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-4"><small class="text-muted d-block">Tipo de pessoa:  </small>{{ obj.get_denunciado_tipo_pessoa_display }}</div>
+            <div class="col-md-8"><small class="text-muted d-block">Nome / Razão Social:  </small>{{ obj.denunciado_nome_razao }}</div>
+          </div>
+          <div class="row mt-2">
+            <div class="col-md-3"><small class="text-muted d-block">CPF/CNPJ:  </small>{{ obj.denunciado_cpf_cnpj }}</div>
+            <div class="col-md-3"><small class="text-muted d-block">RG/IE:  </small>{{ obj.denunciado_rg_ie }}</div>
+            <div class="col-md-3"><small class="text-muted d-block">Telefone:  </small>{{ obj.denunciado_telefone }}</div>
+            <div class="col-md-3"><small class="text-muted d-block">E-mail:  </small>{{ obj.denunciado_email }}</div>
+          </div>
+
+          <hr class="my-3">
+
+          <div class="row">
+            <div class="col-md-12"><small class="text-muted d-block">Endereço Residencial:  </small>
+              {{ obj.denunciado_res_logradouro }}
+              {% if obj.denunciado_res_numero %}, {{ obj.denunciado_res_numero }}{% endif %}
+              {% if obj.denunciado_res_complemento %} — {{ obj.denunciado_res_complemento }}{% endif %}
+              {% if obj.denunciado_res_bairro %} — {{ obj.denunciado_res_bairro }}{% endif %}
+              {% if obj.denunciado_res_cidade %} — {{ obj.denunciado_res_cidade }}{% endif %}
+              {% if obj.denunciado_res_uf %}/{{ obj.denunciado_res_uf }}{% endif %}
+              {% if obj.denunciado_res_cep %} • CEP: {{ obj.denunciado_res_cep }}{% endif %}
             </div>
           </div>
-        {% endfor %}
+        </div>
       </div>
-      <p style="margin-top:8px; font-size:0.92rem; color:#555;">
-        As imagens são exibidas na versão otimizada (padrão 1000×667).
-      </p>
-    {% else %}
-      <p style="color:#666;">Nenhuma foto anexada.</p>
-    {% endif %}
-  {% endwith %}
+    </div>
 
-  <!-- AÇÕES -->
-  <p class="text-center" style="margin-top:16px;">
-    <a class="btn btn-secondary" href="{% url 'denuncias:denuncias_listar' %}">&larr; Voltar</a>
-    <a class="btn btn-primary" href="{% url 'denuncias:denuncias_editar' denuncia.pk %}">✎ Editar denúncia</a>
-  </p>
+    <!-- Denunciante -->
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-header bg-light"><strong>Denunciante</strong></div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-3"><small class="text-muted d-block">Anônima?  </small>{{ obj.denunciante_anonimo|yesno:"Sim,Não" }}</div>
+            <div class="col-md-3"><small class="text-muted d-block">Nome:  </small>{{ obj.denunciante_nome }}</div>
+            <div class="col-md-3"><small class="text-muted d-block">Telefone:  </small>{{ obj.denunciante_telefone }}</div>
+            <div class="col-md-3"><small class="text-muted d-block">E-mail:  </small>{{ obj.denunciante_email }}</div>
+          </div>
+          <div class="row mt-2">
+            <div class="col-md-4"><small class="text-muted d-block">Fiscal denunciante:  </small>{{ obj.denunciante_fiscal }}</div>
+            <div class="col-md-8"><small class="text-muted d-block">Fiscais que atenderam:  </small>
+              {% if obj.fiscais.all %}
+                {% for f in obj.fiscais.all %}{{ f.get_full_name|default:f.username }}{% if not forloop.last %}, {% endif %}{% endfor %}
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Local da ocorrência -->
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-header bg-light"><strong>Local da Ocorrência  </strong></div>
+        <div class="card-body">
+          <div class="mb-2"><small class="text-muted d-block">Endereço:  </small>{{ endereco_oco }}</div>
+          <div class="row">
+            <div class="col-md-3"><small class="text-muted d-block">Latitude:  </small>{{ obj.local_oco_lat }}</div>
+            <div class="col-md-3"><small class="text-muted d-block">Longitude:  </small>{{ obj.local_oco_lng }}</div>
+            <div class="col-md-6"><small class="text-muted d-block">Descrição:  </small><div>{{ obj.descricao_oco|linebreaksbr }}</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Auditoria -->
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-header bg-light"><strong>Auditoria</strong></div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-3"><small class="text-muted d-block">Criado por:  </small>{{ obj.criado_por|default:"—" }}</div>
+            <div class="col-md-3"><small class="text-muted d-block">Atualizado em:  </small>{{ obj.atualizada_em|date:"d/m/Y H:i" }}</div>
+            <div class="col-md-3"><small class="text-muted d-block">IP de origem:  </small>{{ obj.ip_origem|default:"—" }}</div>
+            <div class="col-md-3"><small class="text-muted d-block">User-Agent:  </small><span class="text-break">{{ obj.user_agent|default:"—" }}</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /row -->
+
 </div>
-
-<!-- estilos da grade (mesmos usados no cadastro/edição) -->
-<style>
-  .preview-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-    gap: 10px;
-    margin-top: 10px;
-  }
-  .preview-item {
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    padding: 6px;
-    text-align: center;
-    background: #fafafa;
-  }
-  .preview-item img {
-    display: block;
-    width: 100%;
-    height: 78px;
-    object-fit: cover;
-    border-radius: 6px;
-  }
-  .preview-name {
-    margin-top: 4px;
-    font-size: 0.78rem;
-    color: #555;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-</style>
 {% endblock %}

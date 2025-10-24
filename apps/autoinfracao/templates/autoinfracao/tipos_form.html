@@ -1,0 +1,42 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'autoinfracao/css/autoinfracao.css' %}">
+{% endblock %}
+{% block menu_autoinfracao_active %}active{% endblock %}
+{% block content %}
+
+<h2 class="page-title">{{ title }}</h2>
+<a href="{% url 'autoinfracao:tipos_listar' %}" class="btn btn-sm btn-secondary">← Voltar</a>
+
+<form method="post" class="notificacao-form" style="margin-top:12px;">
+  {% csrf_token %}
+  <div class="form-grid">
+    <div>
+      {{ form.codigo.label_tag }}
+      {{ form.codigo }}
+      {{ form.codigo.errors }}
+    </div>
+    <div>
+      {{ form.nome.label_tag }}
+      {{ form.nome }}
+      {{ form.nome.errors }}
+    </div>
+    <div class="span-3">
+      {{ form.descricao.label_tag }}
+      {{ form.descricao }}
+      {{ form.descricao.errors }}
+    </div>
+    <div>
+      {{ form.ativo.label_tag }}
+      {{ form.ativo }}
+      {{ form.ativo.errors }}
+    </div>
+  </div>
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Salvar</button>
+  </div>
+</form>
+
+{% endblock %}
+

@@ -1,209 +1,173 @@
 {% extends "core/base.html" %}
+{% load static %}
 {% block title %}Editar Denúncia — SISALVWEB{% endblock %}
 
 {% block content %}
-<div class="card">
-  <h2 class="text-center">Editar Denúncia — {{ denuncia.protocolo }}</h2>
-  <p style="margin:6px 0 14px; color:#555; font-size:0.95rem;">
-    <strong>(*) Campos obrigatórios</strong>
-  </p>
+<div class="container mt-3">
 
-  <form method="post" enctype="multipart/form-data" novalidate>
-    {% csrf_token %}
+  <!-- Cabeçalho -->
+  <h2 class="page-title">✏️ Editar Denúncia — Dados Básicos</h2>
+  <div class="form-meta">
+    <span><strong>Protocolo:</strong> <code class="proto">{{ denuncia.protocolo }}</code></span>
+    <span>•</span>
+    <span><strong>Criada em:</strong> {{ denuncia.criada_em|date:"d/m/Y H:i" }}</span>
+  </div>
+  <div style="margin-bottom:10px;">
+    <a class="btn btn-sm btn-secondary" href="{% url 'denuncias:detalhe' denuncia.pk %}">← Voltar</a>
+  </div>
 
-    <!-- Erros gerais -->
-    {% if form_denuncia.non_field_errors %}
-      <div class="alert alert-danger">{{ form_denuncia.non_field_errors }}</div>
-    {% endif %}
-    {% if form_denuncia.errors %}
-      <div class="alert alert-danger">Erros no formulário principal.</div>
-    {% endif %}
-    {% if form_fotos and form_fotos.non_field_errors %}
-      <div class="alert alert-danger">{{ form_fotos.non_field_errors }}</div>
-    {% endif %}
+  <!-- Formulário -->
+  <div class="card p-3">
+    <form method="post" enctype="multipart/form-data" class="denuncia-form" novalidate>
+      {% csrf_token %}
 
-    <!-- DADOS EDITÁVEIS -->
-    <div class="section">
-      <h3>Dados da denúncia</h3>
-      <div class="form-grid">
-        <div class="field">
-          <label>Status <span aria-hidden="true" style="color:#c00">*</span></label>
-          {{ form_denuncia.status }}
-          {% if form_denuncia.status.errors %}
-            <small class="text-danger">{{ form_denuncia.status.errors }}</small>
-          {% endif %}
-        </div>
+      <!-- Erros gerais -->
+      {% if form_denuncia.non_field_errors %}
+        <div class="alert alert-danger">{{ form_denuncia.non_field_errors }}</div>
+      {% endif %}
+      {% if form_denuncia.errors %}
+        <div class="alert alert-danger">Erros no formulário principal.</div>
+      {% endif %}
+      {% if form_fotos and form_fotos.non_field_errors %}
+        <div class="alert alert-danger">{{ form_fotos.non_field_errors }}</div>
+      {% endif %}
 
-        <div class="field">
-          <label>Procedência <span aria-hidden="true" style="color:#c00">*</span></label>
-          {{ form_denuncia.procedencia }}
-          {% if form_denuncia.procedencia.errors %}
-            <small class="text-danger">{{ form_denuncia.procedencia.errors }}</small>
-          {% endif %}
-        </div>
-
-        <div class="field">
-          <label>Ativo? <span aria-hidden="true" style="color:#c00">*</span></label>
-          {{ form_denuncia.ativo }}
-          {% if form_denuncia.ativo.errors %}
-            <small class="text-danger">{{ form_denuncia.ativo.errors }}</small>
-          {% endif %}
-        </div>
-
-        <div class="field span-3">
-          <label>Descrição detalhada <span aria-hidden="true" style="color:#c00">*</span></label>
-          {{ form_denuncia.descricao_oco }}
-          {% if form_denuncia.descricao_oco.errors %}
-            <small class="text-danger">{{ form_denuncia.descricao_oco.errors }}</small>
-          {% endif %}
-        </div>
-      </div>
-    </div>
-
-    <!-- GALERIA ATUAL DE FOTOS -->
-    <div class="section">
-      <h3>Fotos já anexadas</h3>
-      <div id="galeria-existentes"
-           class="preview-grid"
-           data-existentes="{{ denuncia.anexos.filter(tipo='FOTO').count }}">
-        {% for a in denuncia.anexos.filter(tipo='FOTO').order_by('-criada_em') %}
-          <div class="preview-item" title="{{ a.observacao|default:'Foto' }}">
-            <img src="{{ a.arquivo.url }}" alt="foto existente">
-            <div class="preview-name">
-              {{ a.criada_em|date:"d/m/Y H:i" }}
-            </div>
+      <!-- DADOS EDITÁVEIS -->
+      <div class="section">
+        <h3>Dados da denúncia</h3>
+        <div class="form-grid">
+          <div class="field">
+            <label>Status <span aria-hidden="true" style="color:#c00">*</span></label>
+            {{ form_denuncia.status }}
+            {% if form_denuncia.status.errors %}<small class="text-danger">{{ form_denuncia.status.errors }}</small>{% endif %}
           </div>
-        {% empty %}
-          <p style="color:#666;">Nenhuma foto anexada ainda.</p>
-        {% endfor %}
-      </div>
-      <p style="margin-top:8px; font-size:0.92rem; color:#555;">
-        Limite total: 4 fotos por denúncia. As fotos são otimizadas para 1000×667 (~103 KB).
-      </p>
-    </div>
 
-    <!-- NOVAS FOTOS (múltiplas) -->
-    <div class="section">
-      <h3>Adicionar novas fotos</h3>
+          <div class="field">
+            <label>Procedência <span aria-hidden="true" style="color:#c00">*</span></label>
+            {{ form_denuncia.procedencia }}
+            {% if form_denuncia.procedencia.errors %}<small class="text-danger">{{ form_denuncia.procedencia.errors }}</small>{% endif %}
+          </div>
 
-      <div class="field">
-        <label>Selecionar fotos</label>
-        {{ form_fotos.fotos }}
-        <div style="margin-top:6px; font-size:0.9rem; color:#555;">
-          <span id="foto-counter">0 nova(s) (restante: —)</span>
-          — formatos aceitos: imagem. As fotos serão otimizadas automaticamente.
+          <div class="field">
+            <label>Ativo? <span aria-hidden="true" style="color:#c00">*</span></label>
+            {{ form_denuncia.ativo }}
+            {% if form_denuncia.ativo.errors %}<small class="text-danger">{{ form_denuncia.ativo.errors }}</small>{% endif %}
+          </div>
+
+          <div class="field span-3">
+            <label>Descrição detalhada <span aria-hidden="true" style="color:#c00">*</span></label>
+            {{ form_denuncia.descricao_oco }}
+            {% if form_denuncia.descricao_oco.errors %}<small class="text-danger">{{ form_denuncia.descricao_oco.errors }}</small>{% endif %}
+          </div>
         </div>
       </div>
 
-      <div id="preview-grid" class="preview-grid" aria-live="polite"></div>
-
-      <div class="field" style="margin-top:8px;">
-        <label>Observação (opcional)</label>
-        {{ form_fotos.observacao }}
-        {% if form_fotos.observacao.errors %}
-          <small class="text-danger">{{ form_fotos.observacao.errors }}</small>
-        {% endif %}
+      <!-- GALERIA ATUAL DE FOTOS -->
+      <div class="section">
+        <h3>Fotos já anexadas</h3>
+        <div id="galeria-existentes" class="preview-grid" data-existentes="{{ denuncia.anexos.filter(tipo='FOTO').count }}">
+          {% for a in denuncia.anexos.filter(tipo='FOTO').order_by('-criada_em') %}
+            <div class="preview-item" title="{{ a.observacao|default:'Foto' }}">
+              <img src="{{ a.arquivo.url }}" alt="foto existente">
+              <div class="preview-name">{{ a.criada_em|date:"d/m/Y H:i" }}</div>
+            </div>
+          {% empty %}
+            <p style="color:#666;">Nenhuma foto anexada ainda.</p>
+          {% endfor %}
+        </div>
+        <p style="margin-top:8px; font-size:0.92rem; color:#555;">
+          Limite total: 4 fotos por denúncia. As fotos são otimizadas para 1000×667 (~103 KB).
+        </p>
       </div>
-    </div>
 
-    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
-      <a class="btn btn-secondary" href="{% url 'denuncias:denuncias_detalhe' denuncia.pk %}">&larr; Voltar</a>
-      <button type="submit" class="btn btn-primary">Salvar alterações</button>
-    </div>
-  </form>
+      <!-- NOVAS FOTOS (múltiplas) -->
+      <div class="section">
+        <h3>Adicionar novas fotos</h3>
+        <div class="field">
+          <label>Selecionar fotos</label>
+          {{ form_fotos.fotos }}
+          <div style="margin-top:6px; font-size:0.9rem; color:#555;">
+            <span id="foto-counter">0 nova(s) (restante: —)</span>
+            — formatos aceitos: imagem. As fotos serão otimizadas automaticamente.
+          </div>
+        </div>
+
+        <div id="preview-grid" class="preview-grid" aria-live="polite"></div>
+
+        <div class="field" style="margin-top:8px;">
+          <label>Observação (opcional)</label>
+          {{ form_fotos.observacao }}
+          {% if form_fotos.observacao.errors %}<small class="text-danger">{{ form_fotos.observacao.errors }}</small>{% endif %}
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary btn-sm">💾 Salvar alterações</button>
+      </div>
+    </form>
+  </div>
 </div>
 
-<!-- Estilos (mesmos do cadastro) -->
+<!-- CSS/JS da app -->
+<link rel="stylesheet" href="{% static 'denuncias/css/denuncias.css' %}">
+<script src="{% static 'denuncias/js/denuncias.js' %}"></script>
+<script src="{% static 'js/viacep.js' %}"></script>
+
+<!-- Estilos locais da galeria -->
 <style>
-  .preview-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-    gap: 10px;
-    margin-top: 10px;
-  }
-  .preview-item {
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    padding: 6px;
-    text-align: center;
-    background: #fafafa;
-  }
-  .preview-item img {
-    display: block;
-    width: 100%;
-    height: 78px;
-    object-fit: cover;
-    border-radius: 6px;
-  }
-  .preview-name {
-    margin-top: 4px;
-    font-size: 0.78rem;
-    color: #555;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
+  .preview-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(110px, 1fr)); gap:10px; margin-top:10px;}
+  .preview-item{ border:1px solid #ddd; border-radius:8px; padding:6px; text-align:center; background:#fafafa;}
+  .preview-item img{ display:block; width:100%; height:78px; object-fit:cover; border-radius:6px;}
+  .preview-name{ margin-top:4px; font-size:.78rem; color:#555; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 </style>
 
 <!-- JS: contador + miniaturas + respeito ao restante (4 - existentes) -->
 <script>
-(function () {
+(function(){
   const input = document.querySelector('input[name="fotos"]');
   const counter = document.getElementById('foto-counter');
   const grid = document.getElementById('preview-grid');
   const galeria = document.getElementById('galeria-existentes');
   const MAX = 4;
+  if(!input || !galeria) return;
 
-  if (!input || !galeria) return;
+  input.setAttribute('accept','image/*');
+  input.setAttribute('multiple','multiple');
+  input.setAttribute('capture','environment');
 
-  // atributos de segurança
-  input.setAttribute('accept', 'image/*');
-  input.setAttribute('multiple', 'multiple');
-  input.setAttribute('capture', 'environment');
-
-  const existentes = parseInt(galeria.getAttribute('data-existentes') || '0', 10);
+  const existentes = parseInt(galeria.getAttribute('data-existentes')||'0',10);
   const restanteInicial = Math.max(0, MAX - existentes);
   counter.textContent = `0 nova(s) (restante: ${restanteInicial})`;
 
-  function updatePreviewAndCounter(filesArr) {
-    const novas = filesArr.length;
+  function update(files){
+    const novas = files.length;
     const restante = Math.max(0, MAX - existentes - novas);
     counter.textContent = `${novas} nova(s) (restante: ${restante})`;
-
     grid.innerHTML = '';
-    filesArr.forEach(f => {
-      const reader = new FileReader();
-      reader.onload = e => {
-        const div = document.createElement('div');
-        div.className = 'preview-item';
-        div.innerHTML = `
-          <img src="${e.target.result}" alt="pré-visualização">
-          <div class="preview-name" title="${f.name}">${f.name}</div>
-        `;
+    files.forEach(f=>{
+      const r=new FileReader();
+      r.onload=e=>{
+        const div=document.createElement('div');
+        div.className='preview-item';
+        div.innerHTML=`<img src="${e.target.result}" alt="pré-visualização"><div class="preview-name" title="${f.name}">${f.name}</div>`;
         grid.appendChild(div);
       };
-      reader.readAsDataURL(f);
+      r.readAsDataURL(f);
     });
   }
 
-  input.addEventListener('change', function () {
-    let files = Array.from(input.files || []);
+  input.addEventListener('change', function(){
+    let files = Array.from(input.files||[]);
     const pode = Math.max(0, MAX - existentes);
-
-    if (files.length > pode) {
+    if(files.length > pode){
       const allow = files.slice(0, pode);
       const dt = new DataTransfer();
       allow.forEach(f => dt.items.add(f));
       input.files = dt.files;
       files = allow;
-      if (pode === 0) {
-        alert('Você já atingiu o limite de 4 fotos para esta denúncia.');
-      } else {
-        alert(`Você selecionou mais que o permitido. Mantive apenas ${pode} arquivo(s) agora.`);
-      }
+      alert(pode === 0 ? 'Limite de 4 fotos já atingido.' : `Mantive apenas ${pode} arquivo(s) agora.`);
     }
-
-    updatePreviewAndCounter(files);
+    update(files);
   });
 })();
 </script>

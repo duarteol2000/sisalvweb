@@ -68,3 +68,59 @@ HIST_ACAO_CHOICES = [
     ('VINCULO_FISCAL', 'Vínculo de fiscal'),
     ('ALTERACAO_PROCEDENCIA', 'Alteração de procedência'),
 ]
+
+NOTIFICACAO_STATUS_CHOICES = [
+    ("ABERTA", "Aberta"),
+    ("EM_ANALISE", "Em Análise"),
+    ("CONCLUIDA", "Concluída"),
+    ("CANCELADA", "Cancelada"),
+]
+
+DOC_TIPO_CHOICES = [
+    ("RG", "RG"),
+    ("CPF", "CPF"),
+    ("CNPJ", "CNPJ"),
+    ("OUTRO", "Outro"),
+]
+
+# Status de Auto de Infração
+AIF_STATUS_CHOICES = [
+    ("ABERTO", "Aberto"),
+    ("EM_ANDAMENTO", "Em andamento"),
+    ("CONCLUIDO", "Concluído"),
+    ("CANCELADO", "Cancelado"),
+    ("REGULARIZADO", "Regularizado"),
+]
+
+# Status para Embargo/Interdição
+MEDIDA_STATUS_CHOICES = [
+    ("RASCUNHO", "Rascunho"),
+    ("VIGENTE", "Vigente"),
+    ("REGULARIZADO", "Regularizado"),
+    ("DESCUMPRIDO", "Descumprido"),
+    ("REVOGADO", "Revogado"),
+    ("ARQUIVADO", "Arquivado"),
+]
+
+# Tipos de licença (obras)
+LICENCA_TIPO_CHOICES = [
+    ("REMEMBRAMENTO", "Remembramento"),
+    ("DESMEMBRAMENTO", "Desmembramento"),
+    ("CONSTRUCAO", "Construção"),
+    ("LOTEAMENTO", "Loteamento"),
+    ("DEMOLICAO", "Demolição"),
+    ("PUBLICIDADE", "Publicidade"),
+    ("LIC_INSTALACAO", "Licença de Instalação"),
+    ("CONSTR_RENOV", "Construção/Renovação"),
+    ("TERRAPLANAGEM", "Terraplanagem"),
+    ("DRENAGEM", "Drenagem"),
+    ("RELOTEAMENTO", "Reloteamento"),
+    ("INFRAESTRUTURA", "Infraestrutura"),
+]
+
+# Categorias de interdição (atividade)
+INTERDICAO_MOTIVO_CHOICES = [
+    ("PUBLICIDADE", "Publicidade"),
+    ("FUNCIONAMENTO", "Funcionamento"),
+    ("MP", "Ministério Público (ofício)"),
+]

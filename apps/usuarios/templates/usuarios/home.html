@@ -1,24 +1,267 @@
 {% extends "core/base.html" %}
-{% block title %}Home — SISALVWEB{% endblock %}
+{% block title %}Dashboard — SISALVWEB{% endblock %}
+
+{% block extra_css %}
+<style>
+  .dash-grid{ display:grid; grid-template-columns: repeat(4, minmax(180px, 1fr)); gap:10px; }
+  .dash-card{ border-radius:.8rem; padding:10px; border:1px solid var(--border); background:var(--card); }
+  .dash-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+  .dash-title{ margin:0; font-weight:800; letter-spacing:.2px; font-size:1rem; }
+  .dash-total{ font-size:1.5rem; font-weight:900; }
+  .dash-tags{ display:flex; flex-wrap:wrap; gap:4px; }
+  .tag{ display:inline-flex; align-items:center; gap:6px; padding:.2rem .5rem; border-radius:.5rem; border:1px solid var(--border); font-size:.85rem; }
+  .den{ box-shadow: inset 0 0 0 2px #ef4444; }
+  .not{ box-shadow: inset 0 0 0 2px #2563eb; }
+  .aif{ box-shadow: inset 0 0 0 2px #16a34a; }
+  .emb{ box-shadow: inset 0 0 0 2px #7c3aed; }
+  @media (max-width: 1280px){ .dash-grid{ grid-template-columns: repeat(3, minmax(200px,1fr)); } }
+  @media (max-width: 980px){ .dash-grid{ grid-template-columns: repeat(2, minmax(220px,1fr)); } }
+  @media (max-width: 640px){ .dash-grid{ grid-template-columns: 1fr; } }
+
+  /* Painel de gráfico abaixo dos cards */
+  .chart-panel{ margin-top:14px; background:var(--card); border:1px solid var(--border); border-radius:.9rem; padding:12px; }
+  .chart-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .chart-actions{ display:flex; gap:8px; }
+  .btn-swap, .btn-close{ border:1px solid var(--border); background:transparent; color:var(--text); padding:.3rem .6rem; border-radius:.5rem; cursor:pointer; }
+</style>
+{% endblock %}
 
 {% block content %}
-  <div class="card">
-    <h2 class="text-center">Bem-vindo(a) ao SISALVWEB</h2>
+  <h2 class="page-title">📊 Painel — {{ prefeitura.nome }} ({{ stats.ano }})</h2>
+  <form method="get" style="margin:6px 0 12px; display:flex; align-items:center; gap:8px;">
+    <label for="selAno">Ano:</label>
+    <select id="selAno" name="ano" onchange="this.form.submit()" style="min-width:120px;">
+      {% for y in years %}
+        <option value="{{ y }}" {% if y == stats.ano %}selected{% endif %}>{{ y }}</option>
+      {% endfor %}
+    </select>
+  </form>
 
-    <p><strong>Usuário:</strong> {{ usuario.get_full_name|default:usuario.email }}</p>
-    <p><strong>E-mail:</strong> {{ usuario.email }}</p>
-    <p><strong>Tipo:</strong> {{ usuario.tipo }}</p>
+  <div class="dash-grid">
+    <!-- Denúncias -->
+    <section class="dash-card den">
+      <div class="dash-head">
+        <h3 class="dash-title">Denúncias</h3>
+        <div class="dash-total">{{ stats.denuncias.total }}</div>
+      </div>
+      <div class="dash-tags">
+        {% for s in stats.denuncias.por_status %}
+          <span class="tag">{{ s.label }}: <strong>{{ s.count }}</strong></span>
+        {% endfor %}
+      </div>
+    </section>
 
-    <hr>
+    <!-- Notificações -->
+    <section class="dash-card not">
+      <div class="dash-head">
+        <h3 class="dash-title">Notificações</h3>
+        <div class="dash-total">{{ stats.notificacoes.total }}</div>
+      </div>
+      <div class="dash-tags">
+        {% for s in stats.notificacoes.por_status %}
+          <span class="tag">{{ s.label }}: <strong>{{ s.count }}</strong></span>
+        {% endfor %}
+      </div>
+    </section>
 
-    <h3>Prefeitura ativa</h3>
-    <p><strong>Nome:</strong> {{ prefeitura.nome }}</p>
-    <p><strong>Cidade:</strong> {{ prefeitura.cidade }} ({{ prefeitura.sigla_cidade }})</p>
-    <p><strong>Código IBGE:</strong> {{ prefeitura.codigo_ibge }}</p>
+    <!-- Autos de Infração -->
+    <section class="dash-card aif">
+      <div class="dash-head">
+        <h3 class="dash-title">Autos de Infração</h3>
+        <div class="dash-total">{{ stats.aif.total }}</div>
+      </div>
+      <div class="dash-tags">
+        {% for s in stats.aif.por_status %}
+          <span class="tag">{{ s.label }}: <strong>{{ s.count }}</strong></span>
+        {% endfor %}
+      </div>
+    </section>
 
-    <hr>
-    <p class="text-center">
-      <a class="link" href="{% url 'logout' %}">Sair</a>
-    </p>
+    <!-- Embargos / Interdições (placeholder) -->
+    <section class="dash-card emb" title="Em breve">
+      <div class="dash-head">
+        <h3 class="dash-title">Embargos / Interdições</h3>
+        <div class="dash-total">—</div>
+      </div>
+      <div class="dash-tags">
+        <span class="tag">Em breve</span>
+      </div>
+    </section>
   </div>
+
+  <!-- Painel de gráfico abaixo dos cards -->
+  <section id="chartPanel" class="chart-panel" aria-labelledby="chartTitle" style="display:none;">
+    <div class="chart-head">
+      <h3 id="chartTitle" class="dash-title">Gráfico</h3>
+      <div class="chart-actions">
+        <button id="btnBar" class="btn-swap">Barras</button>
+        <button id="btnPie" class="btn-swap">Pizza</button>
+        <button id="btnLine" class="btn-swap">Linhas</button>
+        <button id="btnClose" class="btn-close">Fechar</button>
+      </div>
+    </div>
+    <canvas id="chartCanvas" aria-label="Gráfico" role="img"></canvas>
+  </section>
+
+{% endblock %}
+
+{% block extra_js %}
+{{ stats|json_script:"stats-data" }}
+<script>
+(function(){
+  const cards = document.querySelectorAll('.dash-card');
+  const panel = document.getElementById('chartPanel');
+  const canvas = document.getElementById('chartCanvas');
+  const ctx = canvas.getContext('2d');
+  const title = document.getElementById('chartTitle');
+  const btnBar = document.getElementById('btnBar');
+  const btnPie = document.getElementById('btnPie');
+  const btnLine = document.getElementById('btnLine');
+  const btnClose = document.getElementById('btnClose');
+  const stats = JSON.parse(document.getElementById('stats-data').textContent);
+
+  let current = { key:null, type:'bar' };
+
+  const COLORS = {
+    den: ['#ef4444','#f59e0b','#f97316','#dc2626','#b91c1c','#fca5a5'],
+    not: ['#2563eb','#0ea5e9','#38bdf8','#1d4ed8','#60a5fa','#93c5fd'],
+    aif: ['#16a34a','#22c55e','#84cc16','#065f46','#86efac','#bbf7d0']
+  };
+
+  function clear(){ ctx.clearRect(0,0,canvas.width,canvas.height); }
+
+  function drawPie(labels, values, palette){
+    clear();
+    const total = values.reduce((a,b)=>a+b,0) || 1;
+    const cx = canvas.width/2, cy = canvas.height/2, r = Math.min(cx, cy) - 20;
+    let start = -Math.PI/2;
+    values.forEach((v,i)=>{
+      const ang = (v/total) * Math.PI*2;
+      ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,r,start,start+ang); ctx.closePath();
+      ctx.fillStyle = palette[i % palette.length]; ctx.fill();
+      start += ang;
+    });
+    // legend
+    ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Helvetica, Arial';
+    let lx = 16, ly = 20;
+    labels.forEach((lb,i)=>{ ctx.fillStyle = palette[i%palette.length]; ctx.fillRect(lx,ly-10,10,10); ctx.fillStyle = '#889'; ctx.fillText(lb+': '+values[i], lx+16, ly); ly += 16; });
+  }
+
+  function drawLine(monthValues, color){
+    clear();
+    const pad = 34, w = canvas.width - pad*2, h = canvas.height - pad*2;
+    const max = Math.max(1, ...monthValues);
+    // axes
+    ctx.strokeStyle = '#99a'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad, pad); ctx.lineTo(pad, pad+h); ctx.lineTo(pad+w, pad+h); ctx.stroke();
+    // grid + labels (months)
+    ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Helvetica, Arial'; ctx.fillStyle = '#778';
+    const months = ['J','F','M','A','M','J','J','A','S','O','N','D'];
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    for(let i=0;i<12;i++){
+      const x = pad + (w/11)*i;
+      ctx.fillText(months[i], x, pad+h+16);
+    }
+    // y ticks (0, max)
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#889';
+    ctx.fillText('0', pad-6, pad+h);
+    ctx.fillText(String(max), pad-6, pad);
+    // line
+    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
+    monthValues.forEach((v,i)=>{
+      const x = pad + (w/11)*i;
+      const y = pad + h - (v/max)*h;
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      // node
+      ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.fill();
+      // value label
+      ctx.fillStyle = '#cbd5e1'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      if(v>0){ ctx.fillText(String(v), x, y-4); }
+    });
+    ctx.stroke();
+  }
+
+  function drawBar(monthValues, color){
+    clear();
+    const pad = 34, w = canvas.width - pad*2, h = canvas.height - pad*2;
+    const max = Math.max(1, ...monthValues);
+    // axes
+    ctx.strokeStyle = '#99a'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad, pad); ctx.lineTo(pad, pad+h); ctx.lineTo(pad+w, pad+h); ctx.stroke();
+    // bars
+    const bw = (w/12) * 0.7; // 70% of slot
+    const months = ['J','F','M','A','M','J','J','A','S','O','N','D'];
+    ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Helvetica, Arial'; ctx.fillStyle = '#778';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    monthValues.forEach((v,i)=>{
+      const slotX = pad + (w/12)*i;
+      const barH = (v/ max) * h;
+      const x = slotX + ((w/12)-bw)/2;
+      const y = pad + h - barH;
+      ctx.fillStyle = color;
+      ctx.fillRect(x, y, bw, barH);
+      // label month
+      ctx.fillStyle = '#778';
+      const lx = pad + (w/11)*i; // spread labels evenly
+      ctx.fillText(months[i], lx, pad+h+16);
+      // value on top
+      if(v>0){ ctx.fillStyle = '#e5e7eb'; ctx.textBaseline = 'bottom'; ctx.fillText(String(v), x + bw/2, y-3); }
+    });
+    // y ticks (0, max)
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#889';
+    ctx.fillText('0', pad-6, pad+h);
+    ctx.fillText(String(max), pad-6, pad);
+  }
+
+  function ensureCanvasSize(){
+    const w = Math.max(320, panel.clientWidth - 24);
+    canvas.width = w;
+    canvas.height = 380;
+  }
+
+  function openChart(key){
+    current.key = key; current.type = 'bar';
+    const map = { den:'denuncias', not:'notificacoes', aif:'aif' };
+    const mod = map[key];
+    title.textContent = (key==='den'?'Denúncias': key==='not'?'Notificações':'Autos de Infração') + ' — '+stats.ano;
+    panel.style.display = 'block';
+    ensureCanvasSize();
+    render();
+    panel.scrollIntoView({behavior:'smooth', block:'start'});
+  }
+
+  function render(){
+    const map = { den:'denuncias', not:'notificacoes', aif:'aif' };
+    const mod = map[current.key];
+    const palette = COLORS[current.key] || COLORS.den;
+    const s = stats[mod];
+    if(current.type==='pie'){
+      const labels = s.por_status.map(i=>i.label);
+      const values = s.por_status.map(i=>i.count);
+      drawPie(labels, values, palette);
+    } else if(current.type==='line') {
+      drawLine(s.mensal, palette[0]);
+    } else {
+      drawBar(s.mensal, palette[0]);
+    }
+  }
+
+  cards.forEach(c=>{
+    c.addEventListener('click', ()=>{
+      if(c.classList.contains('den')) openChart('den');
+      else if(c.classList.contains('not')) openChart('not');
+      else if(c.classList.contains('aif')) openChart('aif');
+    });
+  });
+
+  btnBar.addEventListener('click', ()=>{ current.type='bar'; render(); });
+  btnPie.addEventListener('click', ()=>{ current.type='pie'; render(); });
+  btnLine.addEventListener('click', ()=>{ current.type='line'; render(); });
+  btnClose.addEventListener('click', ()=>{ panel.style.display='none'; ctx.clearRect(0,0,canvas.width,canvas.height); });
+  // Exibir gráfico inicial para Denúncias em barras
+  openChart('den');
+  current.type = 'bar';
+  render();
+})();
+</script>
 {% endblock %}

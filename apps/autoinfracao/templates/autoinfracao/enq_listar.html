@@ -1,0 +1,48 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'autoinfracao/css/autoinfracao.css' %}">
+{% endblock %}
+{% block menu_autoinfracao_active %}active{% endblock %}
+{% block content %}
+<h2 class="page-title">Catálogo — Enquadramentos (Prefeitura)</h2>
+<div class="buttons-left">
+  <a href="{% url 'autoinfracao:listar' %}" class="btn btn-secondary">← Voltar</a>
+  <a href="{% url 'autoinfracao:enq_novo' %}" class="btn btn-primary">+ Novo Enquadramento</a>
+  <a href="{% url 'autoinfracao:tipos_listar' %}" class="btn btn-outline-primary">Gerenciar Tipos</a>
+  
+</div>
+
+<div class="table-wrapper">
+  <table class="table table-striped">
+    <thead>
+      <tr>
+        <th>Código</th>
+        <th>Artigo</th>
+        <th>Descrição</th>
+        <th>Valor base</th>
+        <th>Ativo</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for e in page_obj %}
+      <tr>
+        <td>{{ e.codigo }}</td>
+        <td>{{ e.artigo }}</td>
+        <td>{{ e.descricao }}</td>
+        <td>R$ {{ e.valor_base }}</td>
+        <td>{{ e.ativo|yesno:"Sim,Não" }}</td>
+        <td class="table-actions">
+          <a href="{% url 'autoinfracao:enq_editar' e.pk %}" class="btn btn-sm btn-outline-primary">Editar</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6">Nenhum enquadramento cadastrado.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}
+

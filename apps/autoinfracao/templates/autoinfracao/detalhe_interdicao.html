@@ -1,0 +1,49 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'autoinfracao/css/autoinfracao.css' %}">
+{% endblock %}
+{% block menu_autoinfracao_active %}active{% endblock %}
+{% block content %}
+
+<header class="detail-header">
+  <div class="left">
+    <h1 class="page-title">🚫 Auto de Interdição</h1>
+    <div class="actions">
+      <a href="{% url 'autoinfracao:listar' %}" class="btn btn-sm btn-secondary">← Voltar</a>
+      <a href="{% url 'autoinfracao:detalhe' obj.auto_infracao.pk %}" class="btn btn-sm btn-outline-primary">Ver AIF</a>
+      <a href="{% url 'autoinfracao:interdicao_editar' obj.pk %}" class="btn btn-sm btn-outline-primary">Editar</a>
+    </div>
+  </div>
+  <div class="right detail-meta">
+    <div><strong>Protocolo:</strong> <code class="proto">{{ obj.protocolo }}</code></div>
+    <div><strong>Status:</strong> {{ obj.get_status_display }}</div>
+    <div><strong>Criado em:</strong> {{ obj.criada_em|date:"d/m/Y H:i" }}</div>
+  </div>
+</header>
+
+<section class="detail-body">
+  <h3>Vínculos</h3>
+  <p><strong>Auto de Infração:</strong> <a href="{% url 'autoinfracao:detalhe' obj.auto_infracao.pk %}"><code class="proto">{{ obj.auto_infracao.protocolo }}</code></a></p>
+  <p><strong>Denúncia:</strong>
+    {% if obj.auto_infracao.denuncia %}
+      <a href="{% url 'denuncias:detalhe' obj.auto_infracao.denuncia.pk %}"><code class="proto">{{ obj.auto_infracao.denuncia.protocolo }}</code></a>
+    {% else %}—{% endif %}
+  </p>
+  <p><strong>Notificação:</strong>
+    {% if obj.auto_infracao.notificacao %}
+      <a href="{% url 'notificacoes:detalhe' obj.auto_infracao.notificacao.pk %}"><code class="proto">{{ obj.auto_infracao.notificacao.protocolo }}</code></a>
+    {% else %}—{% endif %}
+  </p>
+
+  <h3>Dados</h3>
+  <p><strong>Motivo:</strong> {{ obj.get_motivo_tipo_display }}</p>
+  <p><strong>Prazo Regularização:</strong> {% if obj.prazo_regularizacao_data %}{{ obj.prazo_regularizacao_data|date:"d/m/Y" }}{% else %}—{% endif %}</p>
+  <p><strong>Condições:</strong><br><span style="white-space: pre-line">{{ obj.condicoes_texto|default:"—" }}</span></p>
+
+  <h3>Eventos</h3>
+  <p><strong>Afixado no local:</strong> {% if obj.afixado_no_local_em %}{{ obj.afixado_no_local_em|date:"d/m/Y H:i" }}{% else %}—{% endif %}</p>
+  <p><strong>Entregue ao responsável:</strong> {% if obj.entregue_ao_responsavel_em %}{{ obj.entregue_ao_responsavel_em|date:"d/m/Y H:i" }}{% else %}—{% endif %}</p>
+</section>
+
+{% endblock %}

@@ -1,0 +1,105 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'autoinfracao/css/autoinfracao.css' %}">
+{% endblock %}
+{% block menu_autoinfracao_active %}active{% endblock %}
+{% block content %}
+
+<h2 class="page-title">✏️ Editar Embargo</h2>
+
+<div class="detail-meta">
+  <span><strong>Protocolo:</strong> <code class="proto">{{ obj.protocolo }}</code></span>
+  <span>•</span>
+  <span><strong>Status:</strong> {{ obj.get_status_display }}</span>
+  <span>•</span>
+  <span><strong>AIF:</strong> <a href="{% url 'autoinfracao:detalhe' obj.auto_infracao.pk %}"><code class="proto">{{ obj.auto_infracao.protocolo }}</code></a></span>
+</div>
+
+<div class="detail-actions" style="margin-top:8px;">
+  <a href="{% url 'autoinfracao:medidas_listar' %}" class="btn btn-sm btn-secondary">← Voltar</a>
+  <a href="{% url 'autoinfracao:embargo_detalhe' obj.pk %}" class="btn btn-sm btn-outline-primary">Ver Detalhe</a>
+</div>
+
+<form method="post" class="notificacao-form" style="margin-top:12px;">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+  <div class="form-grid">
+    <div>
+      {{ form.status.label_tag }}
+      {{ form.status }}
+      {{ form.status.errors }}
+    </div>
+    <div>
+      {{ form.licenca_tipo.label_tag }}
+      {{ form.licenca_tipo }}
+      {{ form.licenca_tipo.errors }}
+    </div>
+    <div>
+      {{ form.prazo_regularizacao_data.label_tag }}
+      {{ form.prazo_regularizacao_data }}
+      {{ form.prazo_regularizacao_data.errors }}
+    </div>
+    <div class="span-3">
+      {{ form.exigencias_texto.label_tag }}
+      {{ form.exigencias_texto }}
+      {{ form.exigencias_texto.errors }}
+    </div>
+    <div>
+      {{ form.afixado_no_local_em.label_tag }}
+      {{ form.afixado_no_local_em }}
+      {{ form.afixado_no_local_em.errors }}
+    </div>
+    <div>
+      {{ form.entregue_ao_responsavel_em.label_tag }}
+      {{ form.entregue_ao_responsavel_em }}
+      {{ form.entregue_ao_responsavel_em.errors }}
+    </div>
+  </div>
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Salvar alterações</button>
+    <button type="submit" name="action" value="regularizar" class="btn btn-outline-primary">Marcar como REGULARIZADO</button>
+  </div>
+</form>
+
+<hr>
+<h3>📎 Anexos</h3>
+
+{% if anexos %}
+  <div class="anexos-grid">
+    {% for a in anexos %}
+      <div class="anexo-item">
+        <div class="doc-link">{{ a.arquivo.name|cut:"autoinfracao/embargos/" }}</div>
+        {% if a.observacao %}<div class="anexo-legenda">{{ a.observacao }}</div>{% endif %}
+        <a href="?del_anexo={{ a.id }}" class="btn btn-sm btn-secondary" onclick="return confirm('Remover anexo?')">Remover</a>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <p><em>Nenhum anexo enviado.</em></p>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data" class="notificacao-form" style="margin-top:10px;">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="add_anexo">
+  <div class="form-grid-2">
+    <div>
+      <label for="id_tipo">Tipo</label>
+      {{ anexo_form.tipo }}
+    </div>
+    <div>
+      <label for="id_arquivo">Arquivo</label>
+      {{ anexo_form.arquivo }}
+    </div>
+    <div class="span-2">
+      <label for="id_observacao">Observação</label>
+      {{ anexo_form.observacao }}
+    </div>
+  </div>
+  <div class="form-actions">
+    <button type="submit" class="btn btn-outline-primary">+ Adicionar Anexo</button>
+  </div>
+</form>
+
+{% endblock %}
+

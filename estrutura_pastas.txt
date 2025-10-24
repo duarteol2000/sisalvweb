@@ -1,0 +1,24 @@
+.
+├── apps
+│   ├── denuncias
+│   │   ├── migrations
+│   │   └── templates
+│   │       └── denuncias
+│   ├── prefeituras
+│   │   └── migrations
+│   └── usuarios
+│       ├── migrations
+│       └── templates
+│           └── usuarios
+├── sisalvweb
+├── static
+│   ├── css
+│   └── sisalv
+│       ├── css
+│       ├── img
+│       └── js
+├── templates
+│   └── core
+└── utils
+
+22 directories

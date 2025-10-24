@@ -1,0 +1,264 @@
+/* ===== SISALV • THEME LIGHT (carregar depois de sisalv.css) ===== */
+
+:root{
+  --bg:#f3f4f6;         /* fundo geral */
+  --panel:#ffffff;      /* topo/side/panel */
+  --card:#ffffff;       /* cartões e áreas internas */
+  --muted:#64748b;      /* textos auxiliares */
+  --text:#111827;       /* texto principal */
+  --primary:#60a5fa;    /* ações/links principais (azul mais claro) */
+  --success:#16a34a;
+  --warning:#f59e0b;
+  --border:#e5e7eb;     /* linhas/bordas */
+  --accent:#0ea5e9;     /* realces secundários */
+}
+
+html{ color-scheme: light; }
+body{
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* ===== Componentes genéricos ===== */
+.card,
+.table-card,
+.table-responsive,
+.table-wrap,
+.table-head{
+  background: var(--card);
+  border:1px solid var(--border);
+  border-radius:.75rem;
+}
+
+.table-card{ overflow:hidden; }
+.table-head{
+  background:#f8fafc;
+  padding:.75rem 1rem;
+  border-bottom:1px solid var(--border);
+}
+.table-wrap{ padding:.75rem; }
+
+/* Tabela “clara” e legível */
+table{ width:100%; border-collapse:separate; border-spacing:0; }
+.table-bordered td, .table-bordered th{ border:1px solid var(--border); }
+.table thead th{
+  background:#f8fafc;
+  color:#111827;
+  border-bottom:1px solid var(--border);
+}
+.table-striped tbody tr:nth-child(even){ background:#fbfdff; }
+.table-hover tbody tr:hover{ background:#eef6ff; }
+.table-sm td, .table-sm th{ padding:.35rem .5rem; }
+.table-actions{ white-space:nowrap; }
+
+/* Badges */
+.badge{ display:inline-block; padding:.25rem .5rem; border-radius:.35rem; font-size:.75rem; }
+.bg-warning{ background:#fde68a; color:#1f2937; }
+.bg-success{ background:#86efac; color:#064e3b; }
+.bg-secondary{ background:#e5e7eb; color:#111827; }
+.bg-danger{ background:#fecaca; color:#7f1d1d; }
+
+/* Botões (sem framework) */
+.btn{
+  display:inline-flex; align-items:center; gap:.35rem;
+  padding:.4rem .7rem; border-radius:.5rem;
+  border:1px solid var(--border); background:#fff; color:var(--text);
+  text-decoration:none; cursor:pointer;
+}
+.btn:hover{ filter:brightness(.98); }
+.btn-sm{ padding:.25rem .5rem; font-size:.875rem; }
+.btn-primary{ background:var(--primary); color:#fff; border-color:transparent; }
+.btn-secondary{ background:#e5e7eb; color:#111827; border-color:transparent; }
+.btn-success{ background:var(--success); color:#fff; border-color:transparent; }
+.btn-outline-info{ background:#fff; color:var(--accent); border-color:var(--accent); }
+.btn-outline-primary{ background:#fff; color:var(--primary); border-color:var(--primary); }
+
+/* ===== Telas públicas (login) ===== */
+body.public{
+  background: #f3f4f6 !important;   /* claro liso */
+  color: var(--text) !important;
+}
+
+/* Containers */
+.public-card,
+.glass-card,
+.hero-pane{
+  background:#ffffff !important;
+  border:1px solid var(--border) !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.06) !important;
+}
+
+/* Tipografia */
+.public-title{ color:#1f2937 !important; }
+.public-subtitle,
+.hero-sub,
+.public-meta{ color:#475569 !important; }
+
+/* Form */
+.public-form label{ color:#374151 !important; }
+.public-form input[type="email"],
+.public-form input[type="password"],
+.public-form input[type="text"]{
+  background:#ffffff !important;
+  color:#111827 !important;
+  border:1px solid #d1d5db !important;
+  box-shadow:none !important;
+}
+
+/* Botão principal do login */
+.public-form .btn-primary{
+  background:var(--primary) !important; color:#fff !important; border:0 !important;
+}
+
+/* Hero badge */
+.hero-badge{
+  background:#ffffff !important;
+  border-color:#e5e7eb !important;
+  box-shadow:0 4px 12px rgba(0,0,0,.08) !important;
+}
+.hero-title{ color:#1f2937 !important; }
+.hero-bullets{ color:#334155 !important; }
+
+/* Links */
+a{ color:var(--primary); }
+a:hover{ filter:brightness(1.05); }
+
+/* == Baseline de layout para telas públicas (login) no tema CLARO == */
+body.public{
+  min-height: 100vh !important;
+  display: grid !important;
+  place-items: center !important;
+}
+
+.auth-grid{
+  width: min(96vw, 1080px);
+  display: grid;
+  grid-template-columns: 1fr;   /* 1 coluna no mobile */
+  gap: 18px;
+  padding: 16px;
+}
+
+@media (min-width: 920px){
+  .auth-grid{
+    grid-template-columns: 1.1fr .9fr;  /* 2 colunas no desktop */
+    gap: 22px;
+  }
+}
+
+/* Herói (bloco do lado esquerdo) */
+.hero-pane{
+  position: relative;
+  min-height: 280px;
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+/* Card do formulário */
+.glass-card{
+  border-radius: 16px;
+  padding: 24px;
+}
+
+/* Marca (logo) no cabeçalho do card de login */
+.brand{ display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:8px; }
+.brand-logo{ max-height:44px; max-width:200px; width:auto; object-fit:contain; }
+.brand-title{ margin:0; font-weight:800; letter-spacing:.3px; }
+.brand-sub{ margin:0; color:#6b7280; font-size:.95rem; }
+
+/* Tipografia e inputs do login (claros) */
+.public-title{ font-size: 1.6rem; font-weight: 800; margin: 0 0 4px 0; }
+.public-subtitle{ margin: 0 0 14px 0; }
+.public-form .form-group{ margin-bottom: 12px; }
+.public-form label{ display:block; margin-bottom:6px; }
+.public-form input[type="email"],
+.public-form input[type="password"],
+.public-form input[type="text"]{
+  width:100%; height:46px; border-radius:12px;
+  padding:0 12px; font-size:.98rem;
+}
+.public-form .btn-primary{
+  width:100%; height:48px; border-radius:12px; font-weight:700;
+}
+
+/* ===== Área interna (pós-login) – tema claro ===== */
+body:not(.public){
+  background: var(--bg);
+  color: var(--text);
+}
+
+.layout, .content{
+  background: var(--bg);
+}
+
+/* cartões e containers internos */
+.card, .table-card, .table-head, .table-wrap, .filters-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: .75rem;
+}
+
+/* tabela clara e legível */
+.table-head{ background:#f8fafc; border-bottom:1px solid var(--border); }
+.table-wrap{ padding:.75rem; }
+
+/* tabela */
+table{ width:100%; border-collapse:separate; border-spacing:0; }
+.table-bordered td, .table-bordered th{ border:1px solid var(--border); }
+.table thead th{
+  background:#f8fafc; color:#111827; border-bottom:1px solid var(--border);
+}
+.table-striped tbody tr:nth-child(even){ background:#fbfdff; }
+.table-hover tbody tr:hover{ background:#eef6ff; }
+.table-sm td, .table-sm th{ padding:.35rem .5rem; }
+
+/* ações compactas */
+.table-actions{ white-space: nowrap; }
+
+/* NÃO mexer no grid dos filtros aqui (deixa para o CSS da app) */
+
+/* ===== OVERRIDES FORTES PARA TEMA CLARO (mata restos de dark) ===== */
+html { color-scheme: light !important; }
+
+body, .layout, .content {
+  background: #f3f4f6 !important;
+  color: #111827 !important;
+}
+
+.topbar, .sidebar {
+  background: #ffffff !important;
+  color: #111827 !important;
+  border-color: #e5e7eb !important;
+}
+
+a { color: #2563eb !important; }
+
+.card, .filters-card, .table-card, .table-wrap {
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  color: #111827 !important;
+}
+
+.table-head {
+  background: #f8fafc !important;
+  color: #111827 !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+
+/* Tabelas totalmente legíveis */
+table { color: #111827 !important; }
+.table thead th {
+  background: #f8fafc !important;
+  color: #111827 !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+.table td, .table th {
+  color: #111827 !important;
+  border-color: #e5e7eb !important;
+}
+.table-striped tbody tr:nth-child(even) { background: #fbfdff !important; }
+.table-hover   tbody tr:hover            { background: #eef6ff !important; }
+
+/* Badges (garante contraste) */
+.badge.bg-warning { background:#fde68a !important; color:#1f2937 !important; }
+.badge.bg-success { background:#86efac !important; color:#064e3b !important; }
+.badge.bg-secondary { background:#e5e7eb !important; color:#111827 !important; }

@@ -1,0 +1,96 @@
+.page-title { margin: 0 0 12px; }
+.filters-grid { margin-bottom: 12px; }
+.filters-form label { display: block; font-weight: 600; margin-bottom: 4px; }
+.filters-form input, .filters-form select, .filters-form textarea { width: 100%; }
+
+/* ===== Filtros no padrão da listagem de Denúncias ===== */
+.filters-card { margin-bottom: 16px; }
+.filters-grid{ display:grid; grid-template-columns: 1fr; gap:12px; }
+@media (min-width: 768px){ .filters-grid{ grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 992px){ .filters-grid{ grid-template-columns: repeat(3, 1fr); } }
+.filters-grid .f{ display:flex; flex-direction:column; }
+.filters-grid .f label{ font-weight:600; margin-bottom:4px; }
+.filters-grid .f input, .filters-grid .f select, .filters-grid .f textarea{ width:100%; }
+.filters-actions{ margin-top:12px; display:flex; justify-content:flex-start; gap:8px; flex-wrap:wrap; }
+.filters-form .row-3col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
+.buttons-left { display: flex; gap: 8px; align-items: center; }
+/* Permite que elementos marquem largura total dentro de .filters-grid */
+.filters-grid .span-3 { grid-column: 1 / -1; }
+
+.table-wrapper { margin-top: 12px; }
+.actions .btn { margin-right: 4px; }
+
+/* Cabeçalho compacto para campos com ações ao lado */
+.field-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:4px; }
+.field-head .actions{ display:flex; gap:8px; flex-wrap:wrap; }
+/* Campo com controle inline (select + botão) */
+.inline-field{ display:flex; gap:8px; align-items:center; }
+.inline-field select{ width:100%; max-width:300px; }
+.btn-compact{ padding:.25rem .4rem; line-height:1; }
+.short-field{ max-width:120px; }
+
+/* Grid compacto para adicionar item (4 colunas no desktop) */
+.additem-grid{ display:grid; grid-template-columns: 1.2fr 0.6fr 0.6fr 1fr; gap:12px; align-items:end; }
+@media (max-width: 1100px){ .additem-grid{ grid-template-columns: 1fr 1fr; } }
+@media (max-width: 700px){ .additem-grid{ grid-template-columns: 1fr; } }
+.additem-grid .f label{ display:block; font-weight:600; margin-bottom:4px; }
+
+.pagination { margin-top: 12px; display: flex; gap: 10px; align-items: center; }
+
+.notificacao-form .form-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.notificacao-form label { display: block; font-weight: 600; margin-bottom: 4px; }
+.notificacao-form input, .notificacao-form select, .notificacao-form textarea { width: 100%; }
+
+/* Seções ocupando a linha inteira dentro do grid */
+.notificacao-form .form-grid .span-3 { grid-column: 1 / -1; }
+.notificacao-form .form-grid h3.span-3 { margin: 8px 0 6px; }
+.notificacao-form .form-grid hr.span-3 { grid-column: 1 / -1; border:0; border-top:1px solid #ddd; margin:8px 0; }
+
+@media (max-width: 1100px) {
+  .notificacao-form .form-grid, .filters-form .row-3col { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 700px) {
+  .notificacao-form .form-grid, .filters-form .row-3col { grid-template-columns: 1fr; }
+}
+
+.detail-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 12px; }
+.detail-header .left .actions { margin-top: 8px; display: flex; gap: 8px; }
+.detail-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.proto { font-weight: 700; }
+.detail-body h3 { margin-top: 16px; }
+
+.anexos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+.anexo-item {
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 6px;
+  text-align: center;
+  background: #f9f9f9;
+}
+.anexo-item img.thumb {
+  max-width: 100%;
+  max-height: 140px;
+  border-radius: 4px;
+  margin-bottom: 4px;
+}
+.anexo-legenda {
+  font-size: 0.85em;
+  color: #555;
+}
+
+/* alinhamento à direita para valores monetários */
+.text-right{ text-align:right; }
+
+/* Checkboxes em linha para Tipos de Infração */
+.checkbox-grid ul{ display:flex; flex-wrap:wrap; gap:8px; padding-left:0; margin:0; list-style:none; }
+.checkbox-grid li{ list-style:none; }
+.checkbox-grid input[type="checkbox"]{ width:auto !important; height:auto; margin-right:6px; }
+.checkbox-grid label{ display:inline-flex; align-items:center; gap:6px; padding:2px 6px; border:1px dashed #e5e7eb; border-radius:6px; }
+
+/* Mini grid para campos curtos ao lado de um longo */
+.mini-grid-2{ display:grid; grid-template-columns: 160px 1fr; gap:12px; align-items:end; }

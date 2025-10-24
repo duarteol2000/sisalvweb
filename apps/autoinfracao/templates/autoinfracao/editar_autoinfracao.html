@@ -1,0 +1,456 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'autoinfracao/css/autoinfracao.css' %}">
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/viacep.js' %}"></script>
+{% endblock %}
+{% block menu_autoinfracao_active %}active{% endblock %}
+{% block content %}
+
+<h2 class="page-title">✏️ Editar Auto de Infração</h2>
+{% if obj.notificacao or obj.denuncia %}
+<div class="detail-links" style="margin:.25rem 0 .5rem;">
+  {% if obj.notificacao %}
+    <div><strong>Notificação origem:</strong> <code class="proto">{{ obj.notificacao.protocolo }}</code> — <a href="{% url 'notificacoes:detalhe' obj.notificacao.pk %}">Ver</a></div>
+  {% endif %}
+  {% if obj.denuncia %}
+    <div><strong>Denúncia origem:</strong> <code class="proto">{{ obj.denuncia.protocolo }}</code> — <a href="{% url 'denuncias:detalhe' obj.denuncia.pk %}">Ver</a></div>
+  {% endif %}
+  </div>
+{% endif %}
+
+<div class="detail-meta">
+  <span><strong>Protocolo:</strong> <code class="proto">{{ obj.protocolo }}</code></span>
+  <span>•</span>
+  <span><strong>Criado em:</strong> {{ obj.criada_em|date:"d/m/Y H:i" }}</span>
+  <span>•</span>
+  <span><strong>Status:</strong> {{ obj.get_status_display }}</span>
+  <span>•</span>
+  <span><strong>Fiscais:</strong> {{ obj.fiscais.all|join:", " }}</span>
+  
+</div>
+
+<div class="detail-actions" style="margin-top:8px;">
+  <a href="{% url 'autoinfracao:listar' %}" class="btn btn-sm btn-secondary">← Voltar</a>
+  <a href="{% url 'autoinfracao:detalhe' obj.pk %}" class="btn btn-sm btn-outline-primary">Ver Detalhe</a>
+  {% if obj.notificacao %}
+  <a href="{% url 'notificacoes:detalhe' obj.notificacao.pk %}" class="btn btn-sm btn-outline-primary">Ver Notificação</a>
+  {% endif %}
+  {% if obj.denuncia %}
+  <a href="{% url 'denuncias:detalhe' obj.denuncia.pk %}" class="btn btn-sm btn-outline-primary">Ver Denúncia</a>
+  {% endif %}
+  
+</div>
+
+<form method="post" enctype="multipart/form-data" class="notificacao-form" style="margin-top:12px;">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+
+  <!-- Dados Pessoais -->
+  <div class="card p-0 table-card shadow-sm">
+    <div class="table-head"><div><strong>Dados Pessoais</strong></div></div>
+    <div class="table-wrap">
+      <div class="form-grid">
+        <div>
+          {{ form.pessoa_tipo.label_tag }}
+          {{ form.pessoa_tipo }}
+          {{ form.pessoa_tipo.errors }}
+        </div>
+        <div>
+          {{ form.nome_razao.label_tag }}
+          {{ form.nome_razao }}
+          {{ form.nome_razao.errors }}
+        </div>
+        <div>
+          {{ form.cpf_cnpj.label_tag }}
+          {{ form.cpf_cnpj }}
+          {{ form.cpf_cnpj.errors }}
+        </div>
+        <div>
+          {{ form.rg.label_tag }}
+          {{ form.rg }}
+          {{ form.rg.errors }}
+        </div>
+        <div>
+          {{ form.telefone.label_tag }}
+          {{ form.telefone }}
+          {{ form.telefone.errors }}
+        </div>
+        <div>
+          {{ form.email.label_tag }}
+          {{ form.email }}
+          {{ form.email.errors }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Local da Ocorrência -->
+  <div class="card p-0 table-card shadow-sm" style="margin-top:10px;">
+    <div class="table-head"><div><strong>Local da Ocorrência</strong></div></div>
+    <div class="table-wrap">
+      <div class="form-grid">
+        <div>
+          {{ form.cep.label_tag }}
+          {{ form.cep }}
+          {{ form.cep.errors }}
+        </div>
+        <div>
+          {{ form.logradouro.label_tag }}
+          {{ form.logradouro }}
+          {{ form.logradouro.errors }}
+        </div>
+        <div>
+          {{ form.numero.label_tag }}
+          {{ form.numero }}
+          {{ form.numero.errors }}
+        </div>
+        <div>
+          {{ form.complemento.label_tag }}
+          {{ form.complemento }}
+          {{ form.complemento.errors }}
+        </div>
+        <div>
+          {{ form.bairro.label_tag }}
+          {{ form.bairro }}
+          {{ form.bairro.errors }}
+        </div>
+        <div>
+          {{ form.cidade.label_tag }}
+          {{ form.cidade }}
+          {{ form.cidade.errors }}
+        </div>
+        <div>
+          {{ form.uf.label_tag }}
+          {{ form.uf }}
+          {{ form.uf.errors }}
+        </div>
+        <div>
+          {{ form.latitude.label_tag }}
+          {{ form.latitude }}
+          {{ form.latitude.errors }}
+        </div>
+        <div>
+          {{ form.longitude.label_tag }}
+          {{ form.longitude }}
+          {{ form.longitude.errors }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Características da Edificação -->
+  <div class="card p-0 table-card shadow-sm" style="margin-top:10px;">
+    <div class="table-head"><div><strong>Características da Edificação</strong></div></div>
+    <div class="table-wrap">
+      <div class="form-grid">
+        <div>
+          {{ form.area_m2.label_tag }}
+          {{ form.area_m2 }}
+          {{ form.area_m2.errors }}
+        </div>
+        <div>
+          {{ form.testada_m.label_tag }}
+          {{ form.testada_m }}
+          {{ form.testada_m.errors }}
+        </div>
+        <div>
+          {{ form.pe_direito_m.label_tag }}
+          {{ form.pe_direito_m }}
+          {{ form.pe_direito_m.errors }}
+        </div>
+        <div>
+          {{ form.duplex.label_tag }}
+          {{ form.duplex }}
+          {{ form.duplex.errors }}
+        </div>
+        <div>
+          {{ form.qtd_comodos.label_tag }}
+          {{ form.qtd_comodos }}
+          {{ form.qtd_comodos.errors }}
+        </div>
+        <div>
+          {{ form.compartimentacao.label_tag }}
+          {{ form.compartimentacao }}
+          {{ form.compartimentacao.errors }}
+        </div>
+        <div>
+          {{ form.divisorias.label_tag }}
+          {{ form.divisorias }}
+          {{ form.divisorias.errors }}
+        </div>
+        <div>
+          {{ form.mezanino.label_tag }}
+          {{ form.mezanino }}
+          {{ form.mezanino.errors }}
+        </div>
+        <div>
+          {{ form.area_mezanino_m2.label_tag }}
+          {{ form.area_mezanino_m2 }}
+          {{ form.area_mezanino_m2.errors }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dados do Auto -->
+  <div class="card p-0 table-card shadow-sm" style="margin-top:10px;">
+    <div class="table-head"><div><strong>Dados do Auto</strong></div></div>
+    <div class="table-wrap">
+      <div class="form-grid">
+        <div class="span-3">
+          {{ form.descricao.label_tag }}
+          {{ form.descricao }}
+          {{ form.descricao.errors }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Prazos e Valores -->
+  <div class="card p-0 table-card shadow-sm" style="margin-top:10px;">
+    <div class="table-head"><div><strong>Prazos e Valores</strong></div></div>
+    <div class="table-wrap">
+      <div class="form-grid">
+        <div>
+          {{ form.prazo_regularizacao_data.label_tag }}
+          {{ form.prazo_regularizacao_data }}
+          {{ form.prazo_regularizacao_data.errors }}
+        </div>
+        <div>
+          {{ form.valor_infracao.label_tag }}
+          {{ form.valor_infracao }}
+          {{ form.valor_infracao.errors }}
+        </div>
+        <div>
+          {{ form.valor_multa_homologado.label_tag }}
+          {{ form.valor_multa_homologado }}
+          {{ form.valor_multa_homologado.errors }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tipos de Infração, Fiscais e Status -->
+  <div class="card p-0 table-card shadow-sm" style="margin-top:10px;">
+    <div class="table-head"><div><strong>Outros Dados</strong></div></div>
+    <div class="table-wrap">
+      <div class="form-grid">
+        <div class="span-3">
+          <label>Tipos de Infração</label>
+          <div class="checkbox-grid">
+            {% for t in tipos_qs %}
+              <label>
+                <input type="checkbox" name="tipos" value="{{ t.id }}" {% if t in obj.tipos.all %}checked{% endif %}>
+                {{ t.nome }}
+              </label>
+            {% empty %}
+              <em>Nenhum tipo disponível.</em>
+            {% endfor %}
+          </div>
+          <div style="margin-top:6px; display:flex; gap:8px; flex-wrap:wrap;">
+            <a href="{% url 'autoinfracao:tipos_novo' %}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener">+ Novo Tipo de Infração</a>
+            <a href="{% url 'autoinfracao:tipos_listar' %}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener">Gerenciar</a>
+          </div>
+        </div>
+
+        <div class="span-3">
+          <label for="id_fiscais">Fiscais</label>
+          {{ form.fiscais }}
+        </div>
+
+        <div>
+          {{ form.status.label_tag }}
+          {{ form.status }}
+          {{ form.status.errors }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr>
+  <div class="card p-0 table-card shadow-sm">
+    <div class="table-head">
+      <div><strong>📎 Anexos do AIF</strong></div>
+      <div class="text-muted small">Total: {{ anexos_existentes|length }}</div>
+    </div>
+    <div class="table-wrap">
+      <div class="form-grid">
+        <div class="span-3">
+          <label for="id_fotos">Adicionar fotos</label>
+          <input id="id_fotos" type="file" name="fotos" multiple accept="image/*">
+          <small>Você pode selecionar várias imagens.</small>
+        </div>
+      </div>
+
+      {% if anexos_existentes %}
+        <div class="anexos-grid">
+          {% for a in anexos_existentes %}
+            <div class="anexo-item">
+              {% if a.tipo == "FOTO" %}
+                <a href="{{ a.arquivo.url }}" target="_blank" rel="noopener">
+                  <img src="{{ a.arquivo.url }}" alt="Foto" class="thumb" loading="lazy">
+                </a>
+              {% else %}
+                <a href="{{ a.arquivo.url }}" target="_blank" rel="noopener" class="doc-link">
+                  {{ a.arquivo.name|cut:"autoinfracao/anexos/" }}
+                </a>
+              {% endif %}
+              {% if a.observacao %}
+                <p class="anexo-legenda">{{ a.observacao }}</p>
+              {% endif %}
+              {% if a.largura_px and a.altura_px %}
+                <p class="anexo-legenda">{{ a.largura_px }}×{{ a.altura_px }} px</p>
+              {% endif %}
+              <a href="?del_aif_anexo={{ a.id }}" class="btn btn-sm btn-secondary" onclick="return confirm('Remover anexo?')">Remover</a>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="text-muted" style="margin:8px 0 0;">Nenhum anexo enviado.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Salvar alterações</button>
+  </div>
+</form>
+
+<!-- Formulários específicos (fora do form principal) -->
+<div class="card p-0 table-card shadow-sm" style="margin-top:10px;">
+  <div class="table-head">
+    <div><strong>📎 Adicionar Anexo (AIF)</strong></div>
+  </div>
+  <div class="table-wrap">
+    <form method="post" enctype="multipart/form-data" class="notificacao-form">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="add_aif_anexo">
+      <div class="form-grid-2">
+        <div>
+          <label>Tipo</label>
+          {{ anexo_aif_form.tipo }}
+        </div>
+        <div>
+          <label>Arquivo</label>
+          {{ anexo_aif_form.arquivo }}
+        </div>
+        <div class="span-2">
+          <label>Observação</label>
+          {{ anexo_aif_form.observacao }}
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-outline-primary">+ Adicionar Anexo</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if obj.status != 'REGULARIZADO' %}
+<div class="form-actions" style="margin-top:8px;">
+  <form method="post" onsubmit="return confirm('Confirmar regularização deste AIF?')">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="regularizar_aif">
+    <button type="submit" class="btn btn-outline-primary">Marcar AIF como REGULARIZADO</button>
+    <small class="hint">Requer um anexo do tipo Alvará.</small>
+  </form>
+  </div>
+{% endif %}
+
+<hr>
+<div class="card p-0 table-card shadow-sm">
+  <div class="table-head">
+    <div><strong>💰 Multas / Enquadramentos</strong></div>
+    <div class="text-muted small">Itens: {{ itens_multa|length }}</div>
+  </div>
+  <div class="table-wrap">
+    <form method="post" class="notificacao-form" style="margin:0 0 10px 0;">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="apply_discount">
+      <div class="mini-grid-2">
+        <div>
+          <label for="id_desconto_percent">Desconto (%)</label>
+          <input type="number" id="id_desconto_percent" name="desconto_percent" step="0.01" min="0" max="100" placeholder="ex.: 30.00" style="max-width:140px;">
+        </div>
+        <div>
+          <label for="id_justificativa">Justificativa</label>
+          <input type="text" id="id_justificativa" name="justificativa" placeholder="Motivo da homologação/desconto" required>
+        </div>
+      </div>
+      <div class="form-actions" style="margin-top:8px;">
+        <button type="submit" class="btn btn-outline-primary btn-sm">Aplicar Desconto</button>
+      </div>
+    </form>
+
+{% if itens_multa %}
+    <div class="table-wrapper">
+      <table class="table table-striped table-sm">
+        <thead>
+          <tr>
+            <th>Enquadramento</th>
+            <th class="text-right">Vlr. Multa</th>
+            <th class="text-right">Vlr. Homologado</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for it in itens_multa %}
+          <tr>
+            <td>{{ it.enquadramento }}{% if it.descricao %}<div class="hint">{{ it.descricao }}</div>{% endif %}</td>
+            <td class="text-right">R$ {{ it.valor_unitario }}</td>
+            <td class="text-right"><strong>R$ {{ it.valor_homologado|default:it.valor_unitario }}</strong></td>
+            <td class="table-actions" style="display:flex; gap:6px; align-items:center;">
+              <form method="post" style="display:inline-flex; gap:6px; align-items:center;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="edit_item">
+                <input type="hidden" name="item_id" value="{{ it.id }}">
+                <input type="number" step="0.01" name="valor_homologado" value="{{ it.valor_homologado|default:it.valor_unitario }}" style="width:120px;">
+                <button type="submit" class="btn btn-sm btn-outline-primary">Atualizar</button>
+              </form>
+              <a href="?del_item={{ it.id }}" class="btn btn-sm btn-secondary" onclick="return confirm('Remover item?')">Remover</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% else %}
+  <p><em>Nenhum item de multa.</em></p>
+{% endif %}
+
+<form method="post" class="card p-3 shadow-sm filters-card" style="margin-top:10px;">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="add_item">
+  <div class="additem-grid">
+    <div class="f">
+      <label for="id_enquadramento">Enquadramento</label>
+      <div class="inline-field">
+        {{ item_form.enquadramento }}
+        <a href="{% url 'autoinfracao:enq_novo' %}" class="btn btn-sm btn-outline-primary btn-compact" title="Novo enquadramento" target="_blank" rel="noopener">(+)</a>
+      </div>
+    </div>
+    <div class="f">
+      <label for="id_valor_unitario">Valor da Multa</label>
+      <div class="short-field">{{ item_form.valor_unitario }}</div>
+    </div>
+    <div class="f">
+      <label for="id_valor_homologado">Valor Homologado</label>
+      <div class="short-field">{{ item_form.valor_homologado }}</div>
+    </div>
+    <div class="f">
+      <label for="id_descricao">Descrição (opcional)</label>
+      {{ item_form.descricao }}
+    </div>
+  </div>
+  <div class="form-actions">
+    <button type="submit" class="btn btn-sm btn-outline-primary">Adicionar</button>
+  </div>
+</form>
+
+{% endblock %}

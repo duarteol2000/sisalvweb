@@ -1,0 +1,46 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'autoinfracao/css/autoinfracao.css' %}">
+{% endblock %}
+{% block menu_autoinfracao_active %}active{% endblock %}
+{% block content %}
+<h2 class="page-title">Catálogo — Tipos de Infração (Prefeitura)</h2>
+<div class="buttons-left">
+  <a href="{% url 'autoinfracao:listar' %}" class="btn btn-secondary">← Voltar</a>
+  <a href="{% url 'autoinfracao:tipos_novo' %}" class="btn btn-primary">+ Novo Tipo</a>
+  <a href="{% url 'autoinfracao:enq_listar' %}" class="btn btn-outline-primary">Gerenciar Enquadramentos</a>
+  
+</div>
+
+<div class="table-wrapper">
+  <table class="table table-striped">
+    <thead>
+      <tr>
+        <th>Código</th>
+        <th>Nome</th>
+        <th>Descrição</th>
+        <th>Ativo</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in page_obj %}
+      <tr>
+        <td>{{ t.codigo }}</td>
+        <td>{{ t.nome }}</td>
+        <td>{{ t.descricao }}</td>
+        <td>{{ t.ativo|yesno:"Sim,Não" }}</td>
+        <td class="table-actions">
+          <a href="{% url 'autoinfracao:tipos_editar' t.pk %}" class="btn btn-sm btn-outline-primary">Editar</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5">Nenhum tipo cadastrado.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}
+

@@ -1,0 +1,216 @@
+/* ===== Denúncias – filtros e tabela ===== */
+
+/* filtro em 3 colunas (desktop), 2 (tablet), 1 (mobile) */
+.filters-card { margin-bottom: 16px; }
+.filters-grid{
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+@media (min-width: 768px){ .filters-grid{ grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 992px){ .filters-grid{ grid-template-columns: repeat(3, 1fr); } }
+.filters-grid .f label{ font-weight: 600; margin-bottom: 4px; }
+
+/* botões dos filtros lado a lado */
+.filters-actions{
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.filters-actions .btn{ width: auto; }
+
+/* card da tabela “integrado” */
+.table-card{ border:1px solid var(--border); border-radius:.75rem; overflow:hidden; }
+.table-head{ background:#f8fafc; padding:.75rem 1rem; border-bottom:1px solid var(--border); }
+.table-wrap{ padding:.75rem; }
+
+/* badges de status (fallback sem framework) */
+.badge{ display:inline-block; padding:.25rem .5rem; border-radius:.35rem; font-size:.75rem; }
+.bg-warning{ background:#fde68a; color:#1f2937; }
+.bg-success{ background:#86efac; color:#064e3b; }
+.bg-secondary{ background:#e5e7eb; color:#111827; }
+
+/* ===== Correção de layout dos filtros: label em cima, campo abaixo ===== */
+.filters-grid .f{
+  display: flex;              /* força empilhamento vertical */
+  flex-direction: column;
+}
+
+.filters-grid .f label{
+  display: block !important;  /* ignora qualquer regra global inline/inline-block */
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.filters-grid .f input,
+.filters-grid .f select,
+.filters-grid .f textarea{
+  width: 100%;
+}
+
+/* Título da página maior */
+.page-title{
+  font-size: 1.75rem;   /* ~28px */
+  font-weight: 800;
+  letter-spacing: .2px;
+}
+
+/* Botões do filtro alinhados à esquerda */
+.filters-actions{
+  justify-content: flex-start;   /* antes estava flex-end */
+}
+
+/* Espaçamento suave entre título e filtros */
+.filters-card{ margin-top: 8px; }
+
+/* ===== Detalhe da Denúncia – header ===== */
+.detail-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;                 /* empilha no mobile */
+}
+
+.detail-left{
+  display:flex;
+  align-items:center;
+  gap:12px 16px;
+  flex-wrap:wrap;
+}
+
+.detail-actions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+.detail-meta{
+  margin-left:auto;               /* empurra para a direita */
+  display:flex;
+  align-items:center;
+  gap:8px 12px;
+  flex-wrap:wrap;
+  color:#475569;                  /* cinza legível */
+  font-size:.95rem;
+}
+
+.detail-meta .proto{
+  background:#eef6ff;             /* leve destaque */
+  border:1px solid #cfe0ff;
+  padding:2px 6px;
+  border-radius:6px;
+  font-family:ui-monospace, SFMono-Regular, Menlo, monospace;
+  color:#0f172a;
+}
+
+.detail-divider{
+  margin:10px 0 14px;
+  border:0;
+  border-top:1px solid var(--border, #e5e7eb);
+}
+
+/* reaproveita o título grande da listagem */
+.page-title{
+  font-size:1.75rem;
+  font-weight:800;
+  letter-spacing:.2px;
+}
+
+/* mobile: meta abaixo dos botões e alinhada à esquerda */
+@media (max-width: 720px){
+  .detail-meta{
+    margin-left:0;
+    width:100%;
+    justify-content:flex-start;
+  }
+}
+
+/* ====== FORMULÁRIOS: CORREÇÃO GERAL (Novo/Editar) ====== */
+.denuncia-form {
+  max-width: 1100px;
+}
+
+/* título igual ao da listagem */
+.page-title{
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: .2px;
+  margin-bottom: 6px;
+}
+
+/* bloco de meta (protocolo/data) com respiro */
+.form-meta{
+  display:flex;
+  gap: 10px 14px;
+  align-items:center;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  color:#475569;
+}
+.form-meta .proto{
+  background:#eef6ff;
+  border:1px solid #cfe0ff;
+  padding:2px 6px;
+  border-radius:6px;
+  font-family:ui-monospace, SFMono-Regular, Menlo, monospace;
+  color:#0f172a;
+}
+
+/* labels em cima; campos cheios */
+.denuncia-form label{
+  display:block;
+  margin-top:10px;
+  font-weight: 700;
+}
+.denuncia-form input[type="text"],
+.denuncia-form input[type="email"],
+.denuncia-form input[type="tel"],
+.denuncia-form input[type="number"],
+.denuncia-form input[type="date"],
+.denuncia-form input[type="datetime-local"],
+.denuncia-form select,
+.denuncia-form textarea {
+  width: 100% !important;
+  max-width: 100%;
+  min-height: 38px;
+  padding: 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  color: #111827;
+  box-sizing: border-box;
+}
+.denuncia-form textarea { min-height: 90px; }
+
+/* checkboxes e radios alinhados */
+.denuncia-form input[type="checkbox"],
+.denuncia-form input[type="radio"] {
+  width:auto !important; height:auto !important; min-height:auto;
+  margin-right:6px;
+}
+
+/* grid utilitário para organizar blocos (use quando quiser) */
+.denuncia-form .form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  gap: 12px;
+}
+@media (max-width:1100px){
+  .denuncia-form .form-grid { grid-template-columns: repeat(2, minmax(220px,1fr)); }
+}
+@media (max-width:720px){
+  .denuncia-form .form-grid { grid-template-columns: 1fr; }
+}
+.denuncia-form .span-2 { grid-column: span 2; }
+.denuncia-form .span-3 { grid-column: 1 / -1; }
+
+/* botões no rodapé do form */
+.form-actions{
+  margin-top: 14px;
+  display:flex;
+  gap:8px;
+  flex-wrap: wrap;
+}

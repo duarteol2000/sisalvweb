@@ -1,14 +1,36 @@
 # apps/denuncias/views.py
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.shortcuts import redirect, render
+from django.shortcuts import redirect, render, get_object_or_404
 from django.urls import reverse
 from django.forms import inlineformset_factory
+from django.core.exceptions import ValidationError
+from django.core.paginator import Paginator
+from django.db.models import F, Value as V
+from django.db.models.functions import Concat, Coalesce
 
 from .models import Denuncia, DenunciaDocumentoImovel, DenunciaAnexo
 from .forms import DenunciaOrigemForm, DenunciaFotosForm, process_photo_file  # usamos o form só para RENDER no GET
 
-
+# ==========================================================
+# Mapa de campos (centraliza nomes do model para filtros/annotate)
+# Se preferir, pode remover e escrever direto os nomes dos campos.
+# ==========================================================
+DEN_FIELD = {
+    "protocolo": "protocolo",
+    "data_registro": "criada_em",
+    "cpf_cnpj": "denunciado_cpf_cnpj",
+    "nome": "denunciado_nome_razao",
+    "rg": "denunciado_rg_ie",
+    "telefone": "denunciado_telefone",
+    # Endereço do ocorrido
+    "end_logradouro": "local_oco_logradouro",
+    "end_numero": "local_oco_numero",
+    "end_bairro": "local_oco_bairro",
+    "end_cidade": "local_oco_cidade",
+    "tipo": "origem_denuncia",
+    "status": "status",
+}
 
 # formset local só para render (sem salvar ainda), e sem campos extras na tela
 DocumentoImovelFormSet = inlineformset_factory(
@@ -19,6 +41,9 @@ DocumentoImovelFormSet = inlineformset_factory(
     can_delete=True,
 )
 
+# ==========================================================
+# CADASTRAR — STEP 1 (SEU CÓDIGO ORIGINAL, INTACTO)
+# ==========================================================
 @login_required
 def denuncia_nova_step1(request):
     pref_id = request.session.get("prefeitura_id")
@@ -150,265 +175,140 @@ def denuncia_nova_step1(request):
     )
 
 
-
-
-
-
-'''
-def _get_client_ip(request: HttpRequest) -> str | None:
-    xff = request.META.get("HTTP_X_FORWARDED_FOR")
-    if xff:
-        # primeiro IP na cadeia
-        return xff.split(",")[0].strip()
-    return request.META.get("REMOTE_ADDR")
-
-
-def _inject_required_fields_if_present(request: HttpRequest, obj: Denuncia) -> None:
-    """Preenche campos do model que não vêm no form, se existirem."""
-    # prefeitura (obrigatória no seu model)
-    if hasattr(obj, "prefeitura_id"):
-        pref_id = request.session.get("prefeitura_id")
-        if not pref_id:
-            # Sem prefeitura na sessão, bloqueia e avisa
-            raise DjangoValidationError({"prefeitura": ["Prefeitura não encontrada na sessão. Faça login novamente."]})
-        obj.prefeitura_id = pref_id
-
-    # usuário criador (opcional)
-    if hasattr(obj, "criado_por_id") and request.user.is_authenticated:
-        obj.criado_por = request.user
-
-    # auditoria leve
-    if hasattr(obj, "canal_registro") and not obj.canal_registro:
-        obj.canal_registro = "INTERNO"
-    if hasattr(obj, "user_agent"):
-        obj.user_agent = request.META.get("HTTP_USER_AGENT", "")[:200]
-    if hasattr(obj, "ip_origem"):
-        obj.ip_origem = _get_client_ip(request)
-
-
-def _get_prefeitura_da_sessao(request):
-    pid = request.session.get('prefeitura_id')
-    if not pid:
-        return None
-    try:
-        return Prefeitura.objects.get(id=pid, ativo=True)
-    except Prefeitura.DoesNotExist:
-        return None
-
+# ==========================================================
+# LISTAR (com filtros e paginação) — NOVO
+# ==========================================================
 @login_required
-def listar_denuncias(request):
-    prefeitura = _get_prefeitura_da_sessao(request)
-    if not prefeitura:
-        messages.error(request, 'Prefeitura não definida na sessão.')
-        return redirect('login')
+def denuncia_list(request):
+    prefeitura_id = request.session.get("prefeitura_id")
+    if not prefeitura_id:
+        messages.error(request, "Prefeitura não definida na sessão.")
+        return redirect("usuarios:home")
 
-    q = request.GET.get('q', '').strip()
-    status_filtro = request.GET.get('status', '').strip()
+    qs = Denuncia.objects.filter(prefeitura_id=prefeitura_id)
 
-    qs = Denuncia.objects.filter(prefeitura=prefeitura)
-    if q:
-        qs = qs.filter(
-            Q(protocolo__icontains=q) |
-            Q(denunciado_nome_razao__icontains=q) |
-            Q(local_oco_logradouro__icontains=q) |
-            Q(local_oco_bairro__icontains=q) |
-            Q(local_oco_cidade__icontains=q)
+    # Filtros GET
+    protocolo = request.GET.get("protocolo", "").strip()
+    cpf_cnpj  = request.GET.get("cpf_cnpj", "").strip()
+    nome      = request.GET.get("nome", "").strip()
+    rg        = request.GET.get("rg", "").strip()
+    telefone  = request.GET.get("telefone", "").strip()
+    endereco  = request.GET.get("endereco", "").strip()
+
+    f = DEN_FIELD
+
+    if protocolo:
+        qs = qs.filter(**{f"{f['protocolo']}__icontains": protocolo})
+    if cpf_cnpj:
+        qs = qs.filter(**{f"{f['cpf_cnpj']}__icontains": cpf_cnpj})
+    if nome:
+        qs = qs.filter(**{f"{f['nome']}__icontains": nome})
+    if rg:
+        qs = qs.filter(**{f"{f['rg']}__icontains": rg})
+    if telefone:
+        qs = qs.filter(**{f"{f['telefone']}__icontains": telefone})
+
+    # Endereço concatenado para exibição e busca
+    qs = qs.annotate(
+        endereco_concat=Concat(
+            Coalesce(F(f["end_logradouro"]), V("")),
+            V(", "),
+            Coalesce(F(f["end_numero"]), V("")),
+            V(" — "),
+            Coalesce(F(f["end_bairro"]), V("")),
+            V(" — "),
+            Coalesce(F(f["end_cidade"]), V("")),
         )
-    if status_filtro:
-        qs = qs.filter(status=status_filtro)
+    )
+    if endereco:
+        qs = qs.filter(endereco_concat__icontains=endereco)
 
-    denuncias = qs.select_related('prefeitura', 'criado_por').order_by('-criada_em')[:200]
+    # Ordenação por data desc
+    qs = qs.order_by(f"-{f['data_registro']}")
 
-    return render(request, 'denuncias/listar_denuncias.html', {
-        'denuncias': denuncias,
-        'q': q,
-        'status_filtro': status_filtro,
-    })
+    # Paginação
+    paginator = Paginator(qs, 20)
+    page_obj = paginator.get_page(request.GET.get("page"))
 
+    context = {
+        "page_obj": page_obj,
+        "protocolo": protocolo,
+        "cpf_cnpj": cpf_cnpj,
+        "nome": nome,
+        "rg": rg,
+        "telefone": telefone,
+        "endereco": endereco,
+    }
+    return render(request, "denuncias/listar_denuncias.html", context)
+
+
+# ==========================================================
+# EDITAR — BÁSICO/STEP 1 (reaproveita o template de cadastro) — NOVO
+# ==========================================================
 @login_required
-def cadastrar_denuncia(request: HttpRequest):
-    """
-    Fluxo:
-      1) Valida formulário principal e formset de documentos (podem estar vazios).
-      2) Cria a denúncia (commit=False), injeta prefeitura/usuário/auditoria e salva.
-      3) Salva documentos vinculados (se houver).
-      4) Processa e salva fotos (se houver) — tudo em transação.
-    """
+def denuncia_edit_basico(request, pk):
+    prefeitura_id = request.session.get("prefeitura_id")
+    if not prefeitura_id:
+        messages.error(request, "Prefeitura não definida na sessão.")
+        return redirect("usuarios:home")
+
+    obj = get_object_or_404(Denuncia, pk=pk, prefeitura_id=prefeitura_id)
+
     if request.method == "POST":
-        form = DenunciaCreateForm(request.POST)
-        # importante: FILES também no formset (por causa de 'arquivo')
-        doc_formset = DocumentoImovelFormSet(request.POST, request.FILES)
+        form = DenunciaOrigemForm(request.POST, instance=obj)
+        if form.is_valid():
+            obj_edit = form.save(commit=False)
+            obj_edit.prefeitura_id = obj.prefeitura_id  # mantém integridade multi-prefeitura
+            obj_edit.save()
+            messages.success(request, "Denúncia atualizada com sucesso (dados básicos).")
+            return redirect("denuncias:listar")
+        else:
+            messages.error(request, "Corrija os erros do formulário.")
+    else:
+        form = DenunciaOrigemForm(instance=obj)
 
-        # Mantém o campo de fotos na tela em caso de erro nos outros forms
-        fotos_form_preview = DenunciaFotosForm(request.POST, request.FILES, denuncia=None)
-
-        # Validação inicial de form + formset (formset vazio é válido)
-        if not (form.is_valid() and doc_formset.is_valid()):
-            messages.error(request, "Há erros no formulário. Verifique os campos destacados.")
-            if settings.DEBUG:
-                logger.error("Erros de validação: form=%s | doc_formset=%s", form.errors, doc_formset.errors)
-            return render(
-                request,
-                "denuncias/cadastrar_denuncia.html",
-                {
-                    "form": form,
-                    "doc_formset": doc_formset,
-                    "fotos_form": fotos_form_preview,
-                },
-            )
-
-        try:
-            with transaction.atomic():
-                # 1) cria a instância sem salvar definitivo
-                denuncia_obj: Denuncia = form.save(commit=False)
-
-                # 2) injeta campos obrigatórios/auxiliares vindos do request
-                _inject_required_fields_if_present(request, denuncia_obj)
-
-                # 3) salva a denúncia (model vai gerar protocolo no save)
-                denuncia_obj.save()
-
-                # 4) vincula e salva os documentos do imóvel (se houver linhas preenchidas)
-                doc_formset.instance = denuncia_obj
-                doc_formset.save()  # se não tiver nada, não cria nada
-
-                # 5) processa/salva as fotos (opcionais)
-                fotos_form = DenunciaFotosForm(request.POST, request.FILES, denuncia=denuncia_obj)
-                if fotos_form.is_valid():
-                    fotos_form.save()  # cria 0..N anexos tipo FOTO
-                else:
-                    # força erro para rollback e exibir erros do fotos_form
-                    raise DjangoValidationError(fotos_form.errors)
-
-        except DjangoValidationError as ve:
-            messages.error(request, "Houve erro ao processar os dados. Verifique os campos e arquivos enviados.")
-            if settings.DEBUG:
-                logger.exception("ValidationError ao salvar denúncia: %s", ve)
-            # Se fotos_form falhou, usamos ele; senão, mantém o preview
-            context_fotos = locals().get("fotos_form", fotos_form_preview)
-            return render(
-                request,
-                "denuncias/cadastrar_denuncia.html",
-                {
-                    "form": form,
-                    "doc_formset": doc_formset,
-                    "fotos_form": context_fotos,
-                },
-            )
-
-        except IntegrityError as ie:
-            messages.error(request, "Não foi possível salvar a denúncia (integridade).")
-            if settings.DEBUG:
-                logger.exception("IntegrityError ao salvar denúncia: %s", ie)
-                return render(
-                    request,
-                    "denuncias/cadastrar_denuncia.html",
-                    {
-                        "form": form,
-                        "doc_formset": doc_formset,
-                        "fotos_form": fotos_form_preview,
-                    },
-                )
-            return render(
-                request,
-                "denuncias/cadastrar_denuncia.html",
-                {
-                    "form": form,
-                    "doc_formset": doc_formset,
-                    "fotos_form": fotos_form_preview,
-                },
-            )
-
-        except Exception as e:
-            messages.error(request, "Não foi possível salvar a denúncia. Tente novamente.")
-            if settings.DEBUG:
-                logger.exception("Exceção ao salvar denúncia: %s", e)
-                return render(
-                    request,
-                    "denuncias/cadastrar_denuncia.html",
-                    {
-                        "form": form,
-                        "doc_formset": doc_formset,
-                        "fotos_form": fotos_form_preview,
-                    },
-                )
-            return render(
-                request,
-                "denuncias/cadastrar_denuncia.html",
-                {
-                    "form": form,
-                    "doc_formset": doc_formset,
-                    "fotos_form": fotos_form_preview,
-                },
-            )
-
-        # sucesso
-        messages.success(request, "Denúncia cadastrada com sucesso!")
-        try:
-            return redirect(reverse("denuncias:detalhar", kwargs={"pk": denuncia_obj.pk}))
-        except Exception:
-            # caso ainda não exista a rota de detalhe
-            return redirect(reverse("denuncias:nova"))
-
-    # GET
-    form = DenunciaCreateForm()
-    doc_formset = DocumentoImovelFormSet()
-    fotos_form = DenunciaFotosForm(denuncia=None)
     return render(
         request,
-        "denuncias/cadastrar_denuncia.html",
-        {
-            "form": form,
-            "doc_formset": doc_formset,
-            "fotos_form": fotos_form,
-        },
+        "denuncias/cadastrar_denuncia.html",  # reaproveita o mesmo template
+        {"form": form, "obj": obj, "modo_edicao": True},
     )
 
 
-
+# ==========================================================
+# DETALHE — (SEU CÓDIGO, MANTIDO)
+# ==========================================================
 @login_required
-@transaction.atomic
-def editar_denuncia(request, pk):
-    prefeitura = _get_prefeitura_da_sessao(request)
-    if not prefeitura:
-        messages.error(request, 'Prefeitura não definida na sessão.')
-        return redirect('login')
+def denuncia_detail(request, pk):
+    prefeitura_id = request.session.get("prefeitura_id")
+    if not prefeitura_id:
+        messages.error(request, "Prefeitura não definida na sessão.")
+        return redirect("usuarios:home")
 
-    denuncia = get_object_or_404(Denuncia, pk=pk, prefeitura=prefeitura)
+    obj = get_object_or_404(Denuncia, pk=pk, prefeitura_id=prefeitura_id)
 
-    if request.method == 'POST':
-        form_denuncia = DenunciaEditForm(request.POST, instance=denuncia)  # ⬅ aqui
-        form_fotos = DenunciaFotosForm(request.POST, request.FILES, denuncia=denuncia)
+    # Monta endereço do ocorrido (string pronta pro template)
+    endereco_oco = obj.local_oco_logradouro or ""
+    if obj.local_oco_numero:
+        endereco_oco += f", {obj.local_oco_numero}"
+    if obj.local_oco_bairro:
+        endereco_oco += f" — {obj.local_oco_bairro}"
+    if obj.local_oco_cidade:
+        endereco_oco += f" — {obj.local_oco_cidade}"
+    if obj.local_oco_uf:
+        endereco_oco += f"/{obj.local_oco_uf}"
+    if obj.local_oco_cep:
+        endereco_oco += f" • CEP: {obj.local_oco_cep}"
 
-        if form_denuncia.is_valid() and form_fotos.is_valid():
-            form_denuncia.save()
-            form_fotos.save()
-            messages.success(request, 'Denúncia atualizada com sucesso!')
-            return redirect('denuncias_detalhe', pk=denuncia.pk)
-        else:
-            messages.error(request, 'Corrija os erros do formulário.')
-    else:
-        form_denuncia = DenunciaEditForm(instance=denuncia)  # ⬅ aqui
-        form_fotos = DenunciaFotosForm(denuncia=denuncia)
+    # Relacionados: Notificações e AIFs desta denúncia
+    from apps.notificacoes.models import Notificacao
+    from apps.autoinfracao.models import AutoInfracao
+    notifs = Notificacao.objects.filter(denuncia_id=obj.id, prefeitura_id=prefeitura_id).order_by('-criada_em')
+    aifs = AutoInfracao.objects.filter(denuncia_id=obj.id, prefeitura_id=prefeitura_id).order_by('-criada_em')
 
-    return render(request, 'denuncias/editar_denuncia.html', {
-        'denuncia': denuncia,
-        'form_denuncia': form_denuncia,
-        'form_fotos': form_fotos,
-    })
-
-
-
-@login_required
-def detalhe_denuncia(request, pk):
-    prefeitura = _get_prefeitura_da_sessao(request)
-    if not prefeitura:
-        messages.error(request, 'Prefeitura não definida na sessão.')
-        return redirect('login')
-
-    denuncia = get_object_or_404(Denuncia, pk=pk, prefeitura=prefeitura)
-    return render(request, 'denuncias/detalhe_denuncia.html', {
-        'denuncia': denuncia
-    })
-
-'''
+    context = {
+        "obj": obj,
+        "endereco_oco": endereco_oco,
+        "notificacoes": notifs,
+        "autos": aifs,
+    }
+    return render(request, "denuncias/detalhe_denuncia.html", context)

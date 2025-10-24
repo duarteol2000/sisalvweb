@@ -1,0 +1,160 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'autoinfracao/css/autoinfracao.css' %}">
+{% endblock %}
+{% block menu_autoinfracao_active %}{% endblock %}
+{% block content %}
+
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h2 class="page-title mb-0">⛔ Embargos / 🚫 Interdições</h2>
+  </div>
+
+  <form method="post" class="card p-3 shadow-sm filters-card" style="margin-bottom:10px;">
+    {% csrf_token %}
+    <div class="filters-grid">
+      <div class="f">
+        <label class="form-label mb-1">Protocolo do AIF</label>
+        <input type="text" name="aif_protocolo" class="form-control form-control-sm" placeholder="IBGE-AIF-AAAAMMDDhhmmss" required>
+      </div>
+      <div class="f">
+        <label class="form-label mb-1">Gerar</label>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button type="submit" name="tipo" value="EMB" class="btn btn-outline-primary btn-sm">⛔ Embargo</button>
+          <button type="submit" name="tipo" value="ITD" class="btn btn-outline-primary btn-sm">🚫 Interdição</button>
+        </div>
+      </div>
+    </div>
+  </form>
+
+  <form method="get" class="card p-3 shadow-sm filters-card">
+    <div class="filters-grid">
+      <div class="f">
+        <label class="form-label mb-1">Tipo</label>
+        <select name="tipo" class="form-select form-select-sm">
+          <option value="">— Todos —</option>
+          <option value="EMB" {% if filtros.tipo == 'EMB' %}selected{% endif %}>Embargo</option>
+          <option value="ITD" {% if filtros.tipo == 'ITD' %}selected{% endif %}>Interdição</option>
+        </select>
+      </div>
+      <div class="f">
+        <label class="form-label mb-1">Protocolo</label>
+        <input type="text" name="protocolo" value="{{ filtros.protocolo }}" class="form-control form-control-sm">
+      </div>
+      <div class="f">
+        <label class="form-label mb-1">Status</label>
+        <select name="status" class="form-select form-select-sm">
+          <option value="">— Todos —</option>
+          {% for value,label in status_choices %}
+            <option value="{{ value }}" {% if filtros.status == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="f">
+        <label class="form-label mb-1">Notificado (nome/razão)</label>
+        <input type="text" name="nome_razao" value="{{ filtros.nome_razao }}" class="form-control form-control-sm">
+      </div>
+    </div>
+    <div class="filters-actions">
+      <button type="submit" class="btn btn-primary btn-sm">🔍 Filtrar</button>
+      <a href="{% url 'autoinfracao:medidas_listar' %}" class="btn btn-secondary btn-sm">🧹 Limpar</a>
+    </div>
+  </form>
+
+  <div class="table-card shadow-sm">
+    <div class="table-head">
+      <div><strong>Resultados</strong></div>
+      <div class="text-muted small">Total de Registros Nesta Página: {{ page_obj|length }}</div>
+    </div>
+    <div class="table-wrap table-responsive">
+      <table class="table table-striped table-hover table-sm table-bordered align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Tipo</th>
+            <th>Protocolo</th>
+            <th>Data</th>
+            <th>Status</th>
+            <th>Prazo</th>
+            <th>Notificado</th>
+            <th>AIF</th>
+            <th>Denúncia</th>
+            <th>Notificação</th>
+            <th class="text-center">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in page_obj %}
+          {% with m=row.obj a=row.obj.auto_infracao %}
+          <tr>
+            <td>{% if row.tipo == 'EMB' %}Embargo{% else %}Interdição{% endif %}</td>
+            <td><code>{{ m.protocolo }}</code></td>
+            <td>{{ m.criada_em|date:"d/m/Y H:i" }}</td>
+            <td>{{ m.get_status_display }}</td>
+            <td>
+              {% if m.dias_restantes is not None %}
+                <span class="badge {{ m.prazo_badge_class }}">{{ m.dias_restantes }}d</span>
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td>{{ a.nome_razao }}</td>
+            <td><a href="{% url 'autoinfracao:detalhe' a.pk %}"><code class="proto">{{ a.protocolo }}</code></a></td>
+            <td>
+              {% if a.denuncia %}
+                <a href="{% url 'denuncias:detalhe' a.denuncia.pk %}"><code class="proto">{{ a.denuncia.protocolo }}</code></a>
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              {% if a.notificacao %}
+                <a href="{% url 'notificacoes:detalhe' a.notificacao.pk %}"><code class="proto">{{ a.notificacao.protocolo }}</code></a>
+              {% else %}—{% endif %}
+            </td>
+            <td class="text-center table-actions">
+              {% if row.tipo == 'EMB' %}
+                <a href="{% url 'autoinfracao:embargo_detalhe' m.pk %}" class="btn btn-sm btn-outline-info">Ver</a>
+              {% else %}
+                <a href="{% url 'autoinfracao:interdicao_detalhe' m.pk %}" class="btn btn-sm btn-outline-info">Ver</a>
+              {% endif %}
+            </td>
+          </tr>
+          {% endwith %}
+          {% empty %}
+          <tr>
+            <td colspan="10" class="text-center text-muted py-4">Nenhuma medida encontrada.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% if page_obj.has_other_pages %}
+    <div class="p-2 border-top">
+      <nav>
+        <ul class="pagination justify-content-center mt-2 mb-0">
+          {% if page_obj.has_previous %}
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if querystring %}&{{ querystring }}{% endif %}">&laquo;</a></li>
+          {% else %}
+            <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
+          {% endif %}
+          {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+              <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+            {% else %}
+              <li class="page-item"><a class="page-link" href="?page={{ num }}{% if querystring %}&{{ querystring }}{% endif %}">{{ num }}</a></li>
+            {% endif %}
+          {% endfor %}
+          {% if page_obj.has_next %}
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if querystring %}&{{ querystring }}{% endif %}">&raquo;</a></li>
+          {% else %}
+            <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
+          {% endif %}
+        </ul>
+      </nav>
+    </div>
+  {% endif %}
+
+</div>
+
+{% endblock %}

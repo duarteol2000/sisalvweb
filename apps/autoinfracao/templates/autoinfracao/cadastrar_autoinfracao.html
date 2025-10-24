@@ -1,0 +1,197 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'autoinfracao/css/autoinfracao.css' %}">
+{% endblock %}
+{% block menu_autoinfracao_active %}active{% endblock %}
+{% block content %}
+
+<h2 class="page-title">🆕 Novo Auto de Infração — Dados Básicos</h2>
+<a href="{% url 'autoinfracao:listar' %}" class="btn btn-sm btn-secondary">← Voltar para a Listagem</a>
+
+<form method="post" enctype="multipart/form-data" class="notificacao-form">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+
+  <div class="form-grid">
+    <h3 class="span-3">Dados Pessoais</h3>
+    <div>
+      {{ form.pessoa_tipo.label_tag }}
+      {{ form.pessoa_tipo }}
+      {{ form.pessoa_tipo.errors }}
+    </div>
+    <div>
+      {{ form.nome_razao.label_tag }}
+      {{ form.nome_razao }}
+      {{ form.nome_razao.errors }}
+    </div>
+    <div>
+      {{ form.cpf_cnpj.label_tag }}
+      {{ form.cpf_cnpj }}
+      {{ form.cpf_cnpj.errors }}
+    </div>
+    <div>
+      {{ form.rg.label_tag }}
+      {{ form.rg }}
+      {{ form.rg.errors }}
+    </div>
+    <div>
+      {{ form.telefone.label_tag }}
+      {{ form.telefone }}
+      {{ form.telefone.errors }}
+    </div>
+    <div>
+      {{ form.email.label_tag }}
+      {{ form.email }}
+      {{ form.email.errors }}
+    </div>
+
+    <hr class="span-3">
+    <h3 class="span-3">Local da Ocorrência</h3>
+    <div>
+      {{ form.cep.label_tag }}
+      {{ form.cep }}
+      {{ form.cep.errors }}
+    </div>
+    <div>
+      {{ form.logradouro.label_tag }}
+      {{ form.logradouro }}
+      {{ form.logradouro.errors }}
+    </div>
+    <div>
+      {{ form.numero.label_tag }}
+      {{ form.numero }}
+      {{ form.numero.errors }}
+    </div>
+    <div>
+      {{ form.complemento.label_tag }}
+      {{ form.complemento }}
+      {{ form.complemento.errors }}
+    </div>
+    <div>
+      {{ form.bairro.label_tag }}
+      {{ form.bairro }}
+      {{ form.bairro.errors }}
+    </div>
+    <div>
+      {{ form.cidade.label_tag }}
+      {{ form.cidade }}
+      {{ form.cidade.errors }}
+    </div>
+    <div>
+      {{ form.uf.label_tag }}
+      {{ form.uf }}
+      {{ form.uf.errors }}
+    </div>
+
+    <div>
+      {{ form.latitude.label_tag }}
+      {{ form.latitude }}
+      {{ form.latitude.errors }}
+    </div>
+    <div>
+      {{ form.longitude.label_tag }}
+      {{ form.longitude }}
+      {{ form.longitude.errors }}
+    </div>
+
+    <hr class="span-3">
+    <h3 class="span-3">Características da Edificação</h3>
+    <div>
+      {{ form.area_m2.label_tag }}
+      {{ form.area_m2 }}
+      {{ form.area_m2.errors }}
+    </div>
+    <div>
+      {{ form.testada_m.label_tag }}
+      {{ form.testada_m }}
+      {{ form.testada_m.errors }}
+    </div>
+    <div>
+      {{ form.pe_direito_m.label_tag }}
+      {{ form.pe_direito_m }}
+      {{ form.pe_direito_m.errors }}
+    </div>
+    <div>
+      {{ form.duplex.label_tag }}
+      {{ form.duplex }}
+      {{ form.duplex.errors }}
+    </div>
+    <div>
+      {{ form.qtd_comodos.label_tag }}
+      {{ form.qtd_comodos }}
+      {{ form.qtd_comodos.errors }}
+    </div>
+    <div>
+      {{ form.compartimentacao.label_tag }}
+      {{ form.compartimentacao }}
+      {{ form.compartimentacao.errors }}
+    </div>
+    <div>
+      {{ form.divisorias.label_tag }}
+      {{ form.divisorias }}
+      {{ form.divisorias.errors }}
+    </div>
+    <div>
+      {{ form.mezanino.label_tag }}
+      {{ form.mezanino }}
+      {{ form.mezanino.errors }}
+    </div>
+    <div>
+      {{ form.area_mezanino_m2.label_tag }}
+      {{ form.area_mezanino_m2 }}
+      {{ form.area_mezanino_m2.errors }}
+    </div>
+
+    <hr class="span-3">
+    <h3 class="span-3">Dados do Auto</h3>
+    <div class="span-3">
+      {{ form.descricao.label_tag }}
+      {{ form.descricao }}
+      {{ form.descricao.errors }}
+    </div>
+
+    <div class="span-3">
+      <label>Tipos de Infração</label>
+      <div class="checkbox-grid">
+        {% for t in form.tipos.field.queryset %}
+          <label>
+            <input type="checkbox" name="tipos" value="{{ t.id }}">
+            {{ t.nome }}
+          </label>
+        {% empty %}
+          <em>Nenhum tipo disponível.</em>
+        {% endfor %}
+      </div>
+      <div style="margin-top:6px; display:flex; gap:8px; flex-wrap:wrap;">
+        <a href="{% url 'autoinfracao:tipos_novo' %}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener">+ Novo Tipo de Infração</a>
+        <a href="{% url 'autoinfracao:tipos_listar' %}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener">Gerenciar</a>
+      </div>
+    </div>
+
+    <div class="span-3">
+      <label for="id_fiscais">Fiscais</label>
+      {{ form.fiscais }}
+    </div>
+  </div>
+
+  <hr>
+  <h3>📎 Fotos do Auto</h3>
+  <div class="form-grid">
+    <div>
+      <label for="id_fotos">Selecionar fotos</label>
+      <input id="id_fotos" type="file" name="fotos" multiple accept="image/*">
+      <small>Você pode selecionar várias imagens.</small>
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Salvar</button>
+  </div>
+</form>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/viacep.js' %}"></script>
+{% endblock %}

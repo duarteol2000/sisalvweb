@@ -1,24 +1,153 @@
 {% extends "core/base.html" %}
+{% load static %}
 {% block title %}Login — SISALVWEB{% endblock %}
+{% block body_class %}public{% endblock %}
 
-{% block content %}
-  <div class="card">
-    <h2 class="text-center">Login no SISALVWEB</h2>
+{% block extra_css %}
+<style>
+  /* Layout de uma coluna com imagem full background */
+  body.public{
+    background: url("{% static 'sisalv/img/login-sisalv.png' %}") center/cover no-repeat fixed !important;
+  }
+  /* Leve overlay + blur para contraste do card sobre o fundo */
+  body.public::before{
+    content: "";
+    position: fixed; inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,.28), rgba(0,0,0,.18));
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .auth-grid{ grid-template-columns: 1fr !important; }
+  .hero-pane{ display: none !important; }
+  .auth-grid{ position: relative; z-index: 1; }
+  /* Card mais próximo do fundo (glass escuro translúcido) */
+  .glass-card{ max-width: 480px; margin: 0 auto; background: rgba(13,20,34,.70); backdrop-filter: blur(10px) saturate(120%);
+    border: 1px solid rgba(255,255,255,.08); box-shadow: 0 14px 40px rgba(0,0,0,.35); border-radius: 16px; }
+  /* Tipografia clara para melhor contraste no card escuro */
+  .public-title{ color:#e5e7eb; }
+  .public-subtitle{ color:#9ca3af; }
+  .login-header{ text-align:center; }
+  .app-title{ margin:0; font-size:2.2rem; line-height:1.1; font-weight:900; letter-spacing:.6px;
+    background: linear-gradient(90deg, #60a5fa, #38bdf8); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .app-sub{ margin:.2rem 0 .5rem 0; font-size:1.04rem; font-weight:700; color:#e5e7eb; letter-spacing:.2px; }
+  .public-form label{ color:#e5e7eb; }
+  .public-form input[type="email"],
+  .public-form input[type="password"],
+  .public-form input[type="text"]{ background:rgba(11,18,32,.75); color:#e5e7eb; border:1px solid #1f2937; }
+  .public-form input::placeholder{ color:#94a3b8; }
+  @media (max-width: 520px){
+    .glass-card{ max-width: 92vw; }
+    body.public::before{ background: rgba(0,0,0,.25); }
+  }
+</style>
+{% endblock %}
 
-    <form method="post" novalidate>
-      {% csrf_token %}
+{% block public_content %}
+  <div class="auth-grid">
+    <!-- Coluna 1: imagem/hero -->
+    <!-- Hero oculto: imagem agora vai no background do body -->
 
-      <label for="email">E-mail</label>
-      <input id="email" name="email" type="email" required autofocus placeholder="seu@email.com">
+    <!-- Coluna 2: formulário (card glass) -->
+    <section class="glass-card" role="dialog" aria-labelledby="loginTitle" aria-describedby="loginDesc">
+      <header class="login-header">
+        <h1 id="loginTitle" class="app-title">SISALVEWEB</h1>
+        <p class="app-sub">Sistema de Alvará e Fiscalização</p>
+        <p id="loginDesc" class="public-subtitle brand-sub">Use e-mail, senha e o código IBGE da prefeitura</p>
+      </header>
 
-      <label for="password">Senha</label>
-      <input id="password" name="password" type="password" required placeholder="••••••••">
+      {% if messages %}
+        <div class="messages" aria-live="polite" aria-atomic="true" style="margin-bottom:.5rem;">
+          {% for message in messages %}
+            <div class="alert {{ message.tags|default:'info' }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
 
-      <label for="codigo_ibge">Código IBGE da sua Prefeitura</label>
-      <input id="codigo_ibge" name="codigo_ibge" type="text" inputmode="numeric" pattern="[0-9]*" required placeholder="Apenas números (6 ou 7 dígitos)">
-      <p class="hint">Ex.: 2307650 (Maracanaú). Somente números.</p>
+      <form method="post" novalidate class="public-form" id="loginForm">
+        {% csrf_token %}
 
-      <button type="submit" style="margin-top:16px;">Entrar</button>
-    </form>
+        <div class="form-group">
+          <label for="email">E-mail</label>
+          <input id="email" name="email" type="email" required autofocus
+                 autocomplete="username" inputmode="email" placeholder="seu@email.com"
+                 value="{% if request.method == 'POST' %}{{ request.POST.email }}{% endif %}">
+        </div>
+
+        <div class="form-group">
+          <label for="password">Senha</label>
+          <div style="position:relative;">
+            <input id="password" name="password" type="password" required
+                   autocomplete="current-password" placeholder="••••••••" aria-describedby="passwordHint">
+            <button type="button" id="togglePwd" class="btn-ghost"
+                    aria-label="Mostrar senha"
+                    style="position:absolute;right:6px;top:6px;height:30px;padding:0 .5rem;border-radius:.5rem;">👁️</button>
+          </div>
+          <small id="passwordHint" class="hint" style="color:#94a3b8;">Use sua senha cadastrada no sistema</small>
+        </div>
+
+        <div class="form-group">
+          <label for="codigo_ibge">Código IBGE da sua Prefeitura</label>
+          <input id="codigo_ibge" name="codigo_ibge" type="text" inputmode="numeric" pattern="[0-9]*"
+                 maxlength="7" required placeholder="Apenas números (6 ou 7 dígitos)"
+                 aria-describedby="ibgeHint"
+                 value="{% if request.method == 'POST' %}{{ request.POST.codigo_ibge }}{% endif %}">
+          <p id="ibgeHint" class="hint" style="color:#94a3b8;margin:.25rem 0 0;">Ex.: 2307650 (Maracanaú). Somente números.</p>
+        </div>
+
+        <button type="submit" class="btn-primary" id="loginSubmit" style="margin-top:6px;">Entrar</button>
+
+        <div class="public-meta" style="margin-top:10px;">
+          <a href="{% url 'usuarios:password_reset' %}">Esqueci minha senha</a>
+          &nbsp;•&nbsp;
+          <a href="{% url 'login' %}">Voltar ao início</a>
+        </div>
+      </form>
+    </section>
   </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+  // Aplica o background da hero a partir do data-atributo (evita inline CSS com template tags)
+  const heroBg = document.querySelector('.hero-bg');
+  if (heroBg && heroBg.dataset.bg) {
+    heroBg.style.backgroundImage = 'url(' + heroBg.dataset.bg + ')';
+    heroBg.style.backgroundRepeat = 'no-repeat';
+    heroBg.style.backgroundSize = 'cover';
+    heroBg.style.backgroundPosition = 'center';
+    heroBg.style.opacity = '1';
+    heroBg.style.filter = 'none';
+  }
+
+  // --- resto do seu JS já existente ---
+  const ibge = document.getElementById('codigo_ibge');
+  const email = document.getElementById('email');
+  const pwd = document.getElementById('password');
+  const togglePwd = document.getElementById('togglePwd');
+  const form = document.getElementById('loginForm');
+
+  function onlyDigits7(v){ return (v||'').replace(/\D+/g,'').slice(0,7); }
+  if(ibge){
+    ibge.addEventListener('input', ()=> ibge.value = onlyDigits7(ibge.value));
+    ibge.addEventListener('blur',  ()=> ibge.value = onlyDigits7(ibge.value));
+  }
+  if(togglePwd && pwd){
+    togglePwd.addEventListener('click', ()=>{
+      const showing = pwd.type === 'text';
+      pwd.type = showing ? 'password' : 'text';
+      togglePwd.setAttribute('aria-label', showing ? 'Mostrar senha' : 'Ocultar senha');
+      pwd.focus({preventScroll:true});
+    });
+  }
+  if(form){
+    form.addEventListener('submit', ()=>{
+      if(email) email.value = (email.value||'').trim();
+      if(ibge)  ibge.value = onlyDigits7(ibge.value);
+    });
+  }
+})();
+</script>
 {% endblock %}

@@ -1,0 +1,234 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'notificacoes/css/notificacoes.css' %}">
+{% endblock %}
+{% block menu_notificacoes_active %}active{% endblock %}
+{% block content %}
+
+<h2 class="page-title">✏️ Editar Notificação — Dados Básicos</h2>
+
+<div class="detail-meta">
+  <span><strong>Protocolo:</strong> <code class="proto">{{ obj.protocolo }}</code></span>
+  <span>•</span>
+  <span><strong>Criada em:</strong> {{ obj.criada_em|date:"d/m/Y H:i" }}</span>
+  <span>•</span>
+  <span><strong>Status:</strong> {{ obj.get_status_display }}</span>
+</div>
+
+<div class="detail-actions" style="margin-top:8px;">
+  <a href="{% url 'notificacoes:listar' %}" class="btn btn-sm btn-secondary">← Voltar</a>
+  <a href="{% url 'notificacoes:detalhe' obj.pk %}" class="btn btn-sm btn-outline-primary">Ver Detalhe</a>
+</div>
+
+<form method="post" enctype="multipart/form-data" class="notificacao-form" style="margin-top:12px;">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+
+  <div class="form-grid">
+    <h3 class="span-3">Dados Pessoais</h3>
+    <div>
+      {{ form.pessoa_tipo.label_tag }}
+      {{ form.pessoa_tipo }}
+      {{ form.pessoa_tipo.errors }}
+    </div>
+    <div>
+      {# Mesmo ajuste do cadastro: Tipo de Documento antes de CPF/CNPJ (mesma linha) #}
+      {{ form.documento_tipo.label_tag }}
+      {{ form.documento_tipo }}
+      {{ form.documento_tipo.errors }}
+    </div>
+    <div>
+      {{ form.cpf_cnpj.label_tag }}
+      {{ form.cpf_cnpj }}
+      {{ form.cpf_cnpj.errors }}
+    </div>
+    <div>
+      {{ form.nome_razao.label_tag }}
+      {{ form.nome_razao }}
+      {{ form.nome_razao.errors }}
+    </div>
+    <div>
+      {{ form.rg.label_tag }}
+      {{ form.rg }}
+      {{ form.rg.errors }}
+    </div>
+    <div>
+      {{ form.telefone.label_tag }}
+      {{ form.telefone }}
+      {{ form.telefone.errors }}
+    </div>
+    <div>
+      {{ form.email.label_tag }}
+      {{ form.email }}
+      {{ form.email.errors }}
+    </div>
+
+    <hr class="span-3">
+    <h3 class="span-3">Local da Ocorrência</h3>
+    <div>
+      {{ form.cep.label_tag }}
+      {{ form.cep }}
+      {{ form.cep.errors }}
+    </div>
+    <div>
+      {{ form.logradouro.label_tag }}
+      {{ form.logradouro }}
+      {{ form.logradouro.errors }}
+    </div>
+    <div>
+      {{ form.numero.label_tag }}
+      {{ form.numero }}
+      {{ form.numero.errors }}
+    </div>
+    <div>
+      {{ form.complemento.label_tag }}
+      {{ form.complemento }}
+      {{ form.complemento.errors }}
+    </div>
+    <div>
+      {{ form.bairro.label_tag }}
+      {{ form.bairro }}
+      {{ form.bairro.errors }}
+    </div>
+    <div>
+      {{ form.cidade.label_tag }}
+      {{ form.cidade }}
+      {{ form.cidade.errors }}
+    </div>
+    <div>
+      {{ form.uf.label_tag }}
+      {{ form.uf }}
+      {{ form.uf.errors }}
+    </div>
+
+    <div>
+      {{ form.latitude.label_tag }}
+      {{ form.latitude }}
+      {{ form.latitude.errors }}
+    </div>
+    <div>
+      {{ form.longitude.label_tag }}
+      {{ form.longitude }}
+      {{ form.longitude.errors }}
+    </div>
+
+    <hr class="span-3">
+    <h3 class="span-3">Características da Edificação</h3>
+    <div>
+      {{ form.area_m2.label_tag }}
+      {{ form.area_m2 }}
+      {{ form.area_m2.errors }}
+    </div>
+    <div>
+      {{ form.testada_m.label_tag }}
+      {{ form.testada_m }}
+      {{ form.testada_m.errors }}
+    </div>
+    <div>
+      {{ form.pe_direito_m.label_tag }}
+      {{ form.pe_direito_m }}
+      {{ form.pe_direito_m.errors }}
+    </div>
+    <div>
+      {{ form.duplex.label_tag }}
+      {{ form.duplex }}
+      {{ form.duplex.errors }}
+    </div>
+    <div>
+      {{ form.qtd_comodos.label_tag }}
+      {{ form.qtd_comodos }}
+      {{ form.qtd_comodos.errors }}
+    </div>
+    <div>
+      {{ form.compartimentacao.label_tag }}
+      {{ form.compartimentacao }}
+      {{ form.compartimentacao.errors }}
+    </div>
+    <div>
+      {{ form.divisorias.label_tag }}
+      {{ form.divisorias }}
+      {{ form.divisorias.errors }}
+    </div>
+    <div>
+      {{ form.mezanino.label_tag }}
+      {{ form.mezanino }}
+      {{ form.mezanino.errors }}
+    </div>
+    <div>
+      {{ form.area_mezanino_m2.label_tag }}
+      {{ form.area_mezanino_m2 }}
+      {{ form.area_mezanino_m2.errors }}
+    </div>
+
+    <div>
+      {{ form.descricao.label_tag }}
+      {{ form.descricao }}
+      {{ form.descricao.errors }}
+    </div>
+    <div>
+      {{ form.prazo_regularizacao.label_tag }}
+      {{ form.prazo_regularizacao }}
+      {{ form.prazo_regularizacao.errors }}
+    </div>
+
+    <div>
+      {{ form.status.label_tag }}
+      {{ form.status }}
+      {{ form.status.errors }}
+    </div>
+  </div>
+
+  <hr>
+  <h3>📎 Fotos da Notificação</h3>
+  <div class="form-grid">
+    <div>
+      <label for="id_fotos">Adicionar fotos</label>
+      <input id="id_fotos" type="file" name="fotos" multiple accept="image/*">
+      <small>Você pode selecionar várias imagens.</small>
+    </div>
+  </div>
+
+  <!-- Pré-visualização local -->
+  <div id="preview-wrapper" style="display:none; margin-top:8px;">
+    <h4 style="margin:8px 0;">Pré-visualização</h4>
+    <div id="preview-grid" class="anexos-grid"></div>
+  </div>
+
+  {% if anexos_existentes %}
+    <div class="anexos-grid">
+      {% for a in anexos_existentes %}
+        <div class="anexo-item">
+          {% if a.tipo == "FOTO" %}
+            <a href="{{ a.arquivo.url }}" target="_blank" rel="noopener">
+              <img src="{{ a.arquivo.url }}" alt="Foto da notificação" class="thumb" loading="lazy">
+            </a>
+          {% else %}
+            <a href="{{ a.arquivo.url }}" target="_blank" rel="noopener" class="doc-link">
+              {{ a.arquivo.name|cut:"notificacoes/anexos/" }}
+            </a>
+          {% endif %}
+          {% if a.observacao %}
+            <p class="anexo-legenda">{{ a.observacao }}</p>
+          {% endif %}
+          {% if a.largura_px and a.altura_px %}
+            <p class="anexo-legenda">{{ a.largura_px }}×{{ a.altura_px }} px</p>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p><em>Nenhum anexo enviado.</em></p>
+  {% endif %}
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Salvar alterações</button>
+  </div>
+</form>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'notificacoes/js/notificacoes.js' %}"></script>
+<script src="{% static 'js/viacep.js' %}"></script>
+{% endblock %}

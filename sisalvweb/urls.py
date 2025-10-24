@@ -9,8 +9,15 @@ urlpatterns = [
     path("login/", login_view, name="login"),
     path("logout/", logout_view, name="logout"),
     path("", home_view, name="home"),
-    path('denuncias/', include('apps.denuncias.urls', namespace='denuncias')),
-]
+
+    # ✅ denuncias com namespace
+    path("denuncias/", include(("apps.denuncias.urls", "denuncias"), namespace="denuncias")),
+    path("", include(("apps.usuarios.urls", "usuarios"), namespace="usuarios")),
+
+    path("notificacoes/", include("apps.notificacoes.urls", namespace="notificacoes")),
+    path("autoinfracao/", include(("apps.autoinfracao.urls", "autoinfracao"), namespace="autoinfracao")),
+    
+    ]
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

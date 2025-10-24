@@ -1,0 +1,85 @@
+📌 Fluxo de Uso no SISALV WEB
+
+Login do Usuário
+
+O sistema identifica a prefeitura vinculada (VinculoUsuarioPrefeitura).
+
+O dashboard mostra apenas os tipos de documentos ativos no catálogo daquela prefeitura (CatalogoTipo).
+
+Denúncia (entrada do cidadão)
+
+Cidadão ou servidor registra uma denúncia.
+
+Campos básicos: descrição, local, fotos (até 4).
+
+Status começa em ANÁLISE.
+
+Se confirmada → gera um documento oficial (Notificação ou AIF).
+
+Notificação (NTF)
+
+Documento preventivo/educativo.
+
+Pode ser gerado a partir de denúncia ou direto pelo fiscal.
+
+Guarda dados do notificado (nome, CPF, endereço, etc.).
+
+Auto de Infração (AIF)
+
+Caso a irregularidade persista, gera-se o Auto de Infração.
+
+Estrutura: protocolo único, endereço, descrição, multas, anexos, participantes (fiscais).
+
+O notificado já aparece com dados completos (nome, CPF, CNPJ, etc.).
+
+Medidas Punitivas
+
+Se o AIF não for resolvido: Até aqui todos os documentos são independentes, porém a 
+Denúncia: pode gerar uma Notificação;
+Notificação: pode gerar um Auto de Infração 
+
+Interdição (ITD) → comércio/estabelecimento. Não existe Interdição sem Auto de Infração.
+
+Embargo (EMB) → obra. Não existe Embargo sem Auto de Infração.
+
+Ambos herdam da mesma base (DocumentoBase).
+
+Apreensão (APR)
+
+Quando há retirada de bens/materiais irregulares.
+
+Exemplo: mercadoria ilegal.
+
+Vistoria (VST)
+
+Usada em renovação de alvará, fiscalização programada ou retorno para checar cumprimento.
+No final geraremos este cadastro que deve ser simples, só para efeito de confirmação da 
+vistoria, para que analistas possam verificar se foi feito a vistoria.
+
+
+
+
+
+
+[Login] --> [Dashboard]
+               |
+               v
+         [Nova Denúncia] ----> [Análise Fiscal]
+                                  |
+             +--------------------+---------------------+
+             |                                          |
+          [Procedente]                             [Improcedente]
+             |                                          |
+             v                                          v
+   [Notificação (NTF)]                            [Arquiva]
+             |
+             v
+   [Auto de Infração (AIF)]
+             |
+             v
+     +-------+--------+
+     |                |
+ [Interdição]     [Embargo]
+     |
+     v
+ [Apreensão]

@@ -1,0 +1,169 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'autoinfracao/css/autoinfracao.css' %}">
+{% endblock %}
+{% block menu_autoinfracao_active %}active{% endblock %}
+{% block content %}
+
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h2 class="page-title mb-0">⚖️ Autos de Infração</h2>
+    <div class="buttons-left">
+      <a href="{% url 'autoinfracao:tipos_listar' %}" class="btn btn-outline-primary btn-sm">Gerenciar Tipos</a>
+      <a href="{% url 'autoinfracao:enq_listar' %}" class="btn btn-outline-primary btn-sm">Gerenciar Enquadramentos</a>
+    </div>
+  </div>
+
+  <form method="get" class="card p-3 shadow-sm filters-card">
+    <div class="filters-grid">
+      <div class="f">
+        <label class="form-label mb-1">Protocolo</label>
+        <input type="text" name="protocolo" value="{{ filtros.protocolo }}" class="form-control form-control-sm">
+      </div>
+      <div class="f">
+        <label class="form-label mb-1">CPF/CNPJ</label>
+        <input type="text" name="cpf_cnpj" value="{{ filtros.cpf_cnpj }}" class="form-control form-control-sm">
+      </div>
+      <div class="f">
+        <label class="form-label mb-1">Nome/Razão</label>
+        <input type="text" name="nome_razao" value="{{ filtros.nome_razao }}" class="form-control form-control-sm">
+      </div>
+      <div class="f">
+        <label class="form-label mb-1">Endereço do Ocorrido</label>
+        <input type="text" name="endereco" value="{{ filtros.endereco }}" class="form-control form-control-sm" placeholder="Rua, nº, bairro ou cidade">
+      </div>
+      <div class="f">
+        <label class="form-label mb-1">Status</label>
+        <select name="status" class="form-select form-select-sm">
+          <option value="">— Todos —</option>
+          {% for value,label in status_choices %}
+            <option value="{{ value }}" {% if filtros.status == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="filters-actions">
+      <button type="submit" class="btn btn-primary btn-sm">🔍 Filtrar</button>
+      <a href="{% url 'autoinfracao:listar' %}" class="btn btn-secondary btn-sm">🧹 Limpar</a>
+      <a href="{% url 'autoinfracao:cadastrar' %}" class="btn btn-success btn-sm">➕ Novo Auto</a>
+    </div>
+  </form>
+
+  <div class="table-card shadow-sm">
+    <div class="table-head">
+      <div><strong>Resultados</strong></div>
+      <div class="text-muted small">Total de Registros Nesta Página: {{ page_obj|length }}</div>
+    </div>
+    <div class="table-wrap table-responsive">
+      <table class="table table-striped table-hover table-sm table-bordered align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Protocolo</th>
+            <th>Data</th>
+            <th>Notificado</th>
+            <th>CPF/CNPJ</th>
+            <th>Status</th>
+            <th>Embargo</th>
+            <th>Interdição</th>
+            <th>Prazo</th>
+            <th>Vlr. Infração</th>
+            <th>Vlr. Homologado</th>
+            <th class="text-center">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in page_obj %}
+          <tr>
+            <td><code>{{ a.protocolo }}</code></td>
+            <td>{{ a.criada_em|date:"d/m/Y H:i" }}</td>
+            <td>{{ a.nome_razao }}</td>
+            <td>{{ a.cpf_cnpj }}</td>
+            <td>{{ a.get_status_display }}</td>
+            <td>
+              {% with es=a.embargos.all %}
+                {% if es %}
+                  {% for e in es|slice:"0:1" %}
+                    <a href="{% url 'autoinfracao:embargo_detalhe' e.pk %}"><code>{{ e.protocolo }}</code></a>
+                  {% endfor %}
+                  {% if es|length > 1 %}
+                    <span class="badge bg-secondary">+{{ es|length|add:"-1" }}</span>
+                  {% endif %}
+                {% else %}
+                  —
+                {% endif %}
+              {% endwith %}
+            </td>
+            <td>
+              {% with its=a.interdicoes.all %}
+                {% if its %}
+                  {% for it in its|slice:"0:1" %}
+                    <a href="{% url 'autoinfracao:interdicao_detalhe' it.pk %}"><code>{{ it.protocolo }}</code></a>
+                  {% endfor %}
+                  {% if its|length > 1 %}
+                    <span class="badge bg-secondary">+{{ its|length|add:"-1" }}</span>
+                  {% endif %}
+                {% else %}
+                  —
+                {% endif %}
+              {% endwith %}
+            </td>
+            <td>
+              {% if a.status == 'REGULARIZADO' %}
+                —
+              {% elif a.dias_restantes is not None %}
+                <span class="badge {{ a.prazo_badge_class }}">{{ a.dias_restantes }}d</span>
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td>R$ {{ a.valor_infracao|default_if_none:a.total_multa }}</td>
+            <td>R$ {{ a.valor_multa_homologado|default:"—" }}</td>
+            <td class="text-center table-actions">
+              <a href="{% url 'autoinfracao:detalhe' a.pk %}" class="btn btn-sm btn-outline-info">Ver</a>
+              <a href="{% url 'autoinfracao:editar' a.pk %}" class="btn btn-sm btn-outline-primary">Editar</a>
+              {% if a.status != 'REGULARIZADO' %}
+                <a href="{% url 'autoinfracao:gerar_embargo' a.pk %}" class="btn btn-sm btn-outline-primary" title="Gerar Embargo">⛔ Embargo</a>
+                <a href="{% url 'autoinfracao:gerar_interdicao' a.pk %}" class="btn btn-sm btn-outline-primary" title="Gerar Interdição">🚫 Interdição</a>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="11" class="text-center text-muted py-4">Nenhum auto encontrado.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% if page_obj.has_other_pages %}
+    <div class="p-2 border-top">
+      <nav>
+        <ul class="pagination justify-content-center mt-2 mb-0">
+          {% if page_obj.has_previous %}
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if querystring %}&{{ querystring }}{% endif %}">&laquo;</a></li>
+          {% else %}
+            <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
+          {% endif %}
+          {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+              <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+            {% else %}
+              <li class="page-item"><a class="page-link" href="?page={{ num }}{% if querystring %}&{{ querystring }}{% endif %}">{{ num }}</a></li>
+            {% endif %}
+          {% endfor %}
+          {% if page_obj.has_next %}
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if querystring %}&{{ querystring }}{% endif %}">&raquo;</a></li>
+          {% else %}
+            <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
+          {% endif %}
+        </ul>
+      </nav>
+    </div>
+  {% endif %}
+
+</div>
+
+{% endblock %}

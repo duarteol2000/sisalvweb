@@ -1,0 +1,98 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Notificação {{ obj.protocolo }}</title>
+  <link rel="icon" href="{% static 'img/favicon.png' %}">
+  <link rel="stylesheet" href="{% static 'sisalv/css/theme-light.css' %}">
+  <style>
+    @media print {
+      .no-print { display:none !important; }
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+    body{ background:#fff; color:#111827; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Helvetica, Arial; }
+    .print-container{ width:min(96vw, 960px); margin: 10px auto; padding: 10px; }
+    .print-header{ display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #e5e7eb; padding-bottom:8px; margin-bottom:12px; }
+    .brand{ display:flex; align-items:center; gap:10px; }
+    .brand img{ height:42px; width:auto; }
+    .meta{ text-align:right; color:#475569; font-size:.95rem; }
+    .grid-2{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    .grid-3{ display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; }
+    .section{ margin-top:12px; }
+    .section h3{ margin: 0 0 6px 0; font-size:1.02rem; }
+    .field{ border:1px solid #e5e7eb; border-radius:8px; padding:8px; background:#fff; }
+    .label{ color:#6b7280; font-size:.8rem; margin-bottom:4px; }
+    .value{ font-weight:600; }
+    .actions{ margin:8px 0; }
+    .btn{ display:inline-block; border:1px solid #e5e7eb; border-radius:8px; padding:.35rem .6rem; text-decoration:none; }
+  </style>
+</head>
+<body>
+  <div class="print-container">
+    <div class="actions no-print">
+      <a class="btn" href="javascript:window.print()">Imprimir</a>
+      <a class="btn" href="{% url 'notificacoes:detalhe' obj.pk %}">Voltar</a>
+    </div>
+    <header class="print-header">
+      <div class="brand">
+        <img src="{% static 'img/logo_prefeitura.png' %}" alt="Logo">
+        <div>
+          <div class="public-title" style="margin:0;">Notificação</div>
+          <div class="public-subtitle" style="margin:0;">SISALV WEB</div>
+        </div>
+      </div>
+      <div class="meta">
+        <div><strong>Protocolo:</strong> <code>{{ obj.protocolo }}</code></div>
+        <div><strong>Data:</strong> {{ obj.criada_em|date:"d/m/Y H:i" }}</div>
+      </div>
+    </header>
+
+    <section class="section">
+      <h3>Notificado</h3>
+      <div class="grid-3">
+        <div class="field"><div class="label">Nome/Razão</div><div class="value">{{ obj.nome_razao }}</div></div>
+        <div class="field"><div class="label">CPF/CNPJ</div><div class="value">{{ obj.cpf_cnpj }}</div></div>
+        <div class="field"><div class="label">Contato</div><div class="value">{{ obj.telefone }} | {{ obj.email }}</div></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h3>Endereço</h3>
+      <div class="field">
+        <div class="value">
+          {{ obj.logradouro }}, {{ obj.numero }} {{ obj.complemento }} – {{ obj.bairro }} – {{ obj.cidade }}/{{ obj.uf }}
+          | CEP: {{ obj.cep }}
+        </div>
+      </div>
+    </section>
+
+    {% if obj.latitude or obj.longitude %}
+    <section class="section">
+      <h3>Geolocalização</h3>
+      <div class="grid-3">
+        <div class="field"><div class="label">Latitude</div><div class="value">{{ obj.latitude }}</div></div>
+        <div class="field"><div class="label">Longitude</div><div class="value">{{ obj.longitude }}</div></div>
+      </div>
+    </section>
+    {% endif %}
+
+    <section class="section">
+      <h3>Descrição</h3>
+      <div class="field"><div class="value" style="white-space: pre-line;">{{ obj.descricao }}</div></div>
+    </section>
+
+    {% if obj.prazo_regularizacao %}
+    <section class="section">
+      <h3>Prazo para Regularização</h3>
+      <div class="field"><div class="value">{{ obj.prazo_regularizacao|date:"d/m/Y" }}</div></div>
+    </section>
+    {% endif %}
+  </div>
+  <script>/* auto-print opcional: descomentar se quiser */
+    // window.print();
+  </script>
+</body>
+</html>
+
