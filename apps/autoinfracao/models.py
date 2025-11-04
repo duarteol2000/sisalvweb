@@ -3,7 +3,7 @@ from django.utils import timezone
 from django.core.validators import MinValueValidator, MaxValueValidator
 from apps.prefeituras.models import Prefeitura
 from apps.usuarios.models import Usuario
-from utils.protocolo import gerar_protocolo
+from utils.protocolo import gerar_protocolo_para_instance
 from utils.choices import (
     PESSOA_TIPO_CHOICES,
     AIF_STATUS_CHOICES,
@@ -73,14 +73,18 @@ class AutoInfracao(models.Model):
     cidade = models.CharField(max_length=100)
     uf = models.CharField(max_length=2, default="CE")
 
+    # Vínculos opcionais (referências)
+    pessoa = models.ForeignKey('cadastros.Pessoa', null=True, blank=True, on_delete=models.SET_NULL, related_name='autos_infracao_ref')
+    imovel = models.ForeignKey('cadastros.Imovel', null=True, blank=True, on_delete=models.SET_NULL, related_name='autos_infracao_ref')
+
     # Geolocalização (opcional)
-    latitude = models.DecimalField(
-        max_digits=9, decimal_places=6, null=True, blank=True,
+    latitude = models.FloatField(
+        null=True, blank=True,
         validators=[MinValueValidator(-90.0), MaxValueValidator(90.0)],
         help_text="Ex.: -3.876543"
     )
-    longitude = models.DecimalField(
-        max_digits=9, decimal_places=6, null=True, blank=True,
+    longitude = models.FloatField(
+        null=True, blank=True,
         validators=[MinValueValidator(-180.0), MaxValueValidator(180.0)],
         help_text="Ex.: -38.654321"
     )
@@ -117,7 +121,7 @@ class AutoInfracao(models.Model):
     # Auditoria
     criada_em = models.DateTimeField(default=timezone.now)
     atualizada_em = models.DateTimeField(auto_now=True)
-    criada_por = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, related_name="aif_criados")
+    criado_por = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, related_name="aif_criados")
     atualizada_por = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, related_name="aif_editados")
 
     class Meta:
@@ -127,12 +131,21 @@ class AutoInfracao(models.Model):
         ordering = ["-criada_em"]
 
     def save(self, *args, **kwargs):
+        # Normaliza lat/lng
+        def _coerce_float6(val, lo=None, hi=None):
+            if val in (None, ""): return None
+            try:
+                s = str(val).strip().replace(" ", "").replace(",", ".")
+                f = float(s)
+                if lo is not None and f < lo: return None
+                if hi is not None and f > hi: return None
+                return round(f, 6)
+            except Exception:
+                return None
+        self.latitude = _coerce_float6(self.latitude, -90.0, 90.0)
+        self.longitude = _coerce_float6(self.longitude, -180.0, 180.0)
         if not self.pk and not self.protocolo:
-            ibge = (self.prefeitura.codigo_ibge if self.prefeitura else '') or ''
-            matricula = None
-            if self.criada_por and getattr(self.criada_por, 'matricula', None):
-                matricula = self.criada_por.matricula
-            self.protocolo = gerar_protocolo(ibge, 'AIF', matricula=matricula)
+            self.protocolo = gerar_protocolo_para_instance(self, 'AIF')
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -206,7 +219,7 @@ class Embargo(models.Model):
 
     criada_em = models.DateTimeField(default=timezone.now)
     atualizada_em = models.DateTimeField(auto_now=True)
-    criada_por = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, related_name='embargos_criados')
+    criado_por = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, related_name='embargos_criados')
     atualizada_por = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, related_name='embargos_editados')
 
     class Meta:
@@ -217,11 +230,7 @@ class Embargo(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.pk and not self.protocolo:
-            ibge = (self.prefeitura.codigo_ibge if self.prefeitura else '') or ''
-            matricula = None
-            if self.criada_por and getattr(self.criada_por, 'matricula', None):
-                matricula = self.criada_por.matricula
-            self.protocolo = gerar_protocolo(ibge, 'EMB', matricula=matricula)
+            self.protocolo = gerar_protocolo_para_instance(self, 'EMB')
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -323,7 +332,7 @@ class Interdicao(models.Model):
 
     criada_em = models.DateTimeField(default=timezone.now)
     atualizada_em = models.DateTimeField(auto_now=True)
-    criada_por = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, related_name='interdicoes_criadas')
+    criado_por = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, related_name='interdicoes_criadas')
     atualizada_por = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, related_name='interdicoes_editadas')
 
     class Meta:
@@ -334,11 +343,7 @@ class Interdicao(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.pk and not self.protocolo:
-            ibge = (self.prefeitura.codigo_ibge if self.prefeitura else '') or ''
-            matricula = None
-            if self.criada_por and getattr(self.criada_por, 'matricula', None):
-                matricula = self.criada_por.matricula
-            self.protocolo = gerar_protocolo(ibge, 'ITD', matricula=matricula)
+            self.protocolo = gerar_protocolo_para_instance(self, 'ITD')
         super().save(*args, **kwargs)
 
     def __str__(self):

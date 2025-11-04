@@ -12,6 +12,16 @@ from .models import (
 
 
 class DenunciaOrigemForm(forms.ModelForm):
+    # Override dos campos para evitar validação nativa de FloatField (que rejeita vírgula)
+    local_oco_lat = forms.CharField(required=False)
+    local_oco_lng = forms.CharField(required=False)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Latitude/Longitude não são obrigatórias no cadastro
+        if 'local_oco_lat' in self.fields:
+            self.fields['local_oco_lat'].required = False
+        if 'local_oco_lng' in self.fields:
+            self.fields['local_oco_lng'].required = False
     class Meta:
         model = Denuncia
         fields = [
@@ -44,6 +54,7 @@ class DenunciaOrigemForm(forms.ModelForm):
             "local_oco_logradouro",
             "local_oco_numero",
             "local_oco_complemento",
+            "local_oco_pontoref",
             "local_oco_bairro",
             "local_oco_cidade",
             "local_oco_uf",
@@ -52,6 +63,27 @@ class DenunciaOrigemForm(forms.ModelForm):
             "local_oco_lng",
             "descricao_oco",
         ]
+        widgets = {
+            # Máscaras: documentos/contatos
+            "denunciante_telefone": forms.TextInput(attrs={"class": "js-phone", "inputmode": "tel"}),
+            "denunciado_cpf_cnpj": forms.TextInput(attrs={"class": "js-doc", "inputmode": "numeric", "maxlength": 18}),
+            "denunciado_telefone": forms.TextInput(attrs={"class": "js-phone", "inputmode": "tel"}),
+            "denunciado_res_cep": forms.TextInput(attrs={"class": "js-cep", "inputmode": "numeric", "maxlength": 9}),
+            "local_oco_cep": forms.TextInput(attrs={"class": "js-cep", "inputmode": "numeric", "maxlength": 9}),
+            # Geolocalização com vírgula (6 casas)
+            "local_oco_lat": forms.TextInput(attrs={"class": "js-decimal-6", "inputmode": "decimal", "placeholder": "Ex.: -3,876543"}),
+            "local_oco_lng": forms.TextInput(attrs={"class": "js-decimal-6", "inputmode": "decimal", "placeholder": "Ex.: -38,654321"}),
+        }
+
+    def clean(self):
+        from utils.geo import to_float_or_none, clamp_lat_lng
+        data = super().clean()
+        # Lê sempre do POST bruto para aceitar vírgula; converte manualmente
+        lat = to_float_or_none(self.data.get("local_oco_lat", data.get("local_oco_lat")))
+        lng = to_float_or_none(self.data.get("local_oco_lng", data.get("local_oco_lng")))
+        lat, lng = clamp_lat_lng(lat, lng)
+        data["local_oco_lat"], data["local_oco_lng"] = lat, lng
+        return data
 
 # Retirado o comentário para dar sequência do cadastro de fotos
 # --- EDIÇÃO: inclui status/procedencia/ativo ---

@@ -1,0 +1,134 @@
+{% extends "print/base.html" %}
+{% load static %}
+{% load l10n %}
+{% block title %}Denúncia {{ obj.protocolo }}{% endblock %}
+{% block back_link %}<a class="btn" href="{% url 'denuncias:detalhe' obj.pk %}">Voltar</a>{% endblock %}
+{% block header_title %}Denúncia{% endblock %}
+{% block extra_css %}
+<style>
+  .no-break{ page-break-inside: avoid; break-inside: avoid; }
+  .lined-box{
+    border:1px solid #e5e7eb; border-radius:8px; padding:8px; height:200px; /* 8 linhas exatas */
+    background-image: linear-gradient(to bottom, #cbd5e1 1px, transparent 1px);
+    background-size: 100% calc(100% / 8);
+    background-repeat: repeat-y;
+  }
+  /* Mapa na impressão */
+  #print-map{ height:260px; min-height:220px; border:1px solid #e5e7eb; border-radius:8px; }
+</style>
+<link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
+{% endblock %}
+{% block header_meta %}
+  <div><strong>Protocolo:</strong> <code>{{ obj.protocolo }}</code></div>
+  <div><strong>Data:</strong> {{ obj.criada_em|date:"d/m/Y H:i" }}</div>
+  <div><strong>Status:</strong> {{ obj.get_status_display }}</div>
+  <div><strong>Procedência:</strong> {{ obj.get_procedencia_display }}</div>
+{% endblock %}
+
+{% block content %}
+  <section class="section">
+    <h3>Denunciado (alvo)</h3>
+    <div class="grid cols-3">
+      <div class="field"><div class="label">Nome/Razão</div><div class="value">{{ obj.denunciado_nome_razao }}</div></div>
+      <div class="field"><div class="label">CPF/CNPJ</div><div class="value">{{ obj.denunciado_cpf_cnpj }}</div></div>
+      <div class="field"><div class="label">Contato</div><div class="value">{{ obj.denunciado_telefone }} | {{ obj.denunciado_email }}</div></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <h3>Local da Ocorrência</h3>
+    <div class="grid cols-3">
+      <div class="field" style="grid-column:1 / -1;">
+        <div class="label">Endereço</div>
+        <div class="value">{{ endereco_oco }}</div>
+      </div>
+      {% if pontoref %}
+      <div class="field" style="grid-column:1 / -1;">
+        <div class="label">Ponto de referência</div>
+        <div class="value"><strong>{{ pontoref }}</strong></div>
+      </div>
+      {% endif %}
+      {% if obj.local_oco_lat or obj.local_oco_lng %}
+        <div class="field"><div class="label">Latitude</div><div class="value">{{ obj.local_oco_lat }}</div></div>
+        <div class="field"><div class="label">Longitude</div><div class="value">{{ obj.local_oco_lng }}</div></div>
+      {% endif %}
+    </div>
+  </section>
+
+  {% if obj.local_oco_lat or obj.local_oco_lng %}
+  <section class="section no-break">
+    <h3>Mapa do Local</h3>
+    <div id="print-map"
+         data-lat="{{ obj.local_oco_lat|floatformat:'6'|unlocalize }}"
+         data-lng="{{ obj.local_oco_lng|floatformat:'6'|unlocalize }}"></div>
+  </section>
+  {% endif %}
+
+  <section class="section">
+    <h3>Descrição da Ocorrência</h3>
+    <div class="field"><div class="value" style="white-space: pre-line;">{{ obj.descricao_oco }}</div></div>
+  </section>
+
+  <section class="section">
+    <h3>Fiscais</h3>
+    <div class="field">
+      {% with fs=obj.fiscais.all %}
+        {% if fs %}
+          <ul style="margin:0; padding-left:18px;">
+            {% for f in fs %}
+              <li>{{ f.get_full_name|default:f.email }}</li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <em>Nenhum fiscal vinculado.</em>
+        {% endif %}
+      {% endwith %}
+    </div>
+  </section>
+
+  <section class="section no-break">
+    <h3>Observações dos Fiscais</h3>
+    <div class="lined-box"></div>
+  </section>
+
+  {% if anexos %}
+  <section class="section">
+    <h3>Anexos</h3>
+    <div class="grid cols-3">
+      {% for a in anexos %}
+        <div class="field">
+          {% if a.tipo == 'FOTO' %}
+            <img src="{{ a.arquivo.url }}" alt="Foto" style="max-width:100%; height:auto; border-radius:6px;" />
+          {% else %}
+            <a href="{{ a.arquivo.url }}" target="_blank" rel="noopener">{{ a.arquivo.name|cut:"denuncias/anexos/" }}</a>
+          {% endif %}
+          {% if a.observacao %}<div class="label">{{ a.observacao }}</div>{% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+<script>
+(function(){
+  const el = document.getElementById('print-map');
+  if(!el) return;
+  // Normalização defensiva (vírgula -> ponto)
+  const rawLat = (el.dataset.lat || '').trim().replace(/\s/g,'').replace(/,/g,'.');
+  const rawLng = (el.dataset.lng || '').trim().replace(/\s/g,'').replace(/,/g,'.');
+  const lat = Number(rawLat);
+  const lng = Number(rawLng);
+  if(Number.isNaN(lat) || Number.isNaN(lng)) return;
+  const map = L.map('print-map', {zoomControl: false, attributionControl: true});
+  map.setView([lat, lng], 17);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+  L.circleMarker([lat, lng], {radius:8, color:'#111827', fillColor:'#10b981', fillOpacity:.9, weight:2})
+   .addTo(map)
+   .bindTooltip('Local da ocorrência', {direction:'top'});
+  setTimeout(()=> map.invalidateSize(), 50);
+})();
+</script>
+{% endblock %}

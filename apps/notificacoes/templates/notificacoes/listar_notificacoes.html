@@ -38,6 +38,10 @@
         <input type="text" name="endereco" value="{{ filtros.endereco }}" class="form-control form-control-sm" placeholder="Rua, nº, bairro ou cidade">
       </div>
       <div class="f">
+        <label class="form-label mb-1">Ponto de Referência</label>
+        <input type="text" name="pontoref" value="{{ filtros.pontoref }}" class="form-control form-control-sm" placeholder="Ex.: Próx. à escola">
+      </div>
+      <div class="f">
         <label class="form-label mb-1">Status</label>
         <select name="status" class="form-select form-select-sm">
           <option value="">— Todos —</option>
@@ -67,6 +71,7 @@
             <th>Data</th>
             <th>Nome/Razão</th>
             <th>CPF/CNPJ</th>
+            <th>Ponto Ref.</th>
             <th>Status</th>
             <th class="text-center">Ações</th>
           </tr>
@@ -78,6 +83,7 @@
             <td>{{ n.criada_em|date:"d/m/Y H:i" }}</td>
             <td>{{ n.nome_razao }}</td>
             <td>{{ n.cpf_cnpj }}</td>
+            <td>{{ n.pontoref_oco|default:"—" }}</td>
             <td>{{ n.get_status_display }}</td>
             <td class="text-center table-actions">
               <a href="{% url 'notificacoes:detalhe' n.pk %}" class="btn btn-sm btn-outline-info">Ver</a>

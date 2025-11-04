@@ -18,6 +18,24 @@ class Prefeitura(models.Model):
 
     ativo = models.BooleanField(default=True)
 
+    # Centro geográfico (opcional) para mapas
+    latitude = models.DecimalField(
+        "Latitude",
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        help_text='Ex.: -3.732700 (sul negativo). <a href="https://www.google.com/maps" target="_blank" rel="noopener">Abrir Google Maps</a>'
+    )
+    longitude = models.DecimalField(
+        "Longitude",
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        help_text='Ex.: -38.527000 (oeste negativo). <a href="https://www.google.com/maps" target="_blank" rel="noopener">Abrir Google Maps</a>'
+    )
+
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 

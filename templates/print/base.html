@@ -1,0 +1,65 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Documento{% endblock %}</title>
+  <link rel="icon" href="{% static 'img/favicon.png' %}">
+  <link rel="stylesheet" href="{% static 'sisalv/css/theme-light.css' %}">
+  <style>
+    @media print{
+      .no-print{ display:none !important; }
+      body{ -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+    body{ background:#fff; color:#111827; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial; }
+    .print-container{ width:min(97vw, 980px); margin: 10px auto; padding: 10px; }
+    .print-header{ display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #e5e7eb; padding-bottom:8px; margin-bottom:12px; }
+    .brand{ display:flex; align-items:center; gap:10px; }
+    .brand img{ height:42px; width:auto; }
+    .brand .title{ font-size:1.15rem; font-weight:700; margin:0; }
+    .brand .subtitle{ font-size:.95rem; color:#64748b; margin:0; }
+    .meta{ text-align:right; color:#475569; font-size:.95rem; }
+    .actions{ margin:8px 0; }
+    .btn{ display:inline-block; border:1px solid #e5e7eb; border-radius:8px; padding:.35rem .6rem; text-decoration:none; }
+    .section{ margin-top:12px; }
+    .section h3{ margin: 0 0 6px; font-size:1.02rem; }
+    .grid{ display:grid; gap:10px; }
+    .grid.cols-2{ grid-template-columns: 1fr 1fr; }
+    .grid.cols-3{ grid-template-columns: repeat(3, 1fr); }
+    .field{ border:1px solid #e5e7eb; border-radius:8px; padding:8px; background:#fff; }
+    .label{ color:#6b7280; font-size:.8rem; margin-bottom:4px; }
+    .value{ font-weight:600; }
+    table.print-table{ width:100%; border-collapse:collapse; }
+    table.print-table th, table.print-table td{ border:1px solid #e5e7eb; padding:6px 8px; font-size:.95rem; vertical-align:top; }
+    table.print-table th{ background:#f8fafc; text-align:left; }
+    .text-right{ text-align:right; }
+  </style>
+  {% block extra_css %}{% endblock %}
+  {% block head_extra %}{% endblock %}
+  </head>
+<body>
+  <div class="print-container">
+    <div class="actions no-print">
+      <a class="btn" href="javascript:window.print()">Imprimir</a>
+      {% block back_link %}{% endblock %}
+    </div>
+    <header class="print-header">
+      <div class="brand">
+        <img src="{% static 'img/logo_prefeitura.png' %}" alt="Logo">
+        <div>
+          <div class="title">{% block header_title %}Documento{% endblock %}</div>
+          <div class="subtitle">{% block header_subtitle %}SISALV WEB{% endblock %}</div>
+        </div>
+      </div>
+      <div class="meta">
+        {% block header_meta %}{% endblock %}
+      </div>
+    </header>
+
+    {% block content %}{% endblock %}
+  </div>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>
+

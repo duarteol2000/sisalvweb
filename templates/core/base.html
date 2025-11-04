@@ -114,8 +114,14 @@
           <a href="#" class="menu-item">📦 Termos de Apreensão</a>
           <a href="#" class="menu-item">📝 Vistorias</a>
 
+          <div class="menu-section">Infrações</div>
+          <a href="{% url 'autoinfracao:enq_listar' %}" class="menu-item">📜 Enquadramentos</a>
+
           <div class="menu-section">Relatórios</div>
           <a href="#" class="menu-item">📊 Painéis e PDFs</a>
+
+          <div class="menu-section">Consultas</div>
+          <a href="{% url 'core_mapa' %}" class="menu-item {% block menu_mapa_active %}{% endblock %}">🗺️ Consultas Mapa</a>
 
           <div class="menu-section">Sistema</div>
           <a href="#" class="menu-item">⚙️ Configurações</a>

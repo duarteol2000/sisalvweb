@@ -11,6 +11,8 @@ from django.db.models.functions import Concat, Coalesce
 
 from .models import Denuncia, DenunciaDocumentoImovel, DenunciaAnexo
 from .forms import DenunciaOrigemForm, DenunciaFotosForm, process_photo_file  # usamos o form só para RENDER no GET
+from apps.cadastros.models import Pessoa, Imovel
+from apps.usuarios.audit import log_event
 
 # ==========================================================
 # Mapa de campos (centraliza nomes do model para filtros/annotate)
@@ -73,6 +75,7 @@ def denuncia_nova_step1(request):
                 if not obj.denunciado_nome_razao:
                     obj.denunciado_nome_razao = "A DEFINIR"
                 obj.save()
+                log_event(request, 'CREATE', instance=obj)
 
                 # 2) Documentos do Imóvel (opcionais)
                 doc_formset = DocumentoImovelFormSet(
@@ -194,6 +197,7 @@ def denuncia_list(request):
     rg        = request.GET.get("rg", "").strip()
     telefone  = request.GET.get("telefone", "").strip()
     endereco  = request.GET.get("endereco", "").strip()
+    pontoref  = request.GET.get("pontoref", "").strip()
 
     f = DEN_FIELD
 
@@ -222,6 +226,8 @@ def denuncia_list(request):
     )
     if endereco:
         qs = qs.filter(endereco_concat__icontains=endereco)
+    if pontoref:
+        qs = qs.filter(local_oco_pontoref__icontains=pontoref)
 
     # Ordenação por data desc
     qs = qs.order_by(f"-{f['data_registro']}")
@@ -238,6 +244,7 @@ def denuncia_list(request):
         "rg": rg,
         "telefone": telefone,
         "endereco": endereco,
+        "pontoref": pontoref,
     }
     return render(request, "denuncias/listar_denuncias.html", context)
 
@@ -260,6 +267,7 @@ def denuncia_edit_basico(request, pk):
             obj_edit = form.save(commit=False)
             obj_edit.prefeitura_id = obj.prefeitura_id  # mantém integridade multi-prefeitura
             obj_edit.save()
+            log_event(request, 'UPDATE', instance=obj_edit)
             messages.success(request, "Denúncia atualizada com sucesso (dados básicos).")
             return redirect("denuncias:listar")
         else:
@@ -298,6 +306,8 @@ def denuncia_detail(request, pk):
         endereco_oco += f"/{obj.local_oco_uf}"
     if obj.local_oco_cep:
         endereco_oco += f" • CEP: {obj.local_oco_cep}"
+    if getattr(obj, 'local_oco_pontoref', ''):
+        endereco_oco += f" • Ponto de ref.: {obj.local_oco_pontoref}"
 
     # Relacionados: Notificações e AIFs desta denúncia
     from apps.notificacoes.models import Notificacao
@@ -311,4 +321,151 @@ def denuncia_detail(request, pk):
         "notificacoes": notifs,
         "autos": aifs,
     }
+    log_event(request, 'VIEW', instance=obj)
     return render(request, "denuncias/detalhe_denuncia.html", context)
+
+
+# ===============================
+# Vínculos via UI (sem admin)
+# ===============================
+@login_required
+def denuncia_vincular_pessoa(request, pk):
+    pref_id = request.session.get("prefeitura_id")
+    if not pref_id:
+        messages.error(request, "Prefeitura não definida na sessão.")
+        return redirect("denuncias:listar")
+    obj = get_object_or_404(Denuncia, pk=pk, prefeitura_id=pref_id)
+    if request.method != "POST":
+        return redirect("denuncias:detalhe", pk=pk)
+    pessoa_id = request.POST.get("pessoa_id")
+    doc_tipo = (request.POST.get("doc_tipo") or "OUTRO").upper()
+    doc_num = (request.POST.get("doc_num") or "").strip()
+    nome = (request.POST.get("nome_razao") or "").strip() or "INDERTEMINADO"
+    tipo = (request.POST.get("tipo") or "PF").upper()
+    email = (request.POST.get("email") or "").strip()
+    telefone = (request.POST.get("telefone") or "").strip()
+    pessoa = None
+    if pessoa_id:
+        pessoa = Pessoa.objects.filter(id=pessoa_id, prefeitura_id=pref_id, ativo=True).first()
+    if not pessoa and doc_num:
+        pessoa = Pessoa.objects.filter(prefeitura_id=pref_id, doc_num=''.join(filter(str.isdigit, doc_num))).first()
+    if not pessoa:
+        pessoa = Pessoa.objects.create(
+            prefeitura_id=pref_id,
+            tipo=tipo if tipo in ("PF","PJ") else "PF",
+            nome_razao=nome,
+            doc_tipo=doc_tipo if doc_tipo in ("CPF","CNPJ","OUTRO") else "OUTRO",
+            doc_num=''.join(filter(str.isdigit, doc_num)),
+            email=email,
+            telefone=telefone,
+            ativo=True,
+        )
+    obj.pessoa = pessoa
+    # salva e, se já houver pessoa e imóvel vinculados, marca procedência como PROCEDE
+    obj.save(update_fields=["pessoa"])
+    log_event(request, 'LINK', instance=obj, extra={'pessoa_id': pessoa.id})
+    if obj.pessoa_id and obj.imovel_id and obj.procedencia != 'PROCEDE':
+        obj.procedencia = 'PROCEDE'
+        obj.save(update_fields=["procedencia"]) 
+        messages.info(request, "Denúncia marcada como PROCEDE (pessoa e imóvel vinculados).")
+    messages.success(request, "Pessoa vinculada à denúncia.")
+    return redirect("denuncias:detalhe", pk=pk)
+
+
+@login_required
+def denuncia_vincular_imovel(request, pk):
+    pref_id = request.session.get("prefeitura_id")
+    if not pref_id:
+        messages.error(request, "Prefeitura não definida na sessão.")
+        return redirect("denuncias:listar")
+    obj = get_object_or_404(Denuncia, pk=pk, prefeitura_id=pref_id)
+    if request.method != "POST":
+        return redirect("denuncias:detalhe", pk=pk)
+    imovel_id = request.POST.get("imovel_id")
+    inscricao = (request.POST.get("inscricao") or "").strip()
+    logradouro = (request.POST.get("logradouro") or "").strip() or "ENDERECO DESCONHECIDO"
+    numero = (request.POST.get("numero") or "").strip()
+    complemento = (request.POST.get("complemento") or "").strip()
+    bairro = (request.POST.get("bairro") or "").strip() or (obj.local_oco_bairro or "")
+    cidade = (request.POST.get("cidade") or "").strip() or (obj.local_oco_cidade or "")
+    uf = (request.POST.get("uf") or "").strip() or (obj.local_oco_uf or "CE")
+    cep = (request.POST.get("cep") or "").strip()
+    imovel = None
+    if imovel_id:
+        imovel = Imovel.objects.filter(id=imovel_id, prefeitura_id=pref_id, ativo=True).first()
+    if not imovel and inscricao:
+        imovel = Imovel.objects.filter(prefeitura_id=pref_id, inscricao=inscricao).first()
+    if not imovel:
+        imovel = Imovel.objects.create(
+            prefeitura_id=pref_id,
+            inscricao=inscricao,
+            logradouro=logradouro,
+            numero=numero,
+            complemento=complemento,
+            bairro=bairro,
+            cidade=cidade,
+            uf=uf,
+            cep=cep,
+            ativo=True,
+        )
+    obj.imovel = imovel
+    obj.save(update_fields=["imovel"])
+    log_event(request, 'LINK', instance=obj, extra={'imovel_id': imovel.id})
+    if obj.pessoa_id and obj.imovel_id and obj.procedencia != 'PROCEDE':
+        obj.procedencia = 'PROCEDE'
+        obj.save(update_fields=["procedencia"]) 
+        messages.info(request, "Denúncia marcada como PROCEDE (pessoa e imóvel vinculados).")
+    messages.success(request, "Imóvel vinculado à denúncia.")
+    return redirect("denuncias:detalhe", pk=pk)
+
+
+# ==========================================================
+# IMPRIMIR — ficha simplificada de Denúncia
+# ==========================================================
+@login_required
+def denuncia_imprimir(request, pk):
+    prefeitura_id = request.session.get("prefeitura_id")
+    if not prefeitura_id:
+        messages.error(request, "Prefeitura não definida na sessão.")
+        return redirect("usuarios:home")
+
+    obj = get_object_or_404(Denuncia, pk=pk, prefeitura_id=prefeitura_id)
+    anexos = obj.anexos.all().order_by('-criada_em')
+
+    # Endereço do ocorrido (string montada)
+    endereco_oco = obj.local_oco_logradouro or ""
+    if obj.local_oco_numero:
+        endereco_oco += f", {obj.local_oco_numero}"
+    if obj.local_oco_bairro:
+        endereco_oco += f" — {obj.local_oco_bairro}"
+    if obj.local_oco_cidade:
+        endereco_oco += f" — {obj.local_oco_cidade}"
+    if obj.local_oco_uf:
+        endereco_oco += f"/{obj.local_oco_uf}"
+    if obj.local_oco_cep:
+        endereco_oco += f" • CEP: {obj.local_oco_cep}"
+
+    # Ponto de referência: preferir o da própria Denúncia; senão, o da Notificação vinculada; por fim, usar complemento do local
+    pontoref = obj.local_oco_pontoref or obj.local_oco_complemento or ''
+    try:
+        from apps.notificacoes.models import Notificacao
+        nref = (
+            Notificacao.objects.filter(denuncia_id=obj.id, prefeitura_id=prefeitura_id)
+            .exclude(pontoref_oco='')
+            .order_by('-criada_em')
+            .values_list('pontoref_oco', flat=True)
+            .first()
+        )
+        if (not pontoref) and nref:
+            pontoref = nref
+    except Exception:
+        pass
+
+    ctx = {
+        "obj": obj,
+        "anexos": anexos,
+        "endereco_oco": endereco_oco,
+        "pontoref": pontoref,
+    }
+    log_event(request, 'PRINT', instance=obj)
+    return render(request, "denuncias/imprimir_denuncia.html", ctx)

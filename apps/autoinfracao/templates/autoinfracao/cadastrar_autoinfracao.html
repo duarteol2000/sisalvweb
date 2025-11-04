@@ -2,6 +2,8 @@
 {% load static %}
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'autoinfracao/css/autoinfracao.css' %}">
+<link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
+<style>#map-pick{height:260px;min-height:220px}.leaflet-container img{max-width:none!important}</style>
 {% endblock %}
 {% block menu_autoinfracao_active %}active{% endblock %}
 {% block content %}
@@ -93,6 +95,11 @@
       {{ form.longitude.label_tag }}
       {{ form.longitude }}
       {{ form.longitude.errors }}
+    </div>
+    <div class="span-3">
+      <label><strong>Mapa (clique para preencher lat/lng)</strong></label>
+      <div id="map-pick"></div>
+      <small>Clique no ponto exato do local.</small>
     </div>
 
     <hr class="span-3">
@@ -194,4 +201,25 @@
 
 {% block extra_js %}
 <script src="{% static 'js/viacep.js' %}"></script>
+<script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+<script src="{% static 'autoinfracao/js/autoinfracao.js' %}?v=20251030-1"></script>
+<script>
+(function(){
+  const latI = document.getElementById('id_latitude');
+  const lngI = document.getElementById('id_longitude');
+  const mapEl = document.getElementById('map-pick');
+  if(!mapEl || !window.L) return;
+  function parseNum(v){ if(v==null||v==='') return null; v=(v+'').replace(',', '.'); var n=parseFloat(v); return isNaN(n)?null:n; }
+  let lat = parseNum(latI.value), lng = parseNum(lngI.value);
+  if(lat==null || lng==null){ lat = -3.7327; lng = -38.5270; }
+  const map = L.map('map-pick'); map.setView([lat,lng], latI.value&&lngI.value?17:13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'&copy; OpenStreetMap'}).addTo(map);
+  let mark = L.marker([lat,lng], {draggable:true}).addTo(map);
+  mark.on('dragend', () => { const p = mark.getLatLng(); latI.value=p.lat.toFixed(6); lngI.value=p.lng.toFixed(6); });
+  map.on('click', e=>{ const p = e.latlng; mark.setLatLng(p); latI.value=p.lat.toFixed(6); lngI.value=p.lng.toFixed(6); });
+  latI.addEventListener('change', ()=>{ const a=parseNum(latI.value), b=parseNum(lngI.value); if(a!=null&&b!=null){ mark.setLatLng([a,b]); map.setView([a,b], 17);} });
+  lngI.addEventListener('change', ()=>{ const a=parseNum(latI.value), b=parseNum(lngI.value); if(a!=null&&b!=null){ mark.setLatLng([a,b]); map.setView([a,b], 17);} });
+  setTimeout(()=> map.invalidateSize(), 50);
+})();
+</script>
 {% endblock %}

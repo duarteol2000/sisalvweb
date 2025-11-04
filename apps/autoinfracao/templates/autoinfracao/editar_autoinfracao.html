@@ -3,9 +3,33 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'autoinfracao/css/autoinfracao.css' %}">
 {% endblock %}
+{% block extra_js %}
+<script src="{% static 'js/viacep.js' %}"></script>
+<script src="{% static 'autoinfracao/js/autoinfracao.js' %}?v=20251030-1"></script>
+{% endblock %}
 
 {% block extra_js %}
 <script src="{% static 'js/viacep.js' %}"></script>
+<script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+<script>
+(function(){
+  const latI = document.getElementById('id_latitude');
+  const lngI = document.getElementById('id_longitude');
+  const mapEl = document.getElementById('map-pick');
+  if(!mapEl || !window.L) return;
+  function parseNum(v){ if(v==null||v==='') return null; v=(v+'').replace(',', '.'); var n=parseFloat(v); return isNaN(n)?null:n; }
+  let lat = parseNum(latI.value), lng = parseNum(lngI.value);
+  if(lat==null || lng==null){ lat = -3.7327; lng = -38.5270; }
+  const map = L.map('map-pick'); map.setView([lat,lng], latI.value&&lngI.value?17:13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'&copy; OpenStreetMap'}).addTo(map);
+  let mark = L.marker([lat,lng], {draggable:true}).addTo(map);
+  mark.on('dragend', () => { const p = mark.getLatLng(); latI.value=p.lat.toFixed(6); lngI.value=p.lng.toFixed(6); });
+  map.on('click', e=>{ const p = e.latlng; mark.setLatLng(p); latI.value=p.lat.toFixed(6); lngI.value=p.lng.toFixed(6); });
+  latI.addEventListener('change', ()=>{ const a=parseNum(latI.value), b=parseNum(lngI.value); if(a!=null&&b!=null){ mark.setLatLng([a,b]); map.setView([a,b], 17);} });
+  lngI.addEventListener('change', ()=>{ const a=parseNum(latI.value), b=parseNum(lngI.value); if(a!=null&&b!=null){ mark.setLatLng([a,b]); map.setView([a,b], 17);} });
+  setTimeout(()=> map.invalidateSize(), 50);
+})();
+</script>
 {% endblock %}
 {% block menu_autoinfracao_active %}active{% endblock %}
 {% block content %}
@@ -374,7 +398,7 @@
       <div class="mini-grid-2">
         <div>
           <label for="id_desconto_percent">Desconto (%)</label>
-          <input type="number" id="id_desconto_percent" name="desconto_percent" step="0.01" min="0" max="100" placeholder="ex.: 30.00" style="max-width:140px;">
+          <input type="text" id="id_desconto_percent" class="js-decimal-2" inputmode="decimal" name="desconto_percent" placeholder="ex.: 30,00" style="max-width:140px;">
         </div>
         <div>
           <label for="id_justificativa">Justificativa</label>
@@ -385,6 +409,12 @@
         <button type="submit" class="btn btn-outline-primary btn-sm">Aplicar Desconto</button>
       </div>
     </form>
+
+    <!-- Resumo do homologado do AIF (após desconto ou edição por item) -->
+    <div class="text-right" style="margin:6px 0 10px;">
+      <strong>Val. Homologado (AIF):</strong>
+      R$ {{ obj.valor_multa_homologado|default:obj.total_multa|floatformat:2 }}
+    </div>
 
 {% if itens_multa %}
     <div class="table-wrapper">
@@ -408,7 +438,7 @@
                 {% csrf_token %}
                 <input type="hidden" name="action" value="edit_item">
                 <input type="hidden" name="item_id" value="{{ it.id }}">
-                <input type="number" step="0.01" name="valor_homologado" value="{{ it.valor_homologado|default:it.valor_unitario }}" style="width:120px;">
+                <input type="text" class="js-decimal-2" inputmode="decimal" name="valor_homologado" value="{{ it.valor_homologado|default:it.valor_unitario }}" style="width:120px;">
                 <button type="submit" class="btn btn-sm btn-outline-primary">Atualizar</button>
               </form>
               <a href="?del_item={{ it.id }}" class="btn btn-sm btn-secondary" onclick="return confirm('Remover item?')">Remover</a>

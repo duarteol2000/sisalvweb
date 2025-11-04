@@ -38,6 +38,10 @@
         <label class="form-label mb-1">Endereço do Ocorrido</label>
         <input type="text" name="endereco" value="{{ endereco }}" class="form-control form-control-sm" placeholder="Rua, nº, bairro ou cidade">
       </div>
+      <div class="f">
+        <label class="form-label mb-1">Ponto de Referência</label>
+        <input type="text" name="pontoref" value="{{ pontoref }}" class="form-control form-control-sm" placeholder="Ex.: Próx. à escola">
+      </div>
     </div>
 
     <div class="filters-actions">
@@ -62,6 +66,7 @@
             <th>Nome / Razão Social</th>
             <th>CPF/CNPJ</th>
             <th>Status</th>
+            <th>Ponto Ref.</th>
             <th>Endereço do Ocorrido</th>
             <th class="text-center">Ações</th>
           </tr>
@@ -78,6 +83,7 @@
                   {{ d.get_status_display }}
                 </span>
               </td>
+              <td>{{ d.local_oco_pontoref|default:"—" }}</td>
               <td>
                 {{ d.local_oco_logradouro }}
                 {% if d.local_oco_numero %}, {{ d.local_oco_numero }}{% endif %}
@@ -86,6 +92,7 @@
               <td class="text-center table-actions">
                 <a href="{% url 'denuncias:detalhe' d.pk %}" class="btn btn-sm btn-outline-info">Ver</a>
                 <a href="{% url 'denuncias:editar_basico' d.pk %}" class="btn btn-sm btn-outline-primary">Editar</a>
+                <a href="{% url 'denuncias:imprimir' d.pk %}" class="btn btn-sm btn-secondary" target="_blank" rel="noopener">Imprimir</a>
               </td>
             </tr>
           {% empty %}

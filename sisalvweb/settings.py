@@ -31,7 +31,17 @@ SECRET_KEY = 'django-insecure-6rpp9=iv6im5rxzjs=ddyu+dp(_6n2ym4m7-^=7$2%amd839om
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
+# ALLOWED_HOSTS = ["10.1.41.110","127.0.0.1", "localhost"]
+ALLOWED_HOSTS = [
+    'localhost', '127.0.0.1',
+    'enriqueta-sporocystic-franchesca.ngrok-free.dev',
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://enriqueta-sporocystic-franchesca.ngrok-free.dev',
+    'https://*.ngrok-free.dev',   # deixa genérico pra próximos túneis
+    'https://*.ngrok-free.app',
+]
 
 
 # Application definition
@@ -49,6 +59,7 @@ INSTALLED_APPS = [
     'apps.denuncias',
     'apps.notificacoes',
     'apps.autoinfracao',
+    'apps.cadastros',
 ]
 
 AUTH_USER_MODEL = 'usuarios.Usuario'
@@ -63,6 +74,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'apps.usuarios.middleware.AuditMiddleware',
 ]
 
 ROOT_URLCONF = 'sisalvweb.urls'

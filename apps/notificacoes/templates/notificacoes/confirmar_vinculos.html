@@ -1,0 +1,67 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% block menu_notificacoes_active %}active{% endblock %}
+{% block content %}
+
+<header class="detail-header">
+  <div class="left">
+    <h1 class="page-title">Confirmar Vínculos</h1>
+    <div class="actions">
+      <a href="{% url 'notificacoes:detalhe' obj.pk %}" class="btn btn-sm btn-secondary">← Voltar ao Detalhe</a>
+    </div>
+  </div>
+  <div class="right detail-meta">
+    <div><strong>Protocolo:</strong> <code class="proto">{{ obj.protocolo }}</code></div>
+  </div>
+</header>
+
+<div class="card p-0 table-card shadow-sm" style="margin-top:10px;">
+  <div class="table-head"><div><strong>Vínculos sugeridos</strong></div></div>
+  <div class="table-wrap">
+    <form method="post">
+      {% csrf_token %}
+      <div class="mb-2">
+        {% if pessoa_cand %}
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="link_pessoa" id="id_link_pessoa" checked>
+            <label class="form-check-label" for="id_link_pessoa">
+              Vincular Pessoa: <strong>{{ pessoa_cand.nome_razao }}</strong> — {{ pessoa_cand.doc_num|default:"sem doc" }} ({{ pessoa_cand.get_tipo_display }})
+            </label>
+          </div>
+        {% else %}
+          <div class="text-muted">Nenhuma pessoa candidata encontrada pelo CPF/CNPJ informado.</div>
+        {% endif %}
+      </div>
+
+      <div class="mb-2">
+        {% if imovel_cand %}
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="link_imovel" id="id_link_imovel" checked>
+            <label class="form-check-label" for="id_link_imovel">
+              Vincular Imóvel: <strong>{{ imovel_cand.logradouro }}{% if imovel_cand.numero %}, {{ imovel_cand.numero }}{% endif %}</strong> — {{ imovel_cand.bairro }} — {{ imovel_cand.cidade }}/{{ imovel_cand.uf }}{% if imovel_cand.inscricao %} • Inscrição: {{ imovel_cand.inscricao }}{% endif %}
+            </label>
+          </div>
+        {% else %}
+          <div class="text-muted">Nenhum imóvel candidato encontrado pelo endereço/geo informado.</div>
+        {% endif %}
+      </div>
+
+      <div class="mb-3">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="atualizar_campos" id="id_atualizar_campos" checked>
+          <label class="form-check-label" for="id_atualizar_campos">
+            Também atualizar os campos do documento com os dados do cadastro (nome/CPF/CNPJ/contatos e endereço/geo)
+          </label>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn btn-primary" name="action" value="confirm">Confirmar e salvar vínculos</button>
+        <button class="btn btn-outline-secondary" name="action" value="skip">Continuar sem vincular</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+

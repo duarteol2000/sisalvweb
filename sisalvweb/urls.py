@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.urls import path, include
 from apps.usuarios.views import login_view, logout_view, home_view
 from django.conf import settings
+from sisalvweb import core_views
 from django.conf.urls.static import static
 
 urlpatterns = [
@@ -16,6 +17,9 @@ urlpatterns = [
 
     path("notificacoes/", include("apps.notificacoes.urls", namespace="notificacoes")),
     path("autoinfracao/", include(("apps.autoinfracao.urls", "autoinfracao"), namespace="autoinfracao")),
+    # Mapa
+    path("mapa/", core_views.mapa_view, name="core_mapa"),
+    path("api/mapa/processos/", core_views.api_mapa_processos, name="core_api_mapa_processos"),
     
     ]
 

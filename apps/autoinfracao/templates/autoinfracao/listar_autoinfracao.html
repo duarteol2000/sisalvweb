@@ -122,6 +122,7 @@
             <td class="text-center table-actions">
               <a href="{% url 'autoinfracao:detalhe' a.pk %}" class="btn btn-sm btn-outline-info">Ver</a>
               <a href="{% url 'autoinfracao:editar' a.pk %}" class="btn btn-sm btn-outline-primary">Editar</a>
+              <a href="{% url 'autoinfracao:imprimir' a.pk %}" class="btn btn-sm btn-secondary" target="_blank" rel="noopener">Imprimir</a>
               {% if a.status != 'REGULARIZADO' %}
                 <a href="{% url 'autoinfracao:gerar_embargo' a.pk %}" class="btn btn-sm btn-outline-primary" title="Gerar Embargo">⛔ Embargo</a>
                 <a href="{% url 'autoinfracao:gerar_interdicao' a.pk %}" class="btn btn-sm btn-outline-primary" title="Gerar Interdição">🚫 Interdição</a>

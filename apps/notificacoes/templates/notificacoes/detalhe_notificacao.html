@@ -1,7 +1,29 @@
 {% extends "core/base.html" %}
 {% load static %}
+{% load l10n %}
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'notificacoes/css/notificacoes.css' %}">
+<style>
+  .link-ver{ font-size:.85rem; color: var(--muted); text-decoration:none; margin-left:6px; }
+  .link-ver:hover{ color: var(--accent); text-decoration: underline; }
+  .doc-rel strong{ margin-right:6px; }
+  .doc-rel code.proto{ margin-right:6px; }
+  /* Grid de exibição no padrão dos cartões-tabela */
+  .detail-grid{ display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; }
+  .detail-grid .f{ display:flex; flex-direction:column; }
+  .detail-grid .f label{ display:block; font-weight:600; margin-bottom:4px; }
+  .detail-grid .f input, .detail-grid .f select, .detail-grid .f textarea{ width:100%; }
+  .detail-grid .f .v{ }
+  @media (max-width: 1100px){ .detail-grid{ grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 700px){ .detail-grid{ grid-template-columns: 1fr; } }
+  /* Mini-mapa Leaflet */
+  #mini-map{ height:260px; min-height:220px; }
+  /* Evita conflito de CSS global com tiles do Leaflet */
+  .leaflet-container img{ max-width:none !important; }
+  .leaflet-container{ background:#f3f4f6; }
+</style>
+<!-- Leaflet local (sem CDN) -->
+<link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
 {% endblock %}
 {% block menu_notificacoes_active %}active{% endblock %}
 {% block content %}
@@ -12,9 +34,6 @@
     <div class="actions">
       <a href="{% url 'notificacoes:listar' %}" class="btn btn-sm btn-secondary">← Voltar</a>
       <a href="{% url 'notificacoes:editar' obj.pk %}" class="btn btn-sm btn-outline-primary">Editar</a>
-      {% if obj.denuncia %}
-      <a href="{% url 'denuncias:detalhe' obj.denuncia.pk %}" class="btn btn-sm btn-outline-primary">Ver Denúncia</a>
-      {% endif %}
       <a href="{% url 'autoinfracao:from_notificacao' obj.pk %}" class="btn btn-sm btn-primary">Gerar Auto de Infração</a>
     </div>
   </div>
@@ -25,78 +44,218 @@
   </div>
 </header>
 
-<section class="detail-body">
-  <h3>Documentos Relacionados</h3>
-  <p>
-    <strong>Denúncia:</strong>
-    {% if obj.denuncia %}
-      <a href="{% url 'denuncias:detalhe' obj.denuncia.pk %}"><code class="proto">{{ obj.denuncia.protocolo }}</code></a>
-    {% else %}
-      —
-    {% endif %}
-  </p>
-  <p>
-    <strong>Notificação:</strong>
-    <code class="proto">{{ obj.protocolo }}</code>
-  </p>
-  <p>
-    <strong>Auto de Infração:</strong>
-    {% if aif %}
-      <a href="{% url 'autoinfracao:detalhe' aif.pk %}"><code class="proto">{{ aif.protocolo }}</code></a>
-    {% else %}
-      —
-    {% endif %}
-  </p>
-</section>
-
-<section class="detail-body">
-  <h3>Notificado</h3>
-  <p><strong>Nome/Razão:</strong> {{ obj.nome_razao }}</p>
-  <p><strong>CPF/CNPJ:</strong> {{ obj.cpf_cnpj }}</p>
-  <p><strong>Contato:</strong> {{ obj.telefone }} | {{ obj.email }}</p>
-
-  <h3>Endereço</h3>
-  <p>
-    {{ obj.logradouro }}, {{ obj.numero }} {{ obj.complemento }} – {{ obj.bairro }} – {{ obj.cidade }}/{{ obj.uf }}<br>
-    CEP: {{ obj.cep }}
-  </p>
-
-  {% if obj.latitude or obj.longitude %}
-  <p><strong>Geo:</strong> {{ obj.latitude }} , {{ obj.longitude }}</p>
+{% if obj.denuncia or aif %}
+<div class="detail-links" style="margin:.25rem 0 .5rem;">
+  {% if obj.denuncia %}
+    <div class="doc-rel"><strong>Denúncia:</strong> <code class="proto">{{ obj.denuncia.protocolo }}</code> — <a class="link-ver" href="{% url 'denuncias:detalhe' obj.denuncia.pk %}">+ver</a></div>
   {% endif %}
-
-  <h3>Descrição</h3>
-  <p style="white-space: pre-line">{{ obj.descricao }}</p>
-
-  {% if obj.prazo_regularizacao %}
-    <p><strong>Prazo para Regularização:</strong> {{ obj.prazo_regularizacao|date:"d/m/Y" }}</p>
+  {% if aif %}
+    <div class="doc-rel"><strong>Auto de Infração:</strong> <code class="proto">{{ aif.protocolo }}</code> — <a class="link-ver" href="{% url 'autoinfracao:detalhe' aif.pk %}">+ver</a></div>
   {% endif %}
-</section>
+  <div class="doc-rel"><strong>Pessoa vinculada:</strong>
+    {% if obj.pessoa %}{{ obj.pessoa.nome_razao }} ({{ obj.pessoa.get_tipo_display }}){% else %}—{% endif %}
+  </div>
+  <div class="doc-rel"><strong>Imóvel vinculado:</strong>
+    {% if obj.imovel %}{{ obj.imovel.logradouro }}{% if obj.imovel.numero %}, {{ obj.imovel.numero }}{% endif %} — {{ obj.imovel.bairro }} — {{ obj.imovel.cidade }}/{{ obj.imovel.uf }}{% if obj.imovel.inscricao %} • Inscrição: {{ obj.imovel.inscricao }}{% endif %}{% else %}—{% endif %}
+  </div>
+</div>
+{% endif %}
 
-<section class="detail-body">
-  <h3>📷 Fotos e Anexos</h3>
-  {% if anexos %}
-    <div class="anexos-grid">
-      {% for a in anexos %}
-        <div class="anexo-item">
-          {% if a.tipo == "FOTO" %}
-            <a href="{{ a.arquivo.url }}" target="_blank" rel="noopener">
-              <img src="{{ a.arquivo.url }}" alt="Foto da notificação" class="thumb" loading="lazy">
-            </a>
-          {% else %}
-            <a href="{{ a.arquivo.url }}" target="_blank" rel="noopener" class="doc-link">
-              {{ a.arquivo.name|cut:"notificacoes/anexos/" }}
-            </a>
-          {% endif %}
-          {% if a.observacao %}
-            <p class="anexo-legenda">{{ a.observacao }}</p>
-          {% endif %}
+{% if not obj.pessoa or not obj.imovel %}
+<div class="card p-0 table-card shadow-sm" style="margin-top:10px;">
+  <div class="table-head"><div><strong>Vincular Referências</strong></div></div>
+  <div class="table-wrap">
+    <div class="detail-grid">
+      {% if not obj.pessoa %}
+      <form method="post" action="{% url 'notificacoes:vincular_pessoa' obj.pk %}">
+        {% csrf_token %}
+        <div class="detail-grid">
+          <div class="f"><label>Tipo</label><select name="tipo" class="form-select form-select-sm"><option value="PF">PF</option><option value="PJ">PJ</option></select></div>
+          <div class="f"><label>Nome/Razão</label><input type="text" name="nome_razao" class="form-control form-control-sm" value="{{ obj.nome_razao }}"></div>
+          <div class="f"><label>Doc. Tipo</label><select name="doc_tipo" class="form-select form-select-sm"><option value="OUTRO">Outro</option><option value="CPF">CPF</option><option value="CNPJ">CNPJ</option></select></div>
+          <div class="f"><label>Doc. Número</label><input type="text" name="doc_num" class="form-control form-control-sm" value="{{ obj.cpf_cnpj }}"></div>
+          <div class="f"><label>E-mail</label><input type="email" name="email" class="form-control form-control-sm" value="{{ obj.email }}"></div>
+          <div class="f"><label>Telefone</label><input type="text" name="telefone" class="form-control form-control-sm" value="{{ obj.telefone }}"></div>
         </div>
-      {% endfor %}
-    </div>
-  {% else %}
-    <p><em>Sem anexos.</em></p>
-  {% endif %}
-</section>
+        <div class="form-actions" style="margin-top:6px;"><button class="btn btn-sm btn-primary">Vincular Pessoa</button></div>
+      </form>
+      {% endif %}
 
+      {% if not obj.imovel %}
+      <form method="post" action="{% url 'notificacoes:vincular_imovel' obj.pk %}">
+        {% csrf_token %}
+        <div class="detail-grid">
+          <div class="f"><label>Inscrição</label><input type="text" name="inscricao" class="form-control form-control-sm"></div>
+          <div class="f"><label>Logradouro</label><input type="text" name="logradouro" class="form-control form-control-sm" value="{{ obj.logradouro }}"></div>
+          <div class="f"><label>Número</label><input type="text" name="numero" class="form-control form-control-sm" value="{{ obj.numero }}"></div>
+          <div class="f"><label>Complemento</label><input type="text" name="complemento" class="form-control form-control-sm" value="{{ obj.complemento }}"></div>
+          <div class="f"><label>Bairro</label><input type="text" name="bairro" class="form-control form-control-sm" value="{{ obj.bairro }}"></div>
+          <div class="f"><label>Cidade</label><input type="text" name="cidade" class="form-control form-control-sm" value="{{ obj.cidade }}"></div>
+          <div class="f"><label>UF</label><input type="text" name="uf" class="form-control form-control-sm" value="{{ obj.uf }}"></div>
+          <div class="f"><label>CEP</label><input type="text" name="cep" class="form-control form-control-sm" value="{{ obj.cep }}"></div>
+        </div>
+        <div class="form-actions" style="margin-top:6px;"><button class="btn btn-sm btn-primary">Vincular Imóvel</button></div>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Dados do Notificado -->
+<div class="card p-0 table-card shadow-sm" style="margin-top:10px;">
+  <div class="table-head"><div><strong>Dados do Notificado</strong></div></div>
+  <div class="table-wrap">
+    <div class="detail-grid">
+      <div class="f"><label>Nome/Razão</label><div class="v">{{ obj.nome_razao }}</div></div>
+      <div class="f"><label>CPF/CNPJ</label><div class="v">{{ obj.cpf_cnpj|default:"—" }}</div></div>
+      <div class="f"><label>RG</label><div class="v">{{ obj.rg|default:"—" }}</div></div>
+      <div class="f"><label>Telefone</label><div class="v">{{ obj.telefone|default:"—" }}</div></div>
+      <div class="f"><label>E-mail</label><div class="v">{{ obj.email|default:"—" }}</div></div>
+      <div class="f"><label>Tipo de Pessoa</label><div class="v">{{ obj.get_pessoa_tipo_display }}</div></div>
+    </div>
+  </div>
+  </div>
+
+<!-- Endereço -->
+<div class="card p-0 table-card shadow-sm" style="margin-top:10px;">
+  <div class="table-head"><div><strong>Endereço</strong></div></div>
+  <div class="table-wrap">
+    <div class="detail-grid">
+      <div class="f"><label>Logradouro</label><div class="v">{{ obj.logradouro }}</div></div>
+      <div class="f"><label>Número</label><div class="v">{{ obj.numero|default:"—" }}</div></div>
+      <div class="f"><label>Complemento</label><div class="v">{{ obj.complemento|default:"—" }}</div></div>
+      <div class="f"><label>Ponto de Referência</label><div class="v">{{ obj.pontoref_oco|default:"—" }}</div></div>
+      <div class="f"><label>Bairro</label><div class="v">{{ obj.bairro }}</div></div>
+      <div class="f"><label>Cidade</label><div class="v">{{ obj.cidade }}</div></div>
+      <div class="f"><label>UF</label><div class="v">{{ obj.uf }}</div></div>
+      <div class="f"><label>CEP</label><div class="v">{{ obj.cep|default:"—" }}</div></div>
+      {# Removido: coordenadas detalhadas aqui para evitar duplicidade; agora mostramos junto à etiqueta do mapa #}
+    </div>
+  </div>
+</div>
+
+{% comment %}
+  Preferência de coordenadas para exibição do mapa:
+  1) Imóvel vinculado (se tiver latitude/longitude)
+  2) Denúncia vinculada (local_oco_lat/local_oco_lng)
+  3) Própria Notificação (latitude/longitude)
+{% endcomment %}
+{% if obj.imovel and obj.imovel.latitude or obj.denuncia and obj.denuncia.local_oco_lat or obj.latitude %}
+<!-- Localização no mapa -->
+<div class="card p-0 table-card shadow-sm" style="margin-top:10px;">
+  <div class="table-head"><div><strong>Localização no Mapa</strong></div></div>
+  <div class="table-wrap">
+    {% if obj.imovel and obj.imovel.latitude %}
+      <div id="mini-map" data-lat="{{ obj.imovel.latitude|floatformat:'6'|unlocalize }}" data-lng="{{ obj.imovel.longitude|floatformat:'6'|unlocalize }}"></div>
+    {% elif obj.denuncia and obj.denuncia.local_oco_lat %}
+      <div id="mini-map" data-lat="{{ obj.denuncia.local_oco_lat|floatformat:'6'|unlocalize }}" data-lng="{{ obj.denuncia.local_oco_lng|floatformat:'6'|unlocalize }}"></div>
+    {% else %}
+      <div id="mini-map" data-lat="{{ obj.latitude|floatformat:'6'|unlocalize }}" data-lng="{{ obj.longitude|floatformat:'6'|unlocalize }}"></div>
+    {% endif %}
+    <div class="map-meta" style="margin-top:6px; color:#6b7280; font-size:.85rem;">
+      {% if obj.imovel and obj.imovel.latitude %}
+        <strong>Fonte das coordenadas:</strong> Imóvel — Latitude: {{ obj.imovel.latitude|floatformat:'6'|localize }} • Longitude: {{ obj.imovel.longitude|floatformat:'6'|localize }}
+      {% elif obj.denuncia and obj.denuncia.local_oco_lat %}
+        <strong>Fonte das coordenadas:</strong> Denúncia — Latitude: {{ obj.denuncia.local_oco_lat|floatformat:'6'|localize }} • Longitude: {{ obj.denuncia.local_oco_lng|floatformat:'6'|localize }}
+      {% else %}
+        <strong>Fonte das coordenadas:</strong> Notificação — Latitude: {{ obj.latitude|floatformat:'6'|localize }} • Longitude: {{ obj.longitude|floatformat:'6'|localize }}
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Descrição -->
+<div class="card p-0 table-card shadow-sm" style="margin-top:10px;">
+  <div class="table-head"><div><strong>Descrição</strong></div></div>
+  <div class="table-wrap">
+    <div class="detail-grid">
+      <div class="f span-3" style="grid-column:1 / -1;">
+        <div class="v" style="white-space: pre-line;">{{ obj.descricao }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Prazos -->
+{% if obj.prazo_regularizacao %}
+<div class="card p-0 table-card shadow-sm" style="margin-top:10px;">
+  <div class="table-head"><div><strong>Prazos</strong></div></div>
+  <div class="table-wrap">
+    <div class="detail-grid">
+      <div class="f"><label>Prazo para Regularização</label><div class="v">{{ obj.prazo_regularizacao|date:"d/m/Y" }}</div></div>
+      <div class="f"><label>Status</label><div class="v">{{ obj.get_status_display }}</div></div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="card p-0 table-card shadow-sm" style="margin-top:10px;">
+  <div class="table-head"><div><strong>📷 Fotos e Anexos</strong></div><div class="text-muted small">Total: {{ anexos|length }}</div></div>
+  <div class="table-wrap">
+    {% if anexos %}
+      <div class="anexos-grid">
+        {% for a in anexos %}
+          <div class="anexo-item">
+            {% if a.tipo == "FOTO" %}
+              <a href="{{ a.arquivo.url }}" target="_blank" rel="noopener">
+                <img src="{{ a.arquivo.url }}" alt="Foto da notificação" class="thumb" loading="lazy">
+              </a>
+            {% else %}
+              <a href="{{ a.arquivo.url }}" target="_blank" rel="noopener" class="doc-link">
+                {{ a.arquivo.name|cut:"notificacoes/anexos/" }}
+              </a>
+            {% endif %}
+            {% if a.observacao %}
+              <p class="anexo-legenda">{{ a.observacao }}</p>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-muted" style="margin:8px 0;">Sem anexos.</p>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+<script>
+(function(){
+  const el = document.getElementById('mini-map');
+  if(!el) return;
+
+  // 🔧 Normalização defensiva: vírgula -> ponto, remove espaços
+  const rawLat = (el.dataset.lat || '').trim().replace(/\s/g,'').replace(/,/g,'.');
+  const rawLng = (el.dataset.lng || '').trim().replace(/\s/g,'').replace(/,/g,'.');
+
+  const lat = Number(rawLat);
+  const lng = Number(rawLng);
+  if(Number.isNaN(lat) || Number.isNaN(lng)) return;
+
+  function inBrazilBox(a,b){ return a >= -34 && a <= 5 && b >= -74 && b <= -34; }
+  let lat1 = lat, lng1 = lng, swapped = false;
+  if(!inBrazilBox(lat1, lng1) && inBrazilBox(lng1, lat1)){
+    swapped = true;
+    const tmp = lat1; lat1 = lng1; lng1 = tmp;
+  }
+
+  const map = L.map('mini-map', {zoomControl: true, attributionControl: true});
+  const z = 17;
+  map.setView([lat1, lng1], z);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+  const m = L.circleMarker([lat1, lng1], {radius:8, color:'#111827', fillColor:'#10b981', fillOpacity:.9, weight:2});
+  m.addTo(map).bindTooltip('Local da Notificação', {direction:'top'});
+  if(swapped){
+    const note = document.createElement('div');
+    note.textContent = 'Coordenadas parecem invertidas (lat/lng). Exibindo com correção visual.';
+    note.style.cssText = 'position:absolute;left:6px;bottom:6px;background:rgba(255,255,255,.95);border:1px solid #e5e7eb;border-radius:6px;padding:4px 6px;font-size:.78rem;z-index:401;max-width:70%';
+    el.appendChild(note);
+  }
+  setTimeout(()=> map.invalidateSize(), 50);
+})();
+</script>
 {% endblock %}

@@ -9,6 +9,9 @@ urlpatterns = [
     # ✅ alias oficial para o menu/botões (aponta para a MESMA view)
     path("cadastrar/", views.denuncia_nova_step1, name="cadastrar_denuncia"),
     path("listar/", views.denuncia_list, name="listar"),
+    path("<int:pk>/vincular-pessoa/", views.denuncia_vincular_pessoa, name="vincular_pessoa"),
+    path("<int:pk>/vincular-imovel/", views.denuncia_vincular_imovel, name="vincular_imovel"),
+    path("imprimir/<int:pk>/", views.denuncia_imprimir, name="imprimir"),
     path("<int:pk>/editar/", views.denuncia_edit_basico, name="editar_basico"),
     path("<int:pk>/", views.denuncia_detail, name="detalhe"),
 ]

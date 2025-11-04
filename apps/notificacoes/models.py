@@ -17,7 +17,7 @@ def upload_anexo_path_notificacao(instance, filename):
     return f"notificacoes/anexos/{instance.notificacao.id}/{filename}"
 
 
-from utils.protocolo import gerar_protocolo
+from utils.protocolo import gerar_protocolo_para_instance
 from utils.choices import (
     PESSOA_TIPO_CHOICES,
     NOTIFICACAO_STATUS_CHOICES,
@@ -47,20 +47,18 @@ class Notificacao(models.Model):
     bairro = models.CharField(max_length=100)
     cidade = models.CharField(max_length=100)
     uf = models.CharField(max_length=2, default="CE")
+    # Ponto de referência do local da ocorrência
+    pontoref_oco = models.CharField("Ponto de referência", max_length=140, blank=True)
 
     # 🔹 Geolocalização (opcional – útil quando não vier de Denúncia)
-    latitude = models.DecimalField(
+    latitude = models.FloatField(
         "Latitude",
-        max_digits=9,
-        decimal_places=6,
         null=True, blank=True,
         validators=[MinValueValidator(-90.0), MaxValueValidator(90.0)],
         help_text="Ex.: -3.876543"
     )
-    longitude = models.DecimalField(
+    longitude = models.FloatField(
         "Longitude",
-        max_digits=9,
-        decimal_places=6,
         null=True, blank=True,
         validators=[MinValueValidator(-180.0), MaxValueValidator(180.0)],
         help_text="Ex.: -38.654321"
@@ -86,19 +84,31 @@ class Notificacao(models.Model):
     # 🔹 Auditoria
     criada_em = models.DateTimeField(default=timezone.now)
     atualizada_em = models.DateTimeField(auto_now=True)
-    criada_por = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, related_name="notificacoes_criadas")
+    criado_por = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, related_name="notificacoes_criadas")
     atualizada_por = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, related_name="notificacoes_editadas")
 
+    # Vínculos opcionais de referência
+    pessoa = models.ForeignKey('cadastros.Pessoa', null=True, blank=True, on_delete=models.SET_NULL, related_name='notificacoes')
+    imovel = models.ForeignKey('cadastros.Imovel', null=True, blank=True, on_delete=models.SET_NULL, related_name='notificacoes')
+
     def save(self, *args, **kwargs):
+        # Normaliza lat/lng para float com 6 casas e ponto
+        def _coerce_float6(val, lo=None, hi=None):
+            if val in (None, ""): return None
+            try:
+                s = str(val).strip().replace(" ", "").replace(",", ".")
+                f = float(s)
+                if lo is not None and f < lo: return None
+                if hi is not None and f > hi: return None
+                return round(f, 6)
+            except Exception:
+                return None
+        self.latitude = _coerce_float6(self.latitude, -90.0, 90.0)
+        self.longitude = _coerce_float6(self.longitude, -180.0, 180.0)
         # Geração de protocolo (somente na criação)
         if not self.pk and not self.protocolo:
-            ibge = (self.prefeitura.codigo_ibge if self.prefeitura else '') or ''
-            matricula = None
-            # Se houver usuário que está criando e ele tiver matrícula
-            if self.criada_por and getattr(self.criada_por, 'matricula', None):
-                matricula = self.criada_por.matricula
             # sigla fixa para NOTIFICAÇÃO
-            self.protocolo = gerar_protocolo(ibge, 'NOT', matricula=matricula)
+            self.protocolo = gerar_protocolo_para_instance(self, 'NOT')
         super().save(*args, **kwargs)
 
     def __str__(self):

@@ -1,0 +1,309 @@
+{% extends "print/base.html" %}
+{% load static %}
+{% load l10n %}
+{% block title %}Auto de Infração {{ obj.protocolo }}{% endblock %}
+{% block back_link %}<a class="btn" href="{% url 'autoinfracao:detalhe' obj.pk %}">Voltar</a>{% endblock %}
+{% block header_title %}Auto de Infração{% endblock %}
+{% block extra_css %}
+<style>
+  /* Força a seção de Multas começar em nova página */
+  .break-before-page{ page-break-before: always; break-before: page; }
+  /* Evita quebra interna dos blocos de assinatura */
+  .no-break{ page-break-inside: avoid; break-inside: avoid; }
+  /* Tabelas de assinatura e espaçamentos */
+  .sign-table td{ vertical-align: bottom; height:80px; }
+  .sign-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:10px; }
+  .sign-box{ border:1px solid #e5e7eb; border-radius:8px; padding:12px; min-height:120px; }
+  .muted{ color:#6b7280; }
+  .signature-line{ margin-top:18px; border-top:1px solid #94a3b8; width:70%; }
+  .signature-label{ font-size:.9rem; color:#475569; margin-top:2px; }
+  .witness-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:10px; }
+  .witness{ border:1px solid #e5e7eb; border-radius:8px; padding:12px; min-height:120px; }
+  .witness .row{ display:flex; gap:12px; align-items:center; margin-top:12px; }
+  .line{ flex:1; border-bottom:1px solid #94a3b8; height:1px; }
+  .anexos-section{ margin-bottom:18px; }
+  /* Caixa com linhas pontilhadas para observações manuscritas */
+  .lined-box{
+    border:1px solid #e5e7eb; border-radius:8px; padding:8px; height:200px; /* 8 linhas exatas */
+    background-image: linear-gradient(to bottom, #cbd5e1 1px, transparent 1px);
+    background-size: 100% calc(100% / 8);
+    background-repeat: repeat-y;
+  }
+  /* Espaçamento extra abaixo do título dos fiscais */
+  .sign-fiscais h3{ margin-bottom: 14px; }
+  .sign-fiscais .sign-table{ margin-top: 6px; }
+  #print-map{ height:260px; min-height:220px; border:1px solid #e5e7eb; border-radius:8px; }
+  .muted{ color:#6b7280; }
+  .mt-6{ margin-top:6px; }
+</style>
+<link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
+{% endblock %}
+{% block header_meta %}
+  <div><strong>Protocolo:</strong> <code>{{ obj.protocolo }}</code></div>
+  <div><strong>Data:</strong> {{ obj.criada_em|date:"d/m/Y H:i" }}</div>
+  <div><strong>Status:</strong> {{ obj.get_status_display }}</div>
+{% endblock %}
+
+{% block content %}
+  <section class="section">
+    <h3>Documentos Relacionados</h3>
+    <div class="grid cols-2">
+      <div class="field">
+        <div class="label">Nº Protocolo DEN</div>
+        <div class="value">
+          {% if denuncia %}
+            <a href="{% url 'denuncias:detalhe' denuncia.pk %}"><code>{{ denuncia.protocolo }}</code></a>
+          {% else %}—{% endif %}
+        </div>
+      </div>
+      <div class="field">
+        <div class="label">Nº Protocolo NOT</div>
+        <div class="value">
+          {% if notificacao %}
+            <a href="{% url 'notificacoes:detalhe' notificacao.pk %}"><code>{{ notificacao.protocolo }}</code></a>
+          {% else %}—{% endif %}
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="section">
+    <h3>Autuado(a)</h3>
+    <div class="grid cols-3">
+      <div class="field"><div class="label">Nome/Razão</div><div class="value">{{ obj.nome_razao }}</div></div>
+      <div class="field"><div class="label">CPF/CNPJ</div><div class="value">{{ obj.cpf_cnpj }}</div></div>
+      <div class="field"><div class="label">Contato</div><div class="value">{{ obj.telefone }} | {{ obj.email }}</div></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <h3>Endereço</h3>
+    <div class="field">
+      <div class="value">
+        {{ obj.logradouro }}, {{ obj.numero }} {{ obj.complemento }} – {{ obj.bairro }} – {{ obj.cidade }}/{{ obj.uf }} | CEP: {{ obj.cep }}
+      </div>
+    </div>
+  </section>
+
+  {% if notificacao and notificacao.latitude %}
+  <section class="section">
+    <h3>Mapa do Local</h3>
+    {% with lat_src=notificacao.latitude lng_src=notificacao.longitude %}
+      <div id="print-map" data-lat="{{ lat_src|floatformat:'6'|unlocalize }}" data-lng="{{ lng_src|floatformat:'6'|unlocalize }}"></div>
+      <div class="muted mt-6"><strong>Fonte das coordenadas:</strong> Notificação — Latitude: {{ lat_src|floatformat:'6'|localize }} • Longitude: {{ lng_src|floatformat:'6'|localize }}</div>
+    {% endwith %}
+  </section>
+  {% elif denuncia and denuncia.local_oco_lat %}
+  <section class="section">
+    <h3>Mapa do Local</h3>
+    {% with lat_src=denuncia.local_oco_lat lng_src=denuncia.local_oco_lng %}
+      <div id="print-map" data-lat="{{ lat_src|floatformat:'6'|unlocalize }}" data-lng="{{ lng_src|floatformat:'6'|unlocalize }}"></div>
+      <div class="muted mt-6"><strong>Fonte das coordenadas:</strong> Denúncia — Latitude: {{ lat_src|floatformat:'6'|localize }} • Longitude: {{ lng_src|floatformat:'6'|localize }}</div>
+    {% endwith %}
+  </section>
+  {% elif obj.latitude %}
+  <section class="section">
+    <h3>Mapa do Local</h3>
+    {% with lat_src=obj.latitude lng_src=obj.longitude %}
+      <div id="print-map" data-lat="{{ lat_src|floatformat:'6'|unlocalize }}" data-lng="{{ lng_src|floatformat:'6'|unlocalize }}"></div>
+      <div class="muted mt-6"><strong>Fonte das coordenadas:</strong> AIF — Latitude: {{ lat_src|floatformat:'6'|localize }} • Longitude: {{ lng_src|floatformat:'6'|localize }}</div>
+    {% endwith %}
+  </section>
+  {% endif %}
+
+  {% if obj.latitude or obj.longitude %}
+  <section class="section">
+    <h3>Geolocalização</h3>
+    <div class="grid cols-3">
+      <div class="field"><div class="label">Latitude</div><div class="value">{{ obj.latitude }}</div></div>
+      <div class="field"><div class="label">Longitude</div><div class="value">{{ obj.longitude }}</div></div>
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="section">
+    <h3>Descrição/Constatação</h3>
+    <div class="field"><div class="value" style="white-space: pre-line;">{{ obj.descricao }}</div></div>
+  </section>
+
+  <section class="section">
+    <h3>Tipos de Infração</h3>
+    <div class="field">
+      {% if obj.tipos.all %}
+        <ul style="margin:0; padding-left:18px;">
+          {% for t in obj.tipos.all %}<li>{{ t }}</li>{% endfor %}
+        </ul>
+      {% else %}
+        <em>Nenhum tipo selecionado.</em>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="section">
+    <h3>Fiscais</h3>
+    <div class="field">
+      {% with fs=obj.fiscais.all %}
+        {% if fs %}
+          <ul style="margin:0; padding-left:18px;">
+            {% for f in fs %}
+              <li>{{ f.get_full_name|default:f.email }}</li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <em>Nenhum fiscal vinculado.</em>
+        {% endif %}
+      {% endwith %}
+    </div>
+  </section>
+
+  <section class="section">
+    <h3>Características da Edificação</h3>
+    <div class="grid cols-3">
+      <div class="field"><div class="label">Área (m²)</div><div class="value">{{ obj.area_m2|default:"—" }}</div></div>
+      <div class="field"><div class="label">Testada (m)</div><div class="value">{{ obj.testada_m|default:"—" }}</div></div>
+      <div class="field"><div class="label">Pé-direito (m)</div><div class="value">{{ obj.pe_direito_m|default:"—" }}</div></div>
+      <div class="field"><div class="label">Duplex</div><div class="value">{% if obj.duplex %}Sim{% else %}Não{% endif %}</div></div>
+      <div class="field"><div class="label">Qtd. Cômodos</div><div class="value">{{ obj.qtd_comodos|default:"—" }}</div></div>
+      <div class="field"><div class="label">Compartimentação (galpão)</div><div class="value">{% if obj.compartimentacao %}Sim{% else %}Não{% endif %}</div></div>
+      <div class="field"><div class="label">Divisórias (galpão)</div><div class="value">{% if obj.divisorias %}Sim{% else %}Não{% endif %}</div></div>
+      <div class="field"><div class="label">Mezanino</div><div class="value">{% if obj.mezanino %}Sim{% else %}Não{% endif %}</div></div>
+      <div class="field"><div class="label">Área do Mezanino (m²)</div><div class="value">{{ obj.area_mezanino_m2|default:"—" }}</div></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <h3>Dados do Auto / Prazos e Valores</h3>
+    <div class="grid cols-3">
+      <div class="field"><div class="label">Prazo p/ Regularização</div><div class="value">{{ obj.prazo_regularizacao_data|date:"d/m/Y"|default:"—" }}</div></div>
+      <div class="field"><div class="label">Valor Homologado (Total)</div><div class="value">R$ {{ valor_homologado_total|floatformat:2 }}</div></div>
+      <div class="field"><div class="label">Homologado em</div><div class="value">{{ obj.homologado_em|date:"d/m/Y H:i"|default:"—" }}</div></div>
+      <div class="field"><div class="label">Homologado por</div><div class="value">{{ obj.homologado_por.get_full_name|default:obj.homologado_por.email|default:"—" }}</div></div>
+      <div class="field"><div class="label">Regularizado em</div><div class="value">{{ obj.regularizado_em|date:"d/m/Y H:i"|default:"—" }}</div></div>
+    </div>
+  </section>
+
+  <section class="section no-break">
+    <h3>Observações dos Fiscais (Constatação)</h3>
+    <div class="lined-box"></div>
+  </section>
+
+  <section class="section break-before-page">
+    <h3>Multas / Enquadramentos</h3>
+    {% with items=obj.multas.all %}
+      {% if items %}
+        <div class="text-right" style="margin:0 0 6px;"><strong>Total Homologado (AIF):</strong> R$ {{ valor_homologado_total|floatformat:2 }}</div>
+        <table class="print-table">
+          <thead>
+            <tr>
+              <th style="width:70%">Enquadramento</th>
+              <th class="text-right" style="width:30%">Vlr. Homologado (item)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for it in items %}
+              <tr>
+                <td>
+                  {{ it.enquadramento }}
+                  {% if it.descricao %}<div style="color:#6b7280; font-size:.88rem;">{{ it.descricao }}</div>{% endif %}
+                </td>
+                <td class="text-right"><strong>R$ {{ it.valor_homologado|default:it.valor_unitario }}</strong></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="field"><em>Nenhum item de multa.</em></div>
+      {% endif %}
+    {% endwith %}
+  </section>
+
+  {% if anexos %}
+  <section class="section anexos-section">
+    <h3>Anexos</h3>
+    <div class="grid cols-3">
+      {% for a in anexos %}
+        <div class="field">
+          {% if a.tipo == 'FOTO' %}
+            <img src="{{ a.arquivo.url }}" alt="Foto" style="max-width:100%; height:auto; border-radius:6px;" />
+          {% else %}
+            <a href="{{ a.arquivo.url }}" target="_blank" rel="noopener">{{ a.arquivo.name|cut:"autoinfracao/anexos/" }}</a>
+          {% endif %}
+          {% if a.observacao %}<div class="label">{{ a.observacao }}</div>{% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="section no-break">
+    <h3>Ciente do Autuado</h3>
+    <table class="print-table sign-table">
+      <tbody>
+        <tr>
+          <td style="width:60%">
+            <div class="muted">{{ obj.prefeitura.cidade|default:"Cidade" }}, ____ / ____ / ______</div>
+            <div class="signature-line" style="margin-top:26px;"></div>
+            <div class="signature-label">Assinatura do Autuado</div>
+          </td>
+          <td style="width:40%">
+            Observações:
+            <div style="border:1px dashed #cbd5e1; height:60px; margin-top:8px;"></div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="section no-break sign-fiscais">
+    <h3>Assinatura dos Fiscais</h3>
+    <table class="print-table sign-table">
+      <tbody>
+        <tr>
+          <td>
+            <div class="signature-line" style="margin-top:18px;"></div>
+            <div class="signature-label">Fiscal 1</div>
+          </td>
+          <td>
+            <div class="signature-line" style="margin-top:18px;"></div>
+            <div class="signature-label">Fiscal 2</div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="section no-break">
+    <h3>Testemunhas</h3>
+    <div class="witness-grid">
+      <div class="witness">
+        <div class="row"><span class="muted">Nome</span><span class="line"></span></div>
+        <div class="row"><span class="muted">CPF</span><span class="line"></span></div>
+        <div class="signature-line" style="margin-top:24px;"></div>
+        <div class="signature-label">Assinatura</div>
+      </div>
+      <div class="witness">
+        <div class="row"><span class="muted">Nome</span><span class="line"></span></div>
+        <div class="row"><span class="muted">CPF</span><span class="line"></span></div>
+        <div class="signature-line" style="margin-top:24px;"></div>
+        <div class="signature-label">Assinatura</div>
+      </div>
+    </div>
+  </section>
+{% endblock %}
+{% block extra_js %}
+<script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+<script>
+(function(){
+  const el = document.getElementById('print-map');
+  if(!el) return;
+  const rawLat = (el.dataset.lat || '').trim().replace(/\s/g,'').replace(/,/g,'.');
+  const rawLng = (el.dataset.lng || '').trim().replace(/\s/g,'').replace(/,/g,'.');
+  const lat = Number(rawLat); const lng = Number(rawLng);
+  if(Number.isNaN(lat) || Number.isNaN(lng)) return;
+  const map = L.map('print-map', {zoomControl: false, attributionControl: true});
+  map.setView([lat, lng], 17);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+  L.circleMarker([lat, lng], {radius:8, color:'#111827', fillColor:'#10b981', fillOpacity:.9, weight:2}).addTo(map);
+  setTimeout(()=> map.invalidateSize(), 50);
+})();
+</script>
+{% endblock %}

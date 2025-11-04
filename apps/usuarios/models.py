@@ -2,6 +2,9 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from utils.choices import TIPO_USUARIO_CHOICES
+from django.utils import timezone
+from django.db import models
+from django.db.models import JSONField
 
 
 class UsuarioManager(BaseUserManager):
@@ -80,3 +83,62 @@ class Usuario(AbstractUser):
     def __str__(self):
         nome = self.get_full_name() or self.email
         return f'{nome} ({self.tipo})'
+
+
+# Auditoria de login (IP, data/hora, agente)
+class UsuarioLoginLog(models.Model):
+    usuario = models.ForeignKey('usuarios.Usuario', on_delete=models.SET_NULL, null=True, blank=True, related_name='logins')
+    prefeitura = models.ForeignKey('prefeituras.Prefeitura', on_delete=models.SET_NULL, null=True, blank=True, related_name='logins_usuario')
+    ip = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.CharField(max_length=300, blank=True)
+    logado_em = models.DateTimeField(default=timezone.now)
+    logout_em = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'usuarios_login_log'
+        verbose_name = 'Login de Usuário (auditoria)'
+        verbose_name_plural = 'Logins de Usuários (auditoria)'
+        ordering = ['-logado_em']
+
+    def __str__(self):
+        u = self.usuario and (self.usuario.get_full_name() or self.usuario.email) or '—'
+        return f"{u} @ {self.ip or '?'} em {timezone.localtime(self.logado_em).strftime('%d/%m/%Y %H:%M')}"
+
+
+AUDIT_ACOES = (
+    ("VIEW", "Visualizou"),
+    ("CREATE", "Criou"),
+    ("UPDATE", "Editou"),
+    ("DELETE", "Excluiu"),
+    ("PRINT", "Imprimiu"),
+    ("LINK", "Vinculou"),
+    ("UNLINK", "Desvinculou"),
+    ("OTHER", "Outra Ação"),
+)
+
+
+class AuditLog(models.Model):
+    usuario = models.ForeignKey('usuarios.Usuario', on_delete=models.SET_NULL, null=True, blank=True, related_name='audits')
+    prefeitura = models.ForeignKey('prefeituras.Prefeitura', on_delete=models.SET_NULL, null=True, blank=True, related_name='audits')
+    acao = models.CharField(max_length=12, choices=AUDIT_ACOES, default='VIEW')
+    recurso = models.CharField(max_length=60, blank=True)  # ex.: denuncias/notificacoes/autoinfracao
+    app_label = models.CharField(max_length=60, blank=True)
+    model = models.CharField(max_length=60, blank=True)
+    object_id = models.CharField(max_length=60, blank=True)
+    url = models.CharField(max_length=300)
+    metodo = models.CharField(max_length=8)
+    ip = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.CharField(max_length=300, blank=True)
+    extra = JSONField(null=True, blank=True)
+    criado_em = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = 'usuarios_audit_log'
+        ordering = ['-criado_em']
+        indexes = [
+            models.Index(fields=['prefeitura', 'usuario', 'acao', 'criado_em']),
+        ]
+
+    def __str__(self):
+        who = self.usuario and (self.usuario.get_full_name() or self.usuario.email) or '—'
+        return f"{self.acao} {self.recurso} {self.model}#{self.object_id or '-'} por {who} em {timezone.localtime(self.criado_em).strftime('%d/%m/%Y %H:%M')}"

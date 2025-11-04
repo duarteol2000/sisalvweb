@@ -25,8 +25,11 @@ from .models import AutoInfracaoMultaItem, Enquadramento, InfracaoTipo
 from apps.notificacoes.models import Notificacao
 from apps.denuncias.models import Denuncia
 from apps.usuarios.models import Usuario
+from apps.cadastros.models import Pessoa, Imovel
+from apps.usuarios.audit import log_event
 from django.core.files.base import ContentFile
 import os
+
 
 
 def _get_prefeitura_id(request):
@@ -106,9 +109,25 @@ def cadastrar(request):
                 except Exception:
                     pass
             obj.prefeitura_id = prefeitura_id
-            obj.criada_por = request.user
+            obj.criado_por = request.user
             obj.atualizada_por = request.user
             obj.save()
+            log_event(request, 'CREATE', instance=obj)
+
+            # Sugerir vínculos após criação independente
+            pessoa_cand = _find_pessoa_candidata(
+                prefeitura_id, obj.cpf_cnpj
+            )
+            imovel_cand = _find_imovel_candidato(
+                prefeitura_id,
+                logradouro=obj.logradouro,
+                numero=obj.numero,
+                bairro=obj.bairro,
+                cidade=obj.cidade,
+                uf=obj.uf,
+                latitude=obj.latitude,
+                longitude=obj.longitude,
+            )
 
             # vincula M2M
             tipos = form.cleaned_data.get("tipos")
@@ -131,6 +150,9 @@ def cadastrar(request):
                 messages.success(request, f"{count} foto(s) anexada(s) com sucesso.")
 
             messages.success(request, f"Auto de Infração criado! Protocolo: {obj.protocolo}")
+            if (pessoa_cand is not None) or (imovel_cand is not None):
+                messages.info(request, "Encontramos possíveis vínculos com cadastros de referência. Confirme abaixo.")
+                return redirect("autoinfracao:confirmar_vinculos", pk=obj.pk)
             return redirect(reverse("autoinfracao:detalhe", kwargs={"pk": obj.pk}))
         else:
             messages.error(request, "Erros no formulário. Verifique os campos.")
@@ -138,6 +160,153 @@ def cadastrar(request):
         form = AutoInfracaoCreateForm(prefeitura_id=prefeitura_id)
 
     return render(request, "autoinfracao/cadastrar_autoinfracao.html", {"form": form})
+
+
+# ---------------------------------------------
+# Helpers de detecção de vínculos (AIF)
+# ---------------------------------------------
+def _norm_doc(doc: str) -> str:
+    if not doc:
+        return ""
+    return "".join([c for c in str(doc) if c.isdigit()])
+
+
+def _find_pessoa_candidata(prefeitura_id: int, cpf_cnpj: str):
+    doc = _norm_doc(cpf_cnpj)
+    if not doc:
+        return None
+    return Pessoa.objects.filter(prefeitura_id=prefeitura_id, doc_num=doc).first()
+
+
+def _find_imovel_candidato(prefeitura_id: int, *,
+                           logradouro: str, numero: str, bairro: str, cidade: str, uf: str,
+                           latitude, longitude):
+    if all([logradouro, bairro, cidade, uf]) and (numero is not None):
+        exact_qs = Imovel.objects.filter(
+            prefeitura_id=prefeitura_id,
+            logradouro__iexact=(logradouro or ""),
+            numero__iexact=(numero or ""),
+            bairro__iexact=(bairro or ""),
+            cidade__iexact=(cidade or ""),
+            uf__iexact=(uf or ""),
+        )
+        count = exact_qs.count()
+        if count == 1:
+            return exact_qs.first()
+        elif count > 1:
+            return None
+
+    try:
+        if latitude is not None and longitude is not None:
+            lat = float(latitude)
+            lng = float(longitude)
+            eps = 0.0005
+            near_qs = Imovel.objects.filter(
+                prefeitura_id=prefeitura_id,
+                latitude__isnull=False,
+                longitude__isnull=False,
+                latitude__gte=lat - eps, latitude__lte=lat + eps,
+                longitude__gte=lng - eps, longitude__lte=lng + eps,
+            )
+            best = None
+            best_d2 = None
+            for im in near_qs[:50]:
+                try:
+                    ilat = float(im.latitude)
+                    ilng = float(im.longitude)
+                    d2 = (ilat - lat) ** 2 + (ilng - lng) ** 2
+                    if best is None or d2 < best_d2:
+                        best = im
+                        best_d2 = d2
+                except Exception:
+                    continue
+            if best is not None:
+                return best
+    except Exception:
+        pass
+    return None
+
+
+@login_required
+def confirmar_vinculos(request, pk):
+    prefeitura_id = _get_prefeitura_id(request)
+    if not prefeitura_id:
+        messages.warning(request, "Nenhuma prefeitura selecionada para a sessão.")
+        return redirect("/")
+
+    obj = get_object_or_404(AutoInfracao, pk=pk, prefeitura_id=prefeitura_id)
+
+    # Se já possuir vínculos (ou origem), não confirmar
+    if obj.pessoa_id or obj.imovel_id or obj.denuncia_id or obj.notificacao_id:
+        return redirect("autoinfracao:detalhe", pk=obj.pk)
+
+    pessoa_cand = _find_pessoa_candidata(prefeitura_id, obj.cpf_cnpj)
+    imovel_cand = _find_imovel_candidato(
+        prefeitura_id,
+        logradouro=obj.logradouro,
+        numero=obj.numero,
+        bairro=obj.bairro,
+        cidade=obj.cidade,
+        uf=obj.uf,
+        latitude=obj.latitude,
+        longitude=obj.longitude,
+    )
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "skip":
+            messages.info(request, "Vínculos não aplicados.")
+            return redirect("autoinfracao:detalhe", pk=obj.pk)
+
+        do_pessoa = request.POST.get("link_pessoa") == "on"
+        do_imovel = request.POST.get("link_imovel") == "on"
+        atualizar = request.POST.get("atualizar_campos") == "on"
+
+        changed_fk = False
+        if do_pessoa and pessoa_cand:
+            obj.pessoa = pessoa_cand
+            changed_fk = True
+            if atualizar:
+                obj.pessoa_tipo = 'PF' if pessoa_cand.tipo == 'PF' else 'PJ'
+                obj.nome_razao = pessoa_cand.nome_razao or obj.nome_razao
+                obj.cpf_cnpj = pessoa_cand.doc_num or obj.cpf_cnpj
+                obj.telefone = pessoa_cand.telefone or obj.telefone
+                obj.email = pessoa_cand.email or obj.email
+        if do_imovel and imovel_cand:
+            obj.imovel = imovel_cand
+            changed_fk = True
+            if atualizar:
+                obj.cep = imovel_cand.cep or obj.cep
+                obj.logradouro = imovel_cand.logradouro or obj.logradouro
+                obj.numero = imovel_cand.numero or obj.numero
+                obj.complemento = imovel_cand.complemento or obj.complemento
+                obj.bairro = imovel_cand.bairro or obj.bairro
+                obj.cidade = imovel_cand.cidade or obj.cidade
+                obj.uf = imovel_cand.uf or obj.uf
+                if imovel_cand.latitude is not None:
+                    try:
+                        obj.latitude = Decimal(str(imovel_cand.latitude))
+                    except Exception:
+                        obj.latitude = obj.latitude
+                if imovel_cand.longitude is not None:
+                    try:
+                        obj.longitude = Decimal(str(imovel_cand.longitude))
+                    except Exception:
+                        obj.longitude = obj.longitude
+
+        if changed_fk or atualizar:
+            obj.atualizada_por = request.user
+            obj.save()
+            messages.success(request, "Vínculos aplicados com sucesso.")
+        else:
+            messages.info(request, "Nenhuma alteração aplicada.")
+        return redirect("autoinfracao:detalhe", pk=obj.pk)
+
+    return render(request, "autoinfracao/confirmar_vinculos.html", {
+        "obj": obj,
+        "pessoa_cand": pessoa_cand,
+        "imovel_cand": imovel_cand,
+    })
 
 
 @login_required
@@ -163,6 +332,7 @@ def editar(request, pk):
             obj.valor_multa_homologado = total
             obj.atualizada_por = request.user
             obj.save(update_fields=["valor_multa_homologado", "atualizada_por", "atualizada_em"])
+            log_event(request, 'UPDATE', instance=obj, extra={'remove_item': del_id})
         messages.info(request, "Item de multa removido.")
         return redirect(request.path)
 
@@ -178,7 +348,13 @@ def editar(request, pk):
     if request.method == "POST":
         action = request.POST.get("action")
         if action == "add_item":
-            item_form = AutoInfracaoMultaItemForm(request.POST, prefeitura_id=prefeitura_id)
+            # Normaliza decimais com vírgula no POST (valor_unitario/valor_homologado)
+            _post = request.POST.copy()
+            for k in ("valor_unitario", "valor_homologado"):
+                raw = (_post.get(k, "") or "").strip()
+                if raw:
+                    _post[k] = raw.replace(".", "").replace(",", ".")
+            item_form = AutoInfracaoMultaItemForm(_post, prefeitura_id=prefeitura_id)
             if item_form.is_valid():
                 it = item_form.save(commit=False)
                 it.auto_infracao = obj
@@ -213,8 +389,10 @@ def editar(request, pk):
             if not it:
                 messages.error(request, "Item não encontrado.")
                 return redirect(request.path)
-            val = request.POST.get("valor_homologado", "").strip()
+            raw_val = (request.POST.get("valor_homologado", "") or "").strip()
             try:
+                # aceita vírgula como separador decimal
+                val = raw_val.replace(".", "").replace(",", ".") if "," in raw_val else raw_val
                 dh = Decimal(val)
                 dh = dh.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
             except (InvalidOperation, ValueError):
@@ -236,13 +414,15 @@ def editar(request, pk):
             return redirect(request.path)
         elif action == "apply_discount":
             # aplicar desconto percentual global sobre todos os itens
-            perc = request.POST.get("desconto_percent", "").strip()
+            perc = (request.POST.get("desconto_percent", "") or "").strip()
             justificativa = request.POST.get("justificativa", "").strip()
             if not justificativa:
                 messages.error(request, "Informe a justificativa para a homologação.")
                 return redirect(request.path)
             try:
-                p = Decimal(perc)
+                # aceita vírgula como separador decimal
+                perc_norm = perc.replace(".", "").replace(",", ".") if "," in perc else perc
+                p = Decimal(perc_norm)
             except (InvalidOperation, ValueError):
                 messages.error(request, "Percentual inválido.")
                 return redirect(request.path)
@@ -371,6 +551,30 @@ def editar(request, pk):
     })
 
 
+# ---------------------------------------------------------------------
+# IMPRIMIR AIF (página simples para impressão)
+# ---------------------------------------------------------------------
+@login_required
+def imprimir(request, pk):
+    prefeitura_id = _get_prefeitura_id(request)
+    if not prefeitura_id:
+        messages.warning(request, "Nenhuma prefeitura selecionada para a sessão.")
+        return redirect("/")
+
+    obj = get_object_or_404(AutoInfracao, pk=pk, prefeitura_id=prefeitura_id)
+    anexos = obj.anexos.all().order_by("-criada_em")
+    valor_homologado_total = obj.valor_multa_homologado or obj.total_multa
+    ctx = {
+        "obj": obj,
+        "anexos": anexos,
+        "denuncia": obj.denuncia,
+        "notificacao": obj.notificacao,
+        "valor_homologado_total": valor_homologado_total,
+    }
+    log_event(request, 'PRINT', instance=obj)
+    return render(request, "autoinfracao/imprimir_autoinfracao.html", ctx)
+
+
 @login_required
 def medidas_listar(request):
     prefeitura_id = _get_prefeitura_id(request)
@@ -472,7 +676,7 @@ def gerar_embargo(request, aif_pk):
     emb = Embargo(
         prefeitura_id=prefeitura_id,
         auto_infracao=aif,
-        criada_por=request.user,
+        criado_por=request.user,
         atualizada_por=request.user,
     )
     # Default sugerido: 10 dias (pode ser alterado depois)
@@ -500,7 +704,7 @@ def gerar_interdicao(request, aif_pk):
         prefeitura_id=prefeitura_id,
         auto_infracao=aif,
         motivo_tipo="FUNCIONAMENTO",
-        criada_por=request.user,
+        criado_por=request.user,
         atualizada_por=request.user,
     )
     it.save()
@@ -584,6 +788,7 @@ def embargo_editar(request, pk):
                 o = form.save(commit=False)
                 o.atualizada_por = request.user
                 o.save()
+                log_event(request, 'UPDATE', instance=o)
                 messages.success(request, "Embargo atualizado.")
                 return redirect(request.path)
             else:
@@ -669,6 +874,83 @@ def interdicao_editar(request, pk):
     })
 
 
+# Vínculos via UI
+@login_required
+def vincular_pessoa(request, pk):
+    pref_id = request.session.get("prefeitura_id")
+    if not pref_id:
+        messages.warning(request, "Nenhuma prefeitura selecionada para a sessão.")
+        return redirect("/")
+    obj = get_object_or_404(AutoInfracao, pk=pk, prefeitura_id=pref_id)
+    if request.method != "POST":
+        return redirect("autoinfracao:detalhe", pk=pk)
+    tipo = (request.POST.get("tipo") or "PF").upper()
+    nome = (request.POST.get("nome_razao") or obj.nome_razao or "").strip()
+    doc_tipo = (request.POST.get("doc_tipo") or "OUTRO").upper()
+    doc_num = (request.POST.get("doc_num") or "").strip()
+    email = (request.POST.get("email") or obj.email or "").strip()
+    telefone = (request.POST.get("telefone") or obj.telefone or "").strip()
+    pessoa = None
+    if doc_num:
+        pessoa = Pessoa.objects.filter(prefeitura_id=pref_id, doc_num=''.join(filter(str.isdigit, doc_num))).first()
+    if not pessoa:
+        pessoa = Pessoa.objects.create(
+            prefeitura_id=pref_id,
+            tipo=tipo if tipo in ("PF","PJ") else "PF",
+            nome_razao=nome,
+            doc_tipo=doc_tipo if doc_tipo in ("CPF","CNPJ","OUTRO") else "OUTRO",
+            doc_num=''.join(filter(str.isdigit, doc_num)),
+            email=email,
+            telefone=telefone,
+            ativo=True,
+        )
+    obj.pessoa = pessoa
+    obj.save(update_fields=["pessoa"])
+    log_event(request, 'LINK', instance=obj, extra={'pessoa_id': pessoa.id})
+    messages.success(request, "Pessoa vinculada ao AIF.")
+    return redirect("autoinfracao:detalhe", pk=pk)
+
+
+@login_required
+def vincular_imovel(request, pk):
+    pref_id = request.session.get("prefeitura_id")
+    if not pref_id:
+        messages.warning(request, "Nenhuma prefeitura selecionada para a sessão.")
+        return redirect("/")
+    obj = get_object_or_404(AutoInfracao, pk=pk, prefeitura_id=pref_id)
+    if request.method != "POST":
+        return redirect("autoinfracao:detalhe", pk=pk)
+    inscricao = (request.POST.get("inscricao") or "").strip()
+    logradouro = (request.POST.get("logradouro") or obj.logradouro or "").strip() or "ENDERECO DESCONHECIDO"
+    numero = (request.POST.get("numero") or obj.numero or "").strip()
+    complemento = (request.POST.get("complemento") or obj.complemento or "").strip()
+    bairro = (request.POST.get("bairro") or obj.bairro or "").strip()
+    cidade = (request.POST.get("cidade") or obj.cidade or "").strip()
+    uf = (request.POST.get("uf") or obj.uf or "CE").strip()
+    cep = (request.POST.get("cep") or obj.cep or "").strip()
+    imovel = None
+    if inscricao:
+        imovel = Imovel.objects.filter(prefeitura_id=pref_id, inscricao=inscricao).first()
+    if not imovel:
+        imovel = Imovel.objects.create(
+            prefeitura_id=pref_id,
+            inscricao=inscricao,
+            logradouro=logradouro,
+            numero=numero,
+            complemento=complemento,
+            bairro=bairro,
+            cidade=cidade,
+            uf=uf,
+            cep=cep,
+            ativo=True,
+        )
+    obj.imovel = imovel
+    obj.save(update_fields=["imovel"])
+    log_event(request, 'LINK', instance=obj, extra={'imovel_id': imovel.id})
+    messages.success(request, "Imóvel vinculado ao AIF.")
+    return redirect("autoinfracao:detalhe", pk=pk)
+
+
 @login_required
 def gerar_de_notificacao(request, notif_pk):
     prefeitura_id = _get_prefeitura_id(request)
@@ -716,7 +998,7 @@ def gerar_de_notificacao(request, notif_pk):
         divisorias=getattr(notif, 'divisorias', False),
         mezanino=getattr(notif, 'mezanino', False),
         area_mezanino_m2=getattr(notif, 'area_mezanino_m2', None),
-        criada_por=request.user,
+        criado_por=request.user,
         atualizada_por=request.user,
     )
     obj.save()
@@ -777,7 +1059,7 @@ def gerar_de_denuncia(request, den_pk):
         latitude=den.local_oco_lat,
         longitude=den.local_oco_lng,
         descricao=den.descricao_oco,
-        criada_por=request.user,
+        criado_por=request.user,
         atualizada_por=request.user,
     )
     obj.save()

@@ -4,6 +4,16 @@
 {% block content %}
 <div class="container mt-4">
 
+  <style>
+    /* Grid para mini formulários de vínculo: labels acima, campos abaixo */
+    .detail-grid{ display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; }
+    .detail-grid .f{ display:flex; flex-direction:column; }
+    .detail-grid .f label{ display:block; font-weight:600; margin-bottom:4px; }
+    .detail-grid .f input, .detail-grid .f select, .detail-grid .f textarea{ width:100%; }
+    @media (max-width: 1100px){ .detail-grid{ grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 700px){ .detail-grid{ grid-template-columns: 1fr; } }
+  </style>
+
   <!-- Header -->
   <!-- Cabeçalho Detalhe -->
   <div class="detail-header">
@@ -45,6 +55,22 @@
       <strong>Denúncia:</strong> <code class="proto">{{ obj.protocolo }}</code>
     </p>
     <p>
+      <strong>Pessoa vinculada:</strong>
+      {% if obj.pessoa %}
+        {{ obj.pessoa.nome_razao }} ({{ obj.pessoa.get_tipo_display }})
+      {% else %}
+        —
+      {% endif %}
+    </p>
+    <p>
+      <strong>Imóvel vinculado:</strong>
+      {% if obj.imovel %}
+        {{ obj.imovel.logradouro }}{% if obj.imovel.numero %}, {{ obj.imovel.numero }}{% endif %} — {{ obj.imovel.bairro }} — {{ obj.imovel.cidade }}/{{ obj.imovel.uf }}{% if obj.imovel.inscricao %} • Inscrição: {{ obj.imovel.inscricao }}{% endif %}
+      {% else %}
+        —
+      {% endif %}
+    </p>
+    <p>
       <strong>Notificações:</strong>
       {% if notificacoes %}
         {% for n in notificacoes %}
@@ -65,6 +91,61 @@
       {% endif %}
     </p>
   </section>
+
+  {% if not obj.pessoa or not obj.imovel %}
+  <section class="detail-body">
+    <h3>Vincular Referências</h3>
+    <div class="row" style="display:grid; grid-template-columns: repeat(auto-fit,minmax(280px,1fr)); gap:12px;">
+      {% if not obj.pessoa %}
+      <div class="card p-2">
+        <div class="table-head"><div><strong>Pessoa</strong></div></div>
+        <form method="post" action="{% url 'denuncias:vincular_pessoa' obj.pk %}">
+          {% csrf_token %}
+          <div class="detail-grid">
+            <div class="f"><label>Tipo</label>
+              <select name="tipo" class="form-select form-select-sm">
+                <option value="PF">Pessoa Física</option>
+                <option value="PJ">Pessoa Jurídica</option>
+              </select>
+            </div>
+            <div class="f"><label>Nome/Razão</label><input type="text" name="nome_razao" class="form-control form-control-sm" value="{{ obj.nome_razao }}"></div>
+            <div class="f"><label>Doc. Tipo</label>
+              <select name="doc_tipo" class="form-select form-select-sm">
+                <option value="OUTRO">Outro</option>
+                <option value="CPF">CPF</option>
+                <option value="CNPJ">CNPJ</option>
+              </select>
+            </div>
+            <div class="f"><label>Doc. Número</label><input type="text" name="doc_num" class="form-control form-control-sm"></div>
+            <div class="f"><label>E-mail</label><input type="email" name="email" class="form-control form-control-sm"></div>
+            <div class="f"><label>Telefone</label><input type="text" name="telefone" class="form-control form-control-sm"></div>
+          </div>
+          <div class="form-actions" style="margin-top:6px;"><button class="btn btn-sm btn-primary">Vincular Pessoa</button></div>
+        </form>
+      </div>
+      {% endif %}
+      {% if not obj.imovel %}
+      <div class="card p-2">
+        <div class="table-head"><div><strong>Imóvel</strong></div></div>
+        <form method="post" action="{% url 'denuncias:vincular_imovel' obj.pk %}">
+          {% csrf_token %}
+          <div class="detail-grid">
+            <div class="f"><label>Inscrição (opcional)</label><input type="text" name="inscricao" class="form-control form-control-sm"></div>
+            <div class="f"><label>Logradouro</label><input type="text" name="logradouro" class="form-control form-control-sm" value="{{ obj.local_oco_logradouro }}"></div>
+            <div class="f"><label>Número</label><input type="text" name="numero" class="form-control form-control-sm" value="{{ obj.local_oco_numero }}"></div>
+            <div class="f"><label>Complemento</label><input type="text" name="complemento" class="form-control form-control-sm" value="{{ obj.local_oco_complemento }}"></div>
+            <div class="f"><label>Bairro</label><input type="text" name="bairro" class="form-control form-control-sm" value="{{ obj.local_oco_bairro }}"></div>
+            <div class="f"><label>Cidade</label><input type="text" name="cidade" class="form-control form-control-sm" value="{{ obj.local_oco_cidade }}"></div>
+            <div class="f"><label>UF</label><input type="text" name="uf" class="form-control form-control-sm" value="{{ obj.local_oco_uf }}"></div>
+            <div class="f"><label>CEP</label><input type="text" name="cep" class="form-control form-control-sm" value="{{ obj.local_oco_cep }}"></div>
+          </div>
+          <div class="form-actions" style="margin-top:6px;"><button class="btn btn-sm btn-primary">Vincular Imóvel</button></div>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
 
 
   <!-- Grid de cartões -->

@@ -1,0 +1,283 @@
+{% extends "core/base.html" %}
+{% block menu_mapa_active %}active{% endblock %}
+{% load static %}
+{% load l10n %}
+{% block content %}
+<section class="card" style="padding:0; overflow:hidden;">
+  <div style="display:flex; height:70vh;">
+    <aside id="map-panel" style="width:300px; border-right:1px solid var(--border); padding:12px;">
+      <h3 style="margin:0 0 8px;">Mapa de Processos</h3>
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <div>
+          <label for="fEndereco"><strong>Endereço</strong></label>
+          <input id="fEndereco" class="form-control" type="text" placeholder="Ex.: Rua, nº, bairro, cidade" />
+        </div>
+        <div>
+          <label for="fProtocolo"><strong>Protocolo</strong></label>
+          <input id="fProtocolo" class="form-control" type="text" placeholder="Ex.: 2307650-NOT-2025..." />
+        </div>
+        <div>
+          <label for="fTipo"><strong>Tipo</strong></label>
+          <select id="fTipo" class="form-select">
+            <option value="ALL">Todos</option>
+            <option value="NOTIFICACAO">Notificações</option>
+            <option value="AUTOINFRACAO">Autos de Infração</option>
+          </select>
+        </div>
+        <div>
+          <label for="fAno"><strong>Ano</strong></label>
+          <select id="fAno" class="form-select">
+            <option value="ALL">Todos</option>
+          </select>
+        </div>
+        <div class="actions" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <button id="btnAplicar" class="btn btn-primary" type="button">Aplicar</button>
+          <button id="btnLimpar" class="btn" type="button" title="Limpar filtros">Limpar Filtro</button>
+          <button id="btnPrefeitura" class="btn" type="button" title="Centralizar na Prefeitura">Centralizar Prefeitura</button>
+        </div>
+        <div>
+          <strong>Legenda</strong>
+          <div style="display:flex; gap:8px; align-items:center; margin-top:6px;">
+            <span style="display:inline-block; width:14px; height:14px; background:#2563eb; border-radius:3px;"></span>
+            <span>Notificação</span>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center; margin-top:4px;">
+            <span style="display:inline-block; width:14px; height:14px; background:#f59e0b; border-radius:3px;"></span>
+            <span>Auto de Infração</span>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center; margin-top:4px;">
+            <span style="display:inline-block; width:14px; height:14px; background:#7c3aed; border-radius:3px;"></span>
+            <span>Misto</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+    <div id="map" style="flex:1; height:100%; position:relative;"></div>
+  </div>
+  {# Embute center como JSON seguro para evitar localizações #}
+  {{ center|json_script:"map-center" }}
+</section>
+
+<style>
+  /* Campos abaixo dos labels dentro do painel do mapa */
+  #map-panel label{ display:block; margin-bottom:4px; }
+  #map-panel .form-control, #map-panel .form-select{ display:block; width:100%; margin-top:4px; }
+  #map-panel .actions .btn{ white-space:nowrap; }
+</style>
+
+<!-- Leaflet + MarkerCluster (local, sem CDN) -->
+<link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}" />
+<script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+<link rel="stylesheet" href="{% static 'vendor/leaflet.markercluster/MarkerCluster.css' %}" />
+<link rel="stylesheet" href="{% static 'vendor/leaflet.markercluster/MarkerCluster.Default.css' %}" />
+<script src="{% static 'vendor/leaflet.markercluster/leaflet.markercluster.js' %}"></script>
+
+<script>
+(function(){
+  function hardError(msg){
+    const el = document.getElementById('map');
+    if(!el) return;
+    el.innerHTML = `<div style="position:absolute;left:12px;top:12px;background:rgba(255,255,255,.98);border-left:4px solid #ef4444;border:1px solid #e5e7eb;border-radius:6px;padding:8px 10px;font-size:.9rem;max-width:360px;z-index:401;">${msg}</div>`;
+  }
+
+  // Verifica se Leaflet carregou; se não, informa erro
+  if(typeof window.L === 'undefined'){
+    hardError('Falha ao carregar a biblioteca de mapa (Leaflet). Verifique sua internet ou bloqueio de CDN.');
+    return;
+  }
+  const tipoSel = document.getElementById('fTipo');
+  const anoSel = document.getElementById('fAno');
+  const endInput = document.getElementById('fEndereco');
+  const protoInput = document.getElementById('fProtocolo');
+  const btnAplicar = document.getElementById('btnAplicar');
+  const btnPrefeitura = document.getElementById('btnPrefeitura');
+  const btnLimpar = document.getElementById('btnLimpar');
+
+  // anos: últimos 6 incluindo o atual
+  const nowY = new Date().getFullYear();
+  for(let y=0;y<6;y++){
+    const yr = nowY - y;
+    const opt = document.createElement('option');
+    opt.value = String(yr);
+    opt.textContent = String(yr);
+    anoSel.appendChild(opt);
+  }
+  // por padrão, ano corrente ativo
+  anoSel.value = String(nowY);
+
+  // Lê center de JSON seguro (evita vírgula decimal/PT-BR)
+  const center = JSON.parse(document.getElementById('map-center').textContent);
+  const map = L.map('map').setView([center.lat, center.lng], center.zoom || 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap'
+  }).addTo(map);
+
+  // Se o plugin de cluster não carregar, faz fallback para LayerGroup
+  const clusters = (typeof L.markerClusterGroup === 'function') ? L.markerClusterGroup() : L.layerGroup();
+  map.addLayer(clusters);
+  let searchMarker = null;
+
+  function colorFor(entries){
+    const types = new Set(entries.map(e=>e.tipo));
+    if(types.size>1) return '#7c3aed'; // misto
+    if(types.has('NOTIFICACAO')) return '#2563eb';
+    return '#f59e0b';
+  }
+
+  function markerIcon(color){
+    const html = `<div style=\"background:${color}; width:12px; height:12px; border-radius:50%; border:2px solid white;\"></div>`;
+    return L.divIcon({html, className:'', iconSize:[16,16]});
+  }
+
+  // Overlay de status simples no canto superior direito do mapa
+  function setStatus(msg){
+    let el = document.getElementById('map-status');
+    if(!el){
+      el = document.createElement('div');
+      el.id = 'map-status';
+      el.style.cssText = 'position:absolute;right:8px;top:8px;background:rgba(255,255,255,.95);border:1px solid #e5e7eb;border-radius:6px;padding:4px 8px;font-size:.85rem;z-index:400;';
+      document.getElementById('map').appendChild(el);
+    }
+    el.textContent = msg || '';
+  }
+  // small initial hint
+  setStatus('Inicializando...');
+
+  // Toasts simples para feedback de erro/alerta
+  function showToast(message, kind){
+    let wrap = document.getElementById('map-toasts');
+    if(!wrap){
+      wrap = document.createElement('div');
+      wrap.id = 'map-toasts';
+      wrap.style.cssText = 'position:absolute;right:8px;bottom:8px;display:flex;flex-direction:column;gap:6px;z-index:401;';
+      document.getElementById('map').appendChild(wrap);
+    }
+    const el = document.createElement('div');
+    const color = kind==='error' ? '#ef4444' : (kind==='warn' ? '#f59e0b' : '#10b981');
+    el.style.cssText = `background:rgba(255,255,255,.98);border-left:4px solid ${color};border:1px solid #e5e7eb;border-radius:6px;padding:6px 10px;font-size:.85rem;box-shadow:0 4px 12px rgba(0,0,0,.08);max-width:320px;`;
+    el.innerHTML = `<span>${message}</span>`;
+    wrap.appendChild(el);
+    setTimeout(()=>{ el.remove(); if(wrap.childElementCount===0) wrap.remove(); }, 4500);
+  }
+
+  let inflight = null;
+  async function loadData(opts){
+    const opt = Object.assign({autoFit:false, onlyZoomOut:false}, opts||{});
+    const b = map.getBounds();
+    const bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].join(',');
+    const tipo = tipoSel.value || 'ALL';
+    const ano = anoSel.value || 'ALL';
+    const protocolo = (protoInput.value||'').trim();
+    let url = "{% url 'core_api_mapa_processos' %}?tipo="+encodeURIComponent(tipo)+"&ano="+encodeURIComponent(ano);
+    if(protocolo){ url += "&protocolo="+encodeURIComponent(protocolo); }
+    // bbox só é usado quando não há protocolo, mas não faz mal enviar sempre
+    url += "&bbox="+encodeURIComponent(bbox);
+    try{
+      inflight && inflight.abort && inflight.abort();
+      inflight = new AbortController();
+      setStatus('Carregando...');
+      const res = await fetch(url, {signal: inflight.signal});
+      if(!res.ok){
+        setStatus('API '+res.status);
+        let msg = 'Falha ao carregar ('+res.status+').';
+        if(res.status===400) msg = 'Parâmetros inválidos ou sessão sem prefeitura (400).';
+        if(res.status===403) msg = 'Sem permissão para a prefeitura atual (403).';
+        if(res.status>=500) msg = 'Erro no servidor ('+res.status+').';
+        showToast(msg, 'error');
+        console.warn('API falhou', res.status, url);
+        return;
+      }
+      const ct = (res.headers.get('content-type')||'').toLowerCase();
+      if(!ct.includes('application/json')){
+        setStatus('API inválida');
+        showToast('Resposta inesperada da API (não JSON). Possível sessão expirada.', 'error');
+        return;
+      }
+      const data = await res.json();
+      clusters.clearLayers();
+      const feats = data.features||[];
+      const hasMore = (res.headers.get('X-Has-More')||'').toLowerCase()==='true';
+      feats.forEach(f=>{
+        const [lng, lat] = f.geometry.coordinates;
+        const entries = f.properties.entradas || [];
+        const color = colorFor(entries);
+        const m = L.marker([lat, lng], {icon: markerIcon(color)});
+        const list = entries.map(e=>`<div><small><b>${e.tipo}</b>: <a href=\"${e.url}\">${e.protocolo}</a> (${e.ano||''})</small></div>`).join('');
+        m.bindTooltip(`${entries.length} processo(s)`, {direction:'top'});
+        m.bindPopup(`<div style=\"min-width:220px\">${list}</div>`);
+        clusters.addLayer(m);
+      });
+      setStatus(feats.length+" ponto(s)" + (hasMore ? " (parcial)" : ""));
+      // Se foi busca por protocolo e há resultado, centraliza no primeiro
+      if((protoInput.value||'').trim() && feats.length){
+        const [lng, lat] = feats[0].geometry.coordinates;
+        map.setView([lat, lng], Math.max(map.getZoom(), 19));
+      } else if(opt.autoFit && feats.length){
+        // Ajusta o mapa para cobrir os pontos retornados
+        const bounds = L.latLngBounds([]);
+        feats.forEach(f=>{ const [lng, lat] = f.geometry.coordinates; bounds.extend([lat,lng]); });
+        const currentZoom = map.getZoom();
+        const fitOpts = {maxZoom: opt.onlyZoomOut ? currentZoom : 19};
+        map.fitBounds(bounds.pad(0.2), fitOpts);
+      }
+      if(hasMore){ showToast('Muitos pontos na área — exibindo parte dos resultados. Aproxime ou mova o mapa para detalhar.', 'warn'); }
+    }catch(e){ if(e.name!=='AbortError') { console.error(e); showToast('Erro de rede ao carregar o mapa.', 'error'); } }
+  }
+
+  async function geocodeEndereco(q){
+    if(!q) return null;
+    try{
+      setStatus('Geocodificando endereço...');
+      const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=br&q='+encodeURIComponent(q);
+      const res = await fetch(url, {headers: {'Accept-Language': 'pt-BR'}});
+      if(!res.ok){ showToast('Geocodificador indisponível ('+res.status+').', 'error'); return null; }
+      const arr = await res.json();
+      if(!Array.isArray(arr) || !arr.length){ showToast('Endereço não encontrado.', 'warn'); return null; }
+      const item = arr[0];
+      const lat = parseFloat(item.lat), lon = parseFloat(item.lon);
+      return {lat, lon, display: item.display_name};
+    }catch(err){ console.error(err); showToast('Erro na busca de endereço.', 'error'); return null; }
+  }
+
+  function waitMoveEnd(){ return new Promise(res=> map.once('moveend', ()=> setTimeout(res,0))); }
+
+  async function aplicar(){
+    // 1) Se houver endereço, centraliza no ponto
+    const q = (endInput.value||'').trim();
+    if(q){
+      const r = await geocodeEndereco(q);
+      if(r){
+        if(searchMarker){ map.removeLayer(searchMarker); }
+        searchMarker = L.circleMarker([r.lat, r.lon], {radius:8, color:'#111827', fillColor:'#10b981', fillOpacity:.9, weight:2}).addTo(map);
+        searchMarker.bindTooltip('Destino', {direction:'top'});
+        map.setView([r.lat, r.lon], 19);
+        await waitMoveEnd();
+        await loadData();
+        return;
+      }
+    }
+    // 2) Carrega dados (considera protocolo/ano/tipo atuais)
+    const protocolo = (protoInput.value||'').trim();
+    await loadData({autoFit: !protocolo, onlyZoomOut: true});
+  }
+
+  map.on('moveend', ()=> loadData());
+  tipoSel.addEventListener('change', ()=> { const z = Math.min(map.getZoom(), 12); map.setView([center.lat, center.lng], z); setTimeout(()=> loadData({autoFit:true, onlyZoomOut:true}), 0); });
+  anoSel.addEventListener('change', ()=> { const z = Math.min(map.getZoom(), 12); map.setView([center.lat, center.lng], z); setTimeout(()=> loadData({autoFit:true, onlyZoomOut:true}), 0); });
+  if(btnAplicar){ btnAplicar.addEventListener('click', aplicar); }
+  if(btnPrefeitura){ btnPrefeitura.addEventListener('click', ()=>{ map.setView([center.lat, center.lng], center.zoom || 13); showToast('Centralizado na Prefeitura', 'ok'); loadData(); }); }
+  if(btnLimpar){ btnLimpar.addEventListener('click', ()=>{
+    endInput.value = '';
+    protoInput.value = '';
+    tipoSel.value = 'ALL';
+    anoSel.value = 'ALL';
+    if(searchMarker){ map.removeLayer(searchMarker); searchMarker = null; }
+    map.setView([center.lat, center.lng], center.zoom || 13);
+    loadData({autoFit:false});
+  }); }
+  // primeira carga
+  map.whenReady(()=>{ setTimeout(()=>{ map.invalidateSize(); loadData({autoFit:false}); }, 50); });
+})();
+</script>
+{% endblock %}

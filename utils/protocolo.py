@@ -32,3 +32,22 @@ def gerar_protocolo(codigo_ibge: str, sigla: str, matricula: str | None = None) 
     if matricula_up:
         return f"{ibge}-{sigla_up}-{ts}-{matricula_up}"
     return f"{ibge}-{sigla_up}-{ts}"
+
+
+def gerar_protocolo_para_instance(instance, sigla: str, user_field_names=("criado_por", "criada_por")) -> str:
+    """Gera protocolo a partir de uma instance que possua `prefeitura` e
+    possivelmente `criado_por` (ou `criada_por`) com `matricula`.
+
+    - Busca `codigo_ibge` em `instance.prefeitura`.
+    - Tenta encontrar matrícula do usuário criador, checando campos em `user_field_names`.
+    - Usa `gerar_protocolo` para compor no padrão IBGE-SIGLA-AAAA...-MATRICULA.
+    """
+    pref = getattr(instance, "prefeitura", None)
+    ibge = getattr(pref, "codigo_ibge", "") or ""
+    matricula = None
+    for field in user_field_names:
+        user = getattr(instance, field, None)
+        if user and getattr(user, "matricula", None):
+            matricula = user.matricula
+            break
+    return gerar_protocolo(ibge, sigla, matricula=matricula)

@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from apps.prefeituras.models import Prefeitura  # evitar import circular
+from apps.usuarios.models import UsuarioLoginLog
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 import re
@@ -70,6 +71,22 @@ def login_view(request):
         # Login e fixar prefeitura na sessão
         login(request, user)
         request.session["prefeitura_id"] = prefeitura.id
+        # Auditoria de login: IP, data/hora, user-agent
+        def _get_client_ip(req):
+            xff = req.META.get('HTTP_X_FORWARDED_FOR')
+            if xff:
+                return xff.split(',')[0].strip()
+            return req.META.get('REMOTE_ADDR')
+        try:
+            UsuarioLoginLog.objects.create(
+                usuario=user,
+                prefeitura=prefeitura,
+                ip=_get_client_ip(request),
+                user_agent=(request.META.get('HTTP_USER_AGENT') or '')[:300],
+            )
+        except Exception:
+            # Auditoria não deve impedir o login
+            pass
 
         messages.success(request, f"Bem-vindo! Prefeitura ativa: {prefeitura.nome}.")
         return redirect("home")  # ✅ redireciona para a sua tela inicial
@@ -79,9 +96,25 @@ def login_view(request):
 
 
 def logout_view(request):
+    # Auditoria de logout: marca logout_em no último log aberto
+    try:
+        from django.utils import timezone as _tz
+        user = request.user if request.user.is_authenticated else None
+        pref_id = request.session.get("prefeitura_id")
+        if user is not None:
+            from apps.usuarios.models import UsuarioLoginLog
+            q = UsuarioLoginLog.objects.filter(usuario=user)
+            if pref_id:
+                q = q.filter(prefeitura_id=pref_id)
+            last_open = q.filter(logout_em__isnull=True).order_by('-logado_em').first()
+            if last_open:
+                last_open.logout_em = _tz.now()
+                last_open.save(update_fields=["logout_em"])
+    except Exception:
+        pass
+
     # Limpa sessão e retorna ao login
     logout(request)
-    # (opcional) se quiser garantir limpeza específica:
     request.session.pop("prefeitura_id", None)
     return redirect("login")
 

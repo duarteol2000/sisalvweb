@@ -2,6 +2,7 @@
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils.text import slugify
 
 from utils.choices import (
@@ -69,13 +70,18 @@ class Denuncia(models.Model):
     local_oco_logradouro = models.CharField(max_length=140)
     local_oco_numero = models.CharField(max_length=20, blank=True)  # pode ser lote/quadra
     local_oco_complemento = models.CharField(max_length=60, blank=True)
+    local_oco_pontoref = models.CharField("Ponto de referência", max_length=140, blank=True)
     local_oco_bairro = models.CharField(max_length=80)
     local_oco_cidade = models.CharField(max_length=80)
     local_oco_uf = models.CharField(max_length=2)
     local_oco_cep = models.CharField(max_length=9, blank=True)
-    local_oco_lat = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
-    local_oco_lng = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
+    local_oco_lat = models.FloatField(null=True, blank=True, validators=[MinValueValidator(-90.0), MaxValueValidator(90.0)])
+    local_oco_lng = models.FloatField(null=True, blank=True, validators=[MinValueValidator(-180.0), MaxValueValidator(180.0)])
     descricao_oco = models.TextField()
+
+    # Vínculos opcionais (referências)
+    pessoa = models.ForeignKey('cadastros.Pessoa', null=True, blank=True, on_delete=models.SET_NULL, related_name='denuncias')
+    imovel = models.ForeignKey('cadastros.Imovel', null=True, blank=True, on_delete=models.SET_NULL, related_name='denuncias')
 
     # Situação
     status = models.CharField(max_length=30, choices=DENUNCIA_STATUS_CHOICES, default='ABERTA')
@@ -100,6 +106,19 @@ class Denuncia(models.Model):
         return f"{self.protocolo or 'SEM-PROTOCOLO'} — {self.denunciado_nome_razao}"
 
     def save(self, *args, **kwargs):
+        # Normaliza lat/lng do local da ocorrência
+        def _coerce_float6(val, lo=None, hi=None):
+            if val in (None, ""): return None
+            try:
+                s = str(val).strip().replace(" ", "").replace(",", ".")
+                f = float(s)
+                if lo is not None and f < lo: return None
+                if hi is not None and f > hi: return None
+                return round(f, 6)
+            except Exception:
+                return None
+        self.local_oco_lat = _coerce_float6(self.local_oco_lat, -90.0, 90.0)
+        self.local_oco_lng = _coerce_float6(self.local_oco_lng, -180.0, 180.0)
         # Geração de protocolo (somente na criação)
         if not self.pk and not self.protocolo:
             ibge = (self.prefeitura.codigo_ibge if self.prefeitura else '') or ''

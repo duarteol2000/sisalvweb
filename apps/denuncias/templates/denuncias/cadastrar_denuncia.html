@@ -90,6 +90,7 @@
           <div class="field"><label>Logradouro <span aria-hidden="true" style="color:#c00">*</span></label>{{ form.local_oco_logradouro }}</div>
           <div class="field"><label>Nº / Lote / Quadra</label>{{ form.local_oco_numero }}</div>
           <div class="field"><label>Complemento</label>{{ form.local_oco_complemento }}</div>
+          <div class="field"><label>Ponto de referência</label>{{ form.local_oco_pontoref }}</div>
 
           <div class="field"><label>Bairro <span aria-hidden="true" style="color:#c00">*</span></label>{{ form.local_oco_bairro }}</div>
           <div class="field"><label>Cidade <span aria-hidden="true" style="color:#c00">*</span></label>{{ form.local_oco_cidade }}</div>
@@ -157,7 +158,7 @@
 
 <!-- CSS/JS da app -->
 <link rel="stylesheet" href="{% static 'denuncias/css/denuncias.css' %}">
-<script src="{% static 'denuncias/js/denuncias.js' %}"></script>
+<script src="{% static 'denuncias/js/denuncias.js' %}?v=20251030-1"></script>
 <script src="{% static 'js/viacep.js' %}"></script>
 
 <!-- Estilos locais da galeria -->

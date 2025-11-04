@@ -8,6 +8,10 @@ urlpatterns = [
     path("cadastrar/", views.cadastrar, name="cadastrar"),
     path("editar/<int:pk>/", views.editar, name="editar"),
     path("detalhe/<int:pk>/", views.detalhe, name="detalhe"),
+    path("confirmar-vinculos/<int:pk>/", views.confirmar_vinculos, name="confirmar_vinculos"),
+    path("<int:pk>/vincular-pessoa/", views.vincular_pessoa, name="vincular_pessoa"),
+    path("<int:pk>/vincular-imovel/", views.vincular_imovel, name="vincular_imovel"),
+    path("imprimir/<int:pk>/", views.imprimir, name="imprimir"),
     # Medidas a partir do AIF
     path("<int:aif_pk>/gerar-embargo/", views.gerar_embargo, name="gerar_embargo"),
     path("<int:aif_pk>/gerar-interdicao/", views.gerar_interdicao, name="gerar_interdicao"),

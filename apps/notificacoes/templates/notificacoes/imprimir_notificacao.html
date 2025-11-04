@@ -1,98 +1,127 @@
+{% extends "print/base.html" %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Notificação {{ obj.protocolo }}</title>
-  <link rel="icon" href="{% static 'img/favicon.png' %}">
-  <link rel="stylesheet" href="{% static 'sisalv/css/theme-light.css' %}">
-  <style>
-    @media print {
-      .no-print { display:none !important; }
-      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    }
-    body{ background:#fff; color:#111827; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Helvetica, Arial; }
-    .print-container{ width:min(96vw, 960px); margin: 10px auto; padding: 10px; }
-    .print-header{ display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #e5e7eb; padding-bottom:8px; margin-bottom:12px; }
-    .brand{ display:flex; align-items:center; gap:10px; }
-    .brand img{ height:42px; width:auto; }
-    .meta{ text-align:right; color:#475569; font-size:.95rem; }
-    .grid-2{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
-    .grid-3{ display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; }
-    .section{ margin-top:12px; }
-    .section h3{ margin: 0 0 6px 0; font-size:1.02rem; }
-    .field{ border:1px solid #e5e7eb; border-radius:8px; padding:8px; background:#fff; }
-    .label{ color:#6b7280; font-size:.8rem; margin-bottom:4px; }
-    .value{ font-weight:600; }
-    .actions{ margin:8px 0; }
-    .btn{ display:inline-block; border:1px solid #e5e7eb; border-radius:8px; padding:.35rem .6rem; text-decoration:none; }
-  </style>
-</head>
-<body>
-  <div class="print-container">
-    <div class="actions no-print">
-      <a class="btn" href="javascript:window.print()">Imprimir</a>
-      <a class="btn" href="{% url 'notificacoes:detalhe' obj.pk %}">Voltar</a>
-    </div>
-    <header class="print-header">
-      <div class="brand">
-        <img src="{% static 'img/logo_prefeitura.png' %}" alt="Logo">
-        <div>
-          <div class="public-title" style="margin:0;">Notificação</div>
-          <div class="public-subtitle" style="margin:0;">SISALV WEB</div>
-        </div>
-      </div>
-      <div class="meta">
-        <div><strong>Protocolo:</strong> <code>{{ obj.protocolo }}</code></div>
-        <div><strong>Data:</strong> {{ obj.criada_em|date:"d/m/Y H:i" }}</div>
-      </div>
-    </header>
+{% load l10n %}
+{% block title %}Notificação {{ obj.protocolo }}{% endblock %}
+{% block back_link %}<a class="btn" href="{% url 'notificacoes:detalhe' obj.pk %}">Voltar</a>{% endblock %}
+{% block header_title %}Notificação{% endblock %}
+{% block extra_css %}
+<style>
+  #print-map{ height:260px; min-height:220px; border:1px solid #e5e7eb; border-radius:8px; }
+  .muted{ color:#6b7280; }
+  .mt-6{ margin-top:6px; }
+</style>
+<link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
+{% endblock %}
+{% block header_meta %}
+  <div><strong>Protocolo:</strong> <code>{{ obj.protocolo }}</code></div>
+  <div><strong>Data:</strong> {{ obj.criada_em|date:"d/m/Y H:i" }}</div>
+  <div><strong>Status:</strong> {{ obj.get_status_display }}</div>
+{% endblock %}
 
-    <section class="section">
-      <h3>Notificado</h3>
-      <div class="grid-3">
-        <div class="field"><div class="label">Nome/Razão</div><div class="value">{{ obj.nome_razao }}</div></div>
-        <div class="field"><div class="label">CPF/CNPJ</div><div class="value">{{ obj.cpf_cnpj }}</div></div>
-        <div class="field"><div class="label">Contato</div><div class="value">{{ obj.telefone }} | {{ obj.email }}</div></div>
-      </div>
-    </section>
-
-    <section class="section">
-      <h3>Endereço</h3>
+{% block content %}
+  <section class="section">
+    <h3>Documentos Relacionados</h3>
+    <div class="grid cols-2">
       <div class="field">
+        <div class="label">Nº Protocolo DEN</div>
         <div class="value">
-          {{ obj.logradouro }}, {{ obj.numero }} {{ obj.complemento }} – {{ obj.bairro }} – {{ obj.cidade }}/{{ obj.uf }}
-          | CEP: {{ obj.cep }}
+          {% if denuncia %}
+            <a href="{% url 'denuncias:detalhe' denuncia.pk %}"><code>{{ denuncia.protocolo }}</code></a>
+          {% else %}
+            —
+          {% endif %}
         </div>
       </div>
-    </section>
-
-    {% if obj.latitude or obj.longitude %}
-    <section class="section">
-      <h3>Geolocalização</h3>
-      <div class="grid-3">
-        <div class="field"><div class="label">Latitude</div><div class="value">{{ obj.latitude }}</div></div>
-        <div class="field"><div class="label">Longitude</div><div class="value">{{ obj.longitude }}</div></div>
+      <div class="field">
+        <div class="label">Nº Protocolo AIF</div>
+        <div class="value">
+          {% if aifs %}
+            {% for a in aifs %}
+              <a href="{% url 'autoinfracao:detalhe' a.pk %}"><code>{{ a.protocolo }}</code></a>{% if not forloop.last %}, {% endif %}
+            {% endfor %}
+          {% else %}
+            —
+          {% endif %}
+        </div>
       </div>
-    </section>
-    {% endif %}
+    </div>
+  </section>
 
-    <section class="section">
-      <h3>Descrição</h3>
-      <div class="field"><div class="value" style="white-space: pre-line;">{{ obj.descricao }}</div></div>
-    </section>
+  <section class="section">
+    <h3>Notificado</h3>
+    <div class="grid cols-3">
+      <div class="field"><div class="label">Nome/Razão</div><div class="value">{{ obj.nome_razao }}</div></div>
+      <div class="field"><div class="label">CPF/CNPJ</div><div class="value">{{ obj.cpf_cnpj }}</div></div>
+      <div class="field"><div class="label">Contato</div><div class="value">{{ obj.telefone }} | {{ obj.email }}</div></div>
+    </div>
+  </section>
 
-    {% if obj.prazo_regularizacao %}
-    <section class="section">
-      <h3>Prazo para Regularização</h3>
-      <div class="field"><div class="value">{{ obj.prazo_regularizacao|date:"d/m/Y" }}</div></div>
-    </section>
-    {% endif %}
-  </div>
-  <script>/* auto-print opcional: descomentar se quiser */
-    // window.print();
-  </script>
-</body>
-</html>
+  <section class="section">
+    <h3>Endereço</h3>
+    <div class="field">
+      <div class="value">
+        {{ obj.logradouro }}, {{ obj.numero }} {{ obj.complemento }}
+        {% if obj.pontoref_oco %} • Ponto de ref.: {{ obj.pontoref_oco }}{% endif %}
+        – {{ obj.bairro }} – {{ obj.cidade }}/{{ obj.uf }} | CEP: {{ obj.cep }}
+      </div>
+    </div>
+  </section>
 
+  {% if obj.imovel and obj.imovel.latitude %}
+  <section class="section">
+    <h3>Mapa do Local</h3>
+    {% with lat_src=obj.imovel.latitude lng_src=obj.imovel.longitude %}
+      <div id="print-map" data-lat="{{ lat_src|floatformat:'6'|unlocalize }}" data-lng="{{ lng_src|floatformat:'6'|unlocalize }}"></div>
+      <div class="muted mt-6"><strong>Fonte das coordenadas:</strong> Imóvel — Latitude: {{ lat_src|floatformat:'6'|localize }} • Longitude: {{ lng_src|floatformat:'6'|localize }}</div>
+    {% endwith %}
+  </section>
+  {% elif denuncia and denuncia.local_oco_lat %}
+  <section class="section">
+    <h3>Mapa do Local</h3>
+    {% with lat_src=denuncia.local_oco_lat lng_src=denuncia.local_oco_lng %}
+      <div id="print-map" data-lat="{{ lat_src|floatformat:'6'|unlocalize }}" data-lng="{{ lng_src|floatformat:'6'|unlocalize }}"></div>
+      <div class="muted mt-6"><strong>Fonte das coordenadas:</strong> Denúncia — Latitude: {{ lat_src|floatformat:'6'|localize }} • Longitude: {{ lng_src|floatformat:'6'|localize }}</div>
+    {% endwith %}
+  </section>
+  {% elif obj.latitude %}
+  <section class="section">
+    <h3>Mapa do Local</h3>
+    {% with lat_src=obj.latitude lng_src=obj.longitude %}
+      <div id="print-map" data-lat="{{ lat_src|floatformat:'6'|unlocalize }}" data-lng="{{ lng_src|floatformat:'6'|unlocalize }}"></div>
+      <div class="muted mt-6"><strong>Fonte das coordenadas:</strong> Notificação — Latitude: {{ lat_src|floatformat:'6'|localize }} • Longitude: {{ lng_src|floatformat:'6'|localize }}</div>
+    {% endwith %}
+  </section>
+  {% endif %}
+
+  {# Removido bloco de geolocalização textual para evitar duplicidade; info aparece junto à etiqueta do mapa #}
+
+  <section class="section">
+    <h3>Descrição</h3>
+    <div class="field"><div class="value" style="white-space: pre-line;">{{ obj.descricao }}</div></div>
+  </section>
+
+  {% if obj.prazo_regularizacao %}
+  <section class="section">
+    <h3>Prazo para Regularização</h3>
+    <div class="field"><div class="value">{{ obj.prazo_regularizacao|date:"d/m/Y" }}</div></div>
+  </section>
+  {% endif %}
+{% endblock %}
+{% block extra_js %}
+<script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+<script>
+(function(){
+  const el = document.getElementById('print-map');
+  if(!el) return;
+  const rawLat = (el.dataset.lat || '').trim().replace(/\s/g,'').replace(/,/g,'.');
+  const rawLng = (el.dataset.lng || '').trim().replace(/\s/g,'').replace(/,/g,'.');
+  const lat = Number(rawLat); const lng = Number(rawLng);
+  if(Number.isNaN(lat) || Number.isNaN(lng)) return;
+  const map = L.map('print-map', {zoomControl: false, attributionControl: true});
+  map.setView([lat, lng], 17);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+  L.circleMarker([lat, lng], {radius:8, color:'#111827', fillColor:'#10b981', fillOpacity:.9, weight:2}).addTo(map);
+  setTimeout(()=> map.invalidateSize(), 50);
+})();
+</script>
+{% endblock %}
