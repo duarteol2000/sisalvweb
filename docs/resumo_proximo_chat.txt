@@ -1,0 +1,54 @@
+Resumo SISALVWEB — estado atual e próximos passos
+
+1) Entidades e vínculos
+- Denúncia guarda snapshot (texto) de endereço/geo e denunciado. Vínculos opcionais: Pessoa e Imóvel (FK para visão 360°).
+- Notificação e AIF também guardam snapshot e FKs opcionais. Podem nascer de Denúncia/Notificação ou de forma independente.
+- Prefill prioriza vínculos (Pessoa/Imóvel) da origem; depois usa os campos da origem; texto do documento não é reescrito automaticamente.
+- Procedência da Denúncia pode ser marcada PROCEDE quando Pessoa e Imóvel estiverem vinculados.
+
+2) Vinculação e propagação
+- Card “Vincular Referências” (Pessoa/Imóvel) em Denúncia, Notificação e AIF.
+- Gerar Notificação a partir da Denúncia: cria com FKs e snapshot preferindo os vínculos da Denúncia.
+- Criação independente: tela “Confirmar vínculos” (sugere por CPF/CNPJ/endereço/geo) e opção de “atualizar campos do documento”.
+
+3) Geo e mapas
+- lat/lng migrados para FloatField; aceitam vírgula no formulário (conversão no clean); normalização também no save e no JS.
+- Detalhe: mapa usa prioridade Imóvel → Denúncia → Notificação, com etiqueta “Fonte das coordenadas: … — Latitude/Longitude”.
+- Impressões: mapas incluídos em Denúncia/Notificação/AIF, com normalização e etiqueta de fonte.
+- Inputs decimais: máscaras (2 casas para medidas; 6 casas e sinal para lat/lng); backend aceita formato BR.
+
+4) Auditoria
+- Login/Logout: UsuarioLoginLog (logado_em, logout_em, ip, user_agent, prefeitura).
+- Ações gerais: AuditLog + middleware + helper log_event (VIEW/CREATE/UPDATE/DELETE/PRINT/LINK/UNLINK) com app/model/id, URL, IP, UA, prefeitura.
+- Admin com filtros e data_hierarchy.
+
+5) Estatísticas (regras operacionais)
+- Estoque atual: considera apenas status “ativos” por módulo; arquivados/cancelados fora do estoque.
+- Fluxo: “entradas” por criada_em; “saídas” por data de encerramento (ex.: regularizado_em/cancelado_em ou timestamp do histórico).
+- Filtros: sempre expor “Status” e atalho “Somente ativos”; opção “Incluir arquivados/cancelados” desligada por padrão.
+
+Decisões do usuário (estatística):
+- AIF: contar todos os status nos relatórios; REGULARIZADO entra nas estatísticas (não some). Incluir campos de pagamento (pagou?, valor_pago, pago_em, guia/forma/obs) e relatórios de arrecadação (quantidade e total de AIF pagos por período).
+- Medidas (Embargo/Interdição): também devem contar (emitidos, vigentes, regularizados/arquivados/revogados), com indicadores de resolutividade e tempo.
+- Sem exclusão: usar status (Arquivar/Cancelar/Encerrar). Edição pós-encerramento opcionalmente bloqueada (reabrir com motivo).
+
+6) Fluxo de campo (tablet)
+- Opção atual: servidora complementa a Denúncia (dados e fotos recebidas por terceiros).
+- Opção campo (sem offline): “Apontamento de Campo” associado à Denúncia (nome sugerido para não conflitar com processo formal de Vistoria). Foco: fotos + observação; geo só se for melhor que o da Denúncia e com opção “Atualizar geo da Denúncia”.
+- UI responsiva, inputs maiores, captura múltipla (camera), compressão cliente opcional; auditoria registra capturas.
+- PWA/offline (opcional futuro): Service Worker/Workbox, fila offline, sync posterior.
+
+7) Configuração/infra
+- ngrok: ALLOWED_HOSTS e CSRF_TRUSTED_ORIGINS configurados; cabeçalhos de proxy em settings (X-Forwarded-Proto/Host).
+- .gitignore: ignora backups/, *.zip, *.pdf.
+
+8) Próximos passos sugeridos (ordem prática)
+- AIF: adicionar campos de pagamento e relatórios simples (pagos por período; total arrecadado; taxa de pagamento).
+- Painéis: estoque/entradas/saídas por módulo com filtros de status/período e export CSV.
+- “Apontamento de Campo”: model/tela simples para capturar fotos/observações no local e, opcionalmente, atualizar geo da Denúncia.
+- Ações de Arquivar/Cancelar/Encerrar com motivo + auditoria; regra de bloqueio de edição após encerrado (com reabertura).
+
+9) Nomes sugeridos para o registro leve associado à Denúncia
+- “Apontamento de Campo” (preferência)
+- “Registro de Campo” / “Complemento da Denúncia” / “Relato de Campo”
+
