@@ -35,6 +35,7 @@ DEBUG = True
 ALLOWED_HOSTS = [
     'localhost', '127.0.0.1',
     'enriqueta-sporocystic-franchesca.ngrok-free.dev',
+    '.ngrok-free.dev', '.ngrok-free.app',
 ]
 
 CSRF_TRUSTED_ORIGINS = [
@@ -76,6 +77,10 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'apps.usuarios.middleware.AuditMiddleware',
 ]
+
+# Proxy/ngrok: respeita X-Forwarded-Proto/Host
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
 
 ROOT_URLCONF = 'sisalvweb.urls'
 
