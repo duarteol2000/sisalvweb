@@ -1,0 +1,171 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% load l10n %}
+{% block menu_autoinfracao_active %}active{% endblock %}
+{% block extra_css %}
+<style>
+  #aif-arr .filters-grid{ display:grid; grid-template-columns: 1fr; gap:8px; }
+  @media (min-width: 680px){
+    #aif-arr .filters-grid{ grid-template-columns: auto auto auto auto auto; align-items:end; column-gap:8px; }
+    #aif-arr .filters-card input[type="date"]{ width: 150px; }
+  }
+  #aif-arr .filters-card label{ font-size: .95rem; }
+  #aif-arr .filters-card select, #aif-arr .filters-card input{ font-size: 1rem; min-height: 38px; }
+  #aif-arr .kpis{ display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; margin-top:10px; }
+  @media (max-width: 720px){ #aif-arr .kpis{ grid-template-columns: 1fr; } }
+  #aif-arr .kpi{ padding:.75rem; border:1px solid var(--border); border-radius:.6rem; background:#fff; }
+  #aif-arr .kpi .label{ color: var(--muted); font-size:.9rem; }
+  #aif-arr .kpi .value{ font-weight:700; font-size:1.1rem; text-align:right; }
+  /* Garantir alinhamento à direita para todas as células com classe utilitária */
+  .text-right{ text-align:right; }
+</style>
+{% endblock %}
+{% block content %}
+
+<div class="container mt-4" id="aif-arr">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h2 class="page-title mb-0">💵 Arrecadação AIF — Mensal</h2>
+    <div>
+      <a href="{% url 'autoinfracao:listar' %}" class="btn btn-sm btn-secondary">← Voltar</a>
+    </div>
+  </div>
+
+  <form method="get" class="card p-3 shadow-sm filters-card">
+    <div class="filters-grid">
+      <div class="f">
+        <label class="form-label mb-1">Início</label>
+        <input type="date" name="inicio" value="{{ inicio|date:'Y-m-d' }}" class="form-control form-control-sm">
+      </div>
+      <div class="f">
+        <label class="form-label mb-1">Fim</label>
+        <input type="date" name="fim" value="{{ fim|date:'Y-m-d' }}" class="form-control form-control-sm">
+      </div>
+      <div class="f">
+        <label class="form-label mb-1">Status (AIF)</label>
+        <select name="status" class="form-select form-select-sm">
+          <option value="">— Todos —</option>
+          {% for v,l in status_choices %}
+            <option value="{{ v }}" {% if v in status_sel %}selected{% endif %}>{{ l }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="f">
+        <label class="form-label mb-1">Forma Pgto (Pagos)</label>
+        <select name="forma" class="form-select form-select-sm">
+          <option value="">— Todas —</option>
+          {% for v,l in forma_choices %}
+            <option value="{{ v }}" {% if v in forma_sel %}selected{% endif %}>{{ l }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="f">
+        <label class="form-label mb-1">&nbsp;</label>
+        <div style="display:flex; gap:6px;">
+          <button type="submit" class="btn btn-primary btn-sm">Gerar</button>
+          <a href="?inicio={{ inicio|date:'Y-m-d' }}&fim={{ fim|date:'Y-m-d' }}{% if status_sel %}&status={{ status_sel|first }}{% endif %}{% if forma_sel %}&forma={{ forma_sel|first }}{% endif %}&format=csv" class="btn btn-outline-primary btn-sm">CSV</a>
+          <a href="{% url 'autoinfracao:relatorio_arrecadacao_print' %}?inicio={{ inicio|date:'Y-m-d' }}&fim={{ fim|date:'Y-m-d' }}{% if status_sel %}&status={{ status_sel|first }}{% endif %}{% if forma_sel %}&forma={{ forma_sel|first }}{% endif %}"
+             class="btn btn-sm btn-secondary" target="_blank" rel="noopener">Imprimir</a>
+        </div>
+      </div>
+    </div>
+  </form>
+
+  <div class="kpis">
+    <div class="kpi"><div class="label">Multa Aplicada (R$)</div><div class="value">{{ totais.apl_v|floatformat:2|localize }}</div></div>
+    <div class="kpi"><div class="label">Homologado (R$)</div><div class="value">{{ totais.hom_v|floatformat:2|localize }}</div></div>
+    <div class="kpi"><div class="label">Pago (R$)</div><div class="value">{{ totais.pag_v|floatformat:2|localize }}</div></div>
+  </div>
+
+  <div class="card p-3 shadow-sm" style="margin-top:12px;">
+    <h3 style="margin:0 0 8px;">Série Mensal</h3>
+    <canvas id="chart-aif-mensal" height="160"></canvas>
+  </div>
+
+  <div class="table-card shadow-sm" style="margin-top:12px;">
+    <div class="table-head"><div><strong>Mensal</strong></div></div>
+    <div class="table-wrap table-responsive">
+      <table class="table table-sm table-striped table-bordered mb-0">
+        <thead>
+          <tr>
+            <th>Mês</th>
+            <th class="text-right">Qtd Aplicados</th>
+            <th class="text-right">Multa (R$)</th>
+            <th class="text-right">Qtd Homologados</th>
+            <th class="text-right">Homologado (R$)</th>
+            <th class="text-right">Qtd Pagos</th>
+            <th class="text-right">Pago (R$)</th>
+            <th class="text-right">Ticket Médio Pago (R$)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+          <tr>
+            <td>{{ r.mes }}</td>
+            <td class="text-right">{{ r.apl_q }}</td>
+            <td class="text-right">{{ r.apl_v|floatformat:2|localize }}</td>
+            <td class="text-right">{{ r.hom_q }}</td>
+            <td class="text-right">{{ r.hom_v|floatformat:2|localize }}</td>
+            <td class="text-right">{{ r.pag_q }}</td>
+            <td class="text-right">{{ r.pag_v|floatformat:2|localize }}</td>
+            <td class="text-right">{{ r.ticket|floatformat:2|localize }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <th>Total</th>
+            <th class="text-right">{{ totais.apl_q }}</th>
+            <th class="text-right">{{ totais.apl_v|floatformat:2|localize }}</th>
+            <th class="text-right">{{ totais.hom_q }}</th>
+            <th class="text-right">{{ totais.hom_v|floatformat:2|localize }}</th>
+            <th class="text-right">{{ totais.pag_q }}</th>
+            <th class="text-right">{{ totais.pag_v|floatformat:2|localize }}</th>
+            <th class="text-right">{{ totais.ticket|floatformat:2|localize }}</th>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+<script>
+(function(){
+  try{
+    const ctx = document.getElementById('chart-aif-mensal');
+    if(!ctx || !window.Chart) return;
+    if(window.ChartDataLabels){ Chart.register(window.ChartDataLabels); }
+    const labels = {{ labels|safe }};
+    const apl = {{ serie_apl|safe }};
+    const hom = {{ serie_hom|safe }};
+    const pag = {{ serie_pag|safe }};
+    const labelColor = getComputedStyle(document.body).color || '#111827';
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Aplicada (R$)', data: apl, backgroundColor: '#60a5fa' },
+          { label: 'Homologada (R$)', data: hom, backgroundColor: '#34d399' },
+          { label: 'Paga (R$)', data: pag, backgroundColor: '#fbbf24' }
+        ]
+      },
+      options: {
+        responsive: true,
+        scales: { y: { beginAtZero: true, ticks: { precision:0 } } },
+        plugins: {
+          datalabels: {
+            anchor: 'end', align: 'end', clamp: true, offset: 2,
+            color: labelColor, font: { weight: '600', size: 11 }, formatter: (v)=> new Intl.NumberFormat('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}).format(v)
+          }
+        }
+      }
+    });
+  }catch(e){}
+})();
+</script>
+{% endblock %}

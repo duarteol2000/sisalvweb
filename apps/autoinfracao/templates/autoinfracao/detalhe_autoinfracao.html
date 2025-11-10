@@ -38,6 +38,17 @@
     <div><strong>Criado em:</strong> {{ obj.criada_em|date:"d/m/Y H:i" }}</div>
     <div><strong>Val. Infração (AIF):</strong> R$ {{ obj.valor_infracao|default:obj.total_infracao_itens|floatformat:2 }}</div>
     <div><strong>Val. Homologado (AIF):</strong> R$ {{ obj.valor_multa_homologado|default:obj.total_multa|floatformat:2 }}</div>
+    <div>
+      <strong>Pagamento:</strong>
+      {% if obj.pago %}
+        ✅ Pago — R$ {{ obj.valor_pago|default:obj.valor_multa_homologado|floatformat:2 }}
+        {% if obj.pago_em %} em {{ obj.pago_em|date:"d/m/Y" }}{% endif %}
+        {% if obj.forma_pagamento %} ({{ obj.get_forma_pagamento_display }}){% endif %}
+        {% if obj.guia_numero %} — Guia: {{ obj.guia_numero }}{% endif %}
+      {% else %}
+        ❌ Não pago
+      {% endif %}
+    </div>
   </div>
 </header>
 
@@ -77,21 +88,21 @@
     <div class="table-wrap">
       <div class="detail-grid">
         {% if not obj.pessoa %}
-        <form method="post" action="{% url 'autoinfracao:vincular_pessoa' obj.pk %}">
+        <form method="post" action="{% url 'autoinfracao:vincular_pessoa' obj.pk %}" novalidate>
           {% csrf_token %}
           <div class="detail-grid">
             <div class="f"><label>Tipo</label><select name="tipo" class="form-select form-select-sm"><option value="PF">PF</option><option value="PJ">PJ</option></select></div>
             <div class="f"><label>Nome/Razão</label><input type="text" name="nome_razao" class="form-control form-control-sm" value="{{ obj.nome_razao }}"></div>
             <div class="f"><label>Doc. Tipo</label><select name="doc_tipo" class="form-select form-select-sm"><option value="OUTRO">Outro</option><option value="CPF">CPF</option><option value="CNPJ">CNPJ</option></select></div>
             <div class="f"><label>Doc. Número</label><input type="text" name="doc_num" class="form-control form-control-sm" value="{{ obj.cpf_cnpj }}"></div>
-            <div class="f"><label>E-mail</label><input type="email" name="email" class="form-control form-control-sm" value="{{ obj.email }}"></div>
+            <div class="f"><label>E-mail</label><input type="text" name="email" class="form-control form-control-sm" value="{{ obj.email }}" placeholder="ex.: usuario@dominio.com (opcional)"></div>
             <div class="f"><label>Telefone</label><input type="text" name="telefone" class="form-control form-control-sm" value="{{ obj.telefone }}"></div>
           </div>
           <div class="form-actions" style="margin-top:6px;"><button class="btn btn-sm btn-primary">Vincular Pessoa</button></div>
         </form>
         {% endif %}
         {% if not obj.imovel %}
-        <form method="post" action="{% url 'autoinfracao:vincular_imovel' obj.pk %}">
+        <form method="post" action="{% url 'autoinfracao:vincular_imovel' obj.pk %}" novalidate>
           {% csrf_token %}
           <div class="detail-grid">
             <div class="f"><label>Inscrição</label><input type="text" name="inscricao" class="form-control form-control-sm"></div>
@@ -157,6 +168,83 @@
 </section>
 
 <section class="detail-body">
+  <h3>📑 Ficha Completa</h3>
+  <div class="table-wrapper">
+    <table class="table table-striped table-sm">
+      <thead>
+        <tr><th colspan="4">Prazos e Valores</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Prazo Regularização</strong></td>
+          <td>{{ obj.prazo_regularizacao_data|date:"d/m/Y"|default:"—" }}</td>
+          <td><strong>Valor da Infração</strong></td>
+          <td>{% if obj.valor_infracao %}R$ {{ obj.valor_infracao|floatformat:2 }}{% else %}—{% endif %}</td>
+        </tr>
+        <tr>
+          <td><strong>Valor Homologado (AIF)</strong></td>
+          <td>{% if obj.valor_multa_homologado %}R$ {{ obj.valor_multa_homologado|floatformat:2 }}{% else %}—{% endif %}</td>
+          <td><strong>Status</strong></td>
+          <td>{{ obj.get_status_display }}</td>
+        </tr>
+      </tbody>
+      <thead>
+        <tr><th colspan="4">Pagamento</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Pago?</strong></td>
+          <td>{{ obj.pago|yesno:"Sim,Não" }}</td>
+          <td><strong>Valor Pago</strong></td>
+          <td>{% if obj.valor_pago %}R$ {{ obj.valor_pago|floatformat:2 }}{% else %}—{% endif %}</td>
+        </tr>
+        <tr>
+          <td><strong>Pago em</strong></td>
+          <td>{{ obj.pago_em|date:"d/m/Y"|default:"—" }}</td>
+          <td><strong>Forma</strong></td>
+          <td>{{ obj.get_forma_pagamento_display|default:"—" }}</td>
+        </tr>
+        <tr>
+          <td><strong>Nº da Guia</strong></td>
+          <td>{{ obj.guia_numero|default:"—" }}</td>
+          <td><strong>Obs. Pagamento</strong></td>
+          <td>{{ obj.observacao_pagamento|default:"—" }}</td>
+        </tr>
+      </tbody>
+      <thead>
+        <tr><th colspan="4">Dados Construtivos</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Área (m²)</strong></td>
+          <td>{{ obj.area_m2|default:"—" }}</td>
+          <td><strong>Testada (m)</strong></td>
+          <td>{{ obj.testada_m|default:"—" }}</td>
+        </tr>
+        <tr>
+          <td><strong>Pé-direito (m)</strong></td>
+          <td>{{ obj.pe_direito_m|default:"—" }}</td>
+          <td><strong>Mezanino (m²)</strong></td>
+          <td>{% if obj.mezanino %}{{ obj.area_mezanino_m2|default:"—" }}{% else %}—{% endif %}</td>
+        </tr>
+        <tr>
+          <td><strong>Duplex</strong></td>
+          <td>{{ obj.duplex|yesno:"Sim,Não" }}</td>
+          <td><strong>Qtd. de cômodos</strong></td>
+          <td>{{ obj.qtd_comodos|default:"—" }}</td>
+        </tr>
+        <tr>
+          <td><strong>Compartimentação</strong></td>
+          <td>{{ obj.compartimentacao|yesno:"Sim,Não" }}</td>
+          <td><strong>Divisórias</strong></td>
+          <td>{{ obj.divisorias|yesno:"Sim,Não" }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="detail-body">
   <h3>💰 Multas / Enquadramentos</h3>
   {% with items=obj.multas.all %}
     {% if items %}
@@ -190,28 +278,25 @@
     {% endif %}
   {% endwith %}
 
-  <h3>📷 Fotos e Anexos</h3>
-  {% if anexos %}
+  <h3>📷 Galeria de Fotos (unificada)</h3>
+  {% if galeria %}
     <div class="anexos-grid">
-      {% for a in anexos %}
+      {% for g in galeria %}
         <div class="anexo-item">
-          {% if a.tipo == "FOTO" %}
-            <a href="{{ a.arquivo.url }}" target="_blank" rel="noopener">
-              <img src="{{ a.arquivo.url }}" alt="Foto" class="thumb" loading="lazy">
-            </a>
-          {% else %}
-            <a href="{{ a.arquivo.url }}" target="_blank" rel="noopener" class="doc-link">
-              {{ a.arquivo.name|cut:"autoinfracao/anexos/" }}
-            </a>
-          {% endif %}
-          {% if a.observacao %}
-            <p class="anexo-legenda">{{ a.observacao }}</p>
-          {% endif %}
+          <a href="{{ g.url }}" target="_blank" rel="noopener">
+            <img src="{{ g.url }}" alt="Foto" class="thumb" loading="lazy">
+          </a>
+          <p class="anexo-legenda">
+            <span class="badge bg-secondary">{{ g.label }}</span>
+            {% if g.owner == 'AIF' and g.id %}
+              <a class="btn btn-sm btn-secondary" href="{% url 'autoinfracao:editar' obj.pk %}?del_aif_anexo={{ g.id }}" onclick="return confirm('Remover esta foto do AIF?');" style="margin-left:6px;">Excluir</a>
+            {% endif %}
+          </p>
         </div>
       {% endfor %}
     </div>
   {% else %}
-    <p><em>Sem anexos.</em></p>
+    <p><em>Sem fotos para exibir.</em></p>
   {% endif %}
 </section>
 

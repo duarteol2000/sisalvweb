@@ -20,6 +20,8 @@ urlpatterns = [
     # Mapa
     path("mapa/", core_views.mapa_view, name="core_mapa"),
     path("api/mapa/processos/", core_views.api_mapa_processos, name="core_api_mapa_processos"),
+    # Relatórios
+    path("relatorios/operacional/", core_views.relatorio_operacional, name="relatorio_operacional"),
     
     ]
 

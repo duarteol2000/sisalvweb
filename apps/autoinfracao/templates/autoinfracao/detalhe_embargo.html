@@ -38,7 +38,6 @@
 
   <h3>Dados</h3>
   <p><strong>Tipo de Licença (obra):</strong> {% if obj.licenca_tipo %}{{ obj.get_licenca_tipo_display }}{% else %}—{% endif %}</p>
-  <p><strong>Prazo Regularização:</strong> {% if obj.prazo_regularizacao_data %}{{ obj.prazo_regularizacao_data|date:"d/m/Y" }}{% else %}—{% endif %}</p>
   <p><strong>Exigências:</strong><br><span style="white-space: pre-line">{{ obj.exigencias_texto|default:"—" }}</span></p>
 
   <h3>Eventos</h3>

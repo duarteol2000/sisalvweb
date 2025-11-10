@@ -1,12 +1,15 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Q, Sum, Count, Value, DecimalField, OuterRef, Subquery
+from django.db.models.functions import TruncMonth, Coalesce, Greatest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 from django.utils import timezone
+from django.http import HttpResponse
+import csv
 
 from .models import AutoInfracao, AutoInfracaoAnexo, Embargo, Interdicao
 from .forms import (
@@ -23,7 +26,7 @@ from .forms import (
 )
 from .models import AutoInfracaoMultaItem, Enquadramento, InfracaoTipo
 from apps.notificacoes.models import Notificacao
-from apps.denuncias.models import Denuncia
+from apps.denuncias.models import Denuncia, DenunciaHistorico
 from apps.usuarios.models import Usuario
 from apps.cadastros.models import Pessoa, Imovel
 from apps.usuarios.audit import log_event
@@ -68,7 +71,13 @@ def listar(request):
     if status:
         qs = qs.filter(status=status)
 
-    page_obj = Paginator(qs, 20).get_page(request.GET.get("page"))
+    # Ordenação: crescente por dias de prazo (negativos primeiro, sem prazo no final)
+    itens = list(qs)
+    def _key(a):
+        d = getattr(a, 'dias_restantes', None)
+        return d if d is not None else 10**9
+    itens.sort(key=_key)
+    page_obj = Paginator(itens, 20).get_page(request.GET.get("page"))
     params = request.GET.copy()
     params.pop('page', None)
     querystring = params.urlencode()
@@ -89,6 +98,313 @@ def listar(request):
 
 
 @login_required
+def relatorio_arrecadacao(request):
+    """Arrecadação AIF mensal: Multa aplicada, Homologada e Paga.
+    Filtros: período (ano corrente padrão), status (multi), forma_pagamento (multi para pagos). CSV disponível.
+    """
+    prefeitura_id = _get_prefeitura_id(request)
+    if not prefeitura_id:
+        messages.warning(request, "Nenhuma prefeitura selecionada para a sessão.")
+        return redirect("/")
+
+    def _parse_date(s):
+        if not s:
+            return None
+        s = s.strip()
+        for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
+            try:
+                return timezone.datetime.strptime(s, fmt).date()
+            except Exception:
+                pass
+        return None
+
+    today = timezone.localdate()
+    year_start = today.replace(month=1, day=1)
+    d_ini = _parse_date(request.GET.get("inicio")) or year_start
+    d_fim = _parse_date(request.GET.get("fim")) or today
+    if d_ini > d_fim:
+        d_ini, d_fim = d_fim, d_ini
+    dt_ini = timezone.make_aware(timezone.datetime(d_ini.year, d_ini.month, d_ini.day, 0, 0))
+    dt_fim_ex = timezone.make_aware(timezone.datetime(d_fim.year, d_fim.month, d_fim.day, 0, 0)) + timezone.timedelta(days=1)
+
+    # Filtros extras
+    status_list = [s for s in request.GET.getlist('status') if s]
+    forma_list = [f for f in request.GET.getlist('forma') if f]
+
+    base = AutoInfracao.objects.filter(prefeitura_id=prefeitura_id)
+    if status_list:
+        base = base.filter(status__in=status_list)
+
+    # Aplicada (por criada_em) — usa valor_infracao; se nulo, cai no somatório dos itens de multa
+    aplicada_qs = base.filter(criada_em__gte=dt_ini, criada_em__lt=dt_fim_ex)
+    dec0 = Value(0, output_field=DecimalField(max_digits=12, decimal_places=2))
+    items_sum_sq = (
+        AutoInfracaoMultaItem.objects
+        .filter(auto_infracao_id=OuterRef('pk'))
+        .values('auto_infracao_id')
+        .annotate(s=Coalesce(Sum('valor_unitario'), dec0))
+        .values('s')[:1]
+    )
+    aplicada_qs = aplicada_qs.annotate(
+        valor_items=Subquery(items_sum_sq, output_field=DecimalField(max_digits=12, decimal_places=2)),
+        valor_aplicado=Greatest(
+            Coalesce('valor_infracao', dec0),
+            Coalesce('valor_items', dec0),
+            Coalesce('valor_multa_homologado', dec0)
+        )
+    )
+    aplicada_month = (
+        aplicada_qs
+        .annotate(m=TruncMonth('criada_em'))
+        .values('m')
+        .annotate(v=Coalesce(Sum('valor_aplicado'), Value(0, output_field=DecimalField(max_digits=12, decimal_places=2))), q=Count('id'))
+    )
+    applied_map = { (r['m'].year, r['m'].month): { 'v': r['v'] or 0, 'q': r['q'] } for r in aplicada_month }
+
+    # Homologada (por homologado_em se existir; senão criada_em), apenas com valor_multa_homologado definido
+    hom_filter = Q(valor_multa_homologado__isnull=False) & (
+        Q(homologado_em__gte=dt_ini, homologado_em__lt=dt_fim_ex) |
+        Q(homologado_em__isnull=True, criada_em__gte=dt_ini, criada_em__lt=dt_fim_ex)
+    )
+    homolog_qs = base.filter(hom_filter)
+    homolog_month = (
+        homolog_qs
+        .annotate(ref_dt=Coalesce('homologado_em', 'criada_em'))
+        .annotate(m=TruncMonth('ref_dt'))
+        .values('m')
+        .annotate(v=Coalesce(Sum('valor_multa_homologado'), Value(0, output_field=DecimalField(max_digits=12, decimal_places=2))), q=Count('id'))
+    )
+    homolog_map = { (r['m'].year, r['m'].month): { 'v': r['v'] or 0, 'q': r['q'] } for r in homolog_month }
+
+    # Pago (por pago_em; pago=True)
+    pagos_qs = base.filter(pago=True, pago_em__isnull=False, pago_em__gte=d_ini, pago_em__lte=d_fim)
+    if forma_list:
+        pagos_qs = pagos_qs.filter(forma_pagamento__in=forma_list)
+    pagos_month = (
+        pagos_qs
+        .annotate(m=TruncMonth('pago_em'))
+        .values('m')
+        .annotate(v=Coalesce(Sum('valor_pago'), Value(0, output_field=DecimalField(max_digits=12, decimal_places=2))), q=Count('id'))
+    )
+    pagos_map = { (r['m'].year, r['m'].month): { 'v': r['v'] or 0, 'q': r['q'] } for r in pagos_month }
+
+    # Linha do tempo mensal
+    months = []
+    cur = timezone.datetime(d_ini.year, d_ini.month, 1)
+    end = timezone.datetime(d_fim.year, d_fim.month, 1)
+    while cur <= end:
+        months.append((cur.year, cur.month))
+        cur = timezone.datetime(cur.year + (1 if cur.month == 12 else 0), 1 if cur.month == 12 else cur.month + 1, 1)
+
+    # Séries e tabela
+    series_labels = [f"{y}-{m:02d}" for (y, m) in months]
+    serie_apl = []
+    serie_hom = []
+    serie_pag = []
+    table_rows = []
+    total_apl_v = Decimal('0'); total_apl_q = 0
+    total_hom_v = Decimal('0'); total_hom_q = 0
+    total_pag_v = Decimal('0'); total_pag_q = 0
+
+    for (y, m) in months:
+        apl = applied_map.get((y, m), {'v': Decimal('0'), 'q': 0})
+        hom = homolog_map.get((y, m), {'v': Decimal('0'), 'q': 0})
+        pag = pagos_map.get((y, m), {'v': Decimal('0'), 'q': 0})
+        serie_apl.append(float(apl['v'] or 0))
+        serie_hom.append(float(hom['v'] or 0))
+        serie_pag.append(float(pag['v'] or 0))
+        total_apl_v += Decimal(apl['v'] or 0); total_apl_q += apl['q'] or 0
+        total_hom_v += Decimal(hom['v'] or 0); total_hom_q += hom['q'] or 0
+        total_pag_v += Decimal(pag['v'] or 0); total_pag_q += pag['q'] or 0
+        ticket = (Decimal(pag['v'] or 0) / pag['q']) if (pag['q'] or 0) > 0 else Decimal('0')
+        table_rows.append({
+            'mes': f"{y}-{m:02d}",
+            'apl_q': apl['q'] or 0, 'apl_v': apl['v'] or 0,
+            'hom_q': hom['q'] or 0, 'hom_v': hom['v'] or 0,
+            'pag_q': pag['q'] or 0, 'pag_v': pag['v'] or 0,
+            'ticket': ticket,
+        })
+
+    # CSV
+    if (request.GET.get('format') or '').lower() == 'csv':
+        resp = HttpResponse(content_type='text/csv; charset=utf-8')
+        resp['Content-Disposition'] = 'attachment; filename="aif_arrecadacao_mensal.csv"'
+        w = csv.writer(resp)
+        w.writerow(["Periodo", d_ini.isoformat(), d_fim.isoformat()])
+        if status_list:
+            w.writerow(["Status", ",".join(status_list)])
+        if forma_list:
+            w.writerow(["Formas", ",".join(forma_list)])
+        w.writerow([])
+        w.writerow(["Mes", "Qtd Aplicados", "Valor Multa", "Qtd Homologados", "Valor Homologado", "Qtd Pagos", "Valor Pago", "Ticket Medio Pago"])
+        for r in table_rows:
+            w.writerow([
+                r['mes'], r['apl_q'], f"{Decimal(r['apl_v']):.2f}", r['hom_q'], f"{Decimal(r['hom_v']):.2f}", r['pag_q'], f"{Decimal(r['pag_v']):.2f}", f"{Decimal(r['ticket']):.2f}"
+            ])
+        w.writerow([])
+        tk = (total_pag_v / total_pag_q) if total_pag_q > 0 else Decimal('0')
+        w.writerow(["Totais", total_apl_q, f"{total_apl_v:.2f}", total_hom_q, f"{total_hom_v:.2f}", total_pag_q, f"{total_pag_v:.2f}", f"{tk:.2f}"])
+        return resp
+
+    status_choices = AutoInfracao._meta.get_field('status').choices
+    from utils.choices import PAGAMENTO_FORMA_CHOICES
+    ctx = {
+        'inicio': d_ini, 'fim': d_fim,
+        'status_sel': status_list, 'forma_sel': forma_list,
+        'status_choices': status_choices, 'forma_choices': PAGAMENTO_FORMA_CHOICES,
+        'labels': series_labels, 'serie_apl': serie_apl, 'serie_hom': serie_hom, 'serie_pag': serie_pag,
+        'rows': table_rows,
+        'totais': {
+            'apl_q': total_apl_q, 'apl_v': total_apl_v,
+            'hom_q': total_hom_q, 'hom_v': total_hom_v,
+            'pag_q': total_pag_q, 'pag_v': total_pag_v,
+            'ticket': (total_pag_v / total_pag_q) if total_pag_q > 0 else Decimal('0'),
+        }
+    }
+    return render(request, "autoinfracao/relatorio_arrecadacao.html", ctx)
+
+
+@login_required
+def relatorio_arrecadacao_print(request):
+    """Versão de impressão do relatório de Arrecadação AIF (mensal)."""
+    prefeitura_id = _get_prefeitura_id(request)
+    if not prefeitura_id:
+        messages.warning(request, "Nenhuma prefeitura selecionada para a sessão.")
+        return redirect("/")
+
+    # Reaproveita a mesma lógica do relatório web (sem CSV)
+    # Copiamos o essencial para montar o mesmo contexto 'ctx'
+    def _parse_date(s):
+        if not s:
+            return None
+        s = s.strip()
+        for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
+            try:
+                return timezone.datetime.strptime(s, fmt).date()
+            except Exception:
+                pass
+        return None
+
+    today = timezone.localdate()
+    year_start = today.replace(month=1, day=1)
+    d_ini = _parse_date(request.GET.get("inicio")) or year_start
+    d_fim = _parse_date(request.GET.get("fim")) or today
+    if d_ini > d_fim:
+        d_ini, d_fim = d_fim, d_ini
+    dt_ini = timezone.make_aware(timezone.datetime(d_ini.year, d_ini.month, d_ini.day, 0, 0))
+    dt_fim_ex = timezone.make_aware(timezone.datetime(d_fim.year, d_fim.month, d_fim.day, 0, 0)) + timezone.timedelta(days=1)
+
+    status_list = [s for s in request.GET.getlist('status') if s]
+    forma_list = [f for f in request.GET.getlist('forma') if f]
+
+    base = AutoInfracao.objects.filter(prefeitura_id=prefeitura_id)
+    if status_list:
+        base = base.filter(status__in=status_list)
+
+    aplicada_qs = base.filter(criada_em__gte=dt_ini, criada_em__lt=dt_fim_ex)
+    dec0 = Value(0, output_field=DecimalField(max_digits=12, decimal_places=2))
+    items_sum_sq = (
+        AutoInfracaoMultaItem.objects
+        .filter(auto_infracao_id=OuterRef('pk'))
+        .values('auto_infracao_id')
+        .annotate(s=Coalesce(Sum('valor_unitario'), dec0))
+        .values('s')[:1]
+    )
+    aplicada_qs = aplicada_qs.annotate(
+        valor_items=Subquery(items_sum_sq, output_field=DecimalField(max_digits=12, decimal_places=2)),
+        valor_aplicado=Greatest(
+            Coalesce('valor_infracao', dec0),
+            Coalesce('valor_items', dec0),
+            Coalesce('valor_multa_homologado', dec0)
+        )
+    )
+    aplicada_month = (
+        aplicada_qs
+        .annotate(m=TruncMonth('criada_em'))
+        .values('m')
+        .annotate(v=Coalesce(Sum('valor_aplicado'), Value(0, output_field=DecimalField(max_digits=12, decimal_places=2))), q=Count('id'))
+    )
+    applied_map = { (r['m'].year, r['m'].month): { 'v': r['v'] or 0, 'q': r['q'] } for r in aplicada_month }
+
+    hom_filter = Q(valor_multa_homologado__isnull=False) & (
+        Q(homologado_em__gte=dt_ini, homologado_em__lt=dt_fim_ex) |
+        Q(homologado_em__isnull=True, criada_em__gte=dt_ini, criada_em__lt=dt_fim_ex)
+    )
+    homolog_qs = base.filter(hom_filter)
+    homolog_month = (
+        homolog_qs
+        .annotate(ref_dt=Coalesce('homologado_em', 'criada_em'))
+        .annotate(m=TruncMonth('ref_dt'))
+        .values('m')
+        .annotate(v=Coalesce(Sum('valor_multa_homologado'), Value(0, output_field=DecimalField(max_digits=12, decimal_places=2))), q=Count('id'))
+    )
+    homolog_map = { (r['m'].year, r['m'].month): { 'v': r['v'] or 0, 'q': r['q'] } for r in homolog_month }
+
+    pagos_qs = base.filter(pago=True, pago_em__isnull=False, pago_em__gte=d_ini, pago_em__lte=d_fim)
+    if forma_list:
+        pagos_qs = pagos_qs.filter(forma_pagamento__in=forma_list)
+    pagos_month = (
+        pagos_qs
+        .annotate(m=TruncMonth('pago_em'))
+        .values('m')
+        .annotate(v=Coalesce(Sum('valor_pago'), Value(0, output_field=DecimalField(max_digits=12, decimal_places=2))), q=Count('id'))
+    )
+    pagos_map = { (r['m'].year, r['m'].month): { 'v': r['v'] or 0, 'q': r['q'] } for r in pagos_month }
+
+    months = []
+    cur = timezone.datetime(d_ini.year, d_ini.month, 1)
+    end = timezone.datetime(d_fim.year, d_fim.month, 1)
+    while cur <= end:
+        months.append((cur.year, cur.month))
+        cur = timezone.datetime(cur.year + (1 if cur.month == 12 else 0), 1 if cur.month == 12 else cur.month + 1, 1)
+
+    series_labels = [f"{y}-{m:02d}" for (y, m) in months]
+    serie_apl = []
+    serie_hom = []
+    serie_pag = []
+    table_rows = []
+    total_apl_v = Decimal('0'); total_apl_q = 0
+    total_hom_v = Decimal('0'); total_hom_q = 0
+    total_pag_v = Decimal('0'); total_pag_q = 0
+
+    for (y, m) in months:
+        apl = applied_map.get((y, m), {'v': Decimal('0'), 'q': 0})
+        hom = homolog_map.get((y, m), {'v': Decimal('0'), 'q': 0})
+        pag = pagos_map.get((y, m), {'v': Decimal('0'), 'q': 0})
+        serie_apl.append(float(apl['v'] or 0))
+        serie_hom.append(float(hom['v'] or 0))
+        serie_pag.append(float(pag['v'] or 0))
+        total_apl_v += Decimal(apl['v'] or 0); total_apl_q += apl['q'] or 0
+        total_hom_v += Decimal(hom['v'] or 0); total_hom_q += hom['q'] or 0
+        total_pag_v += Decimal(pag['v'] or 0); total_pag_q += pag['q'] or 0
+        ticket = (Decimal(pag['v'] or 0) / pag['q']) if (pag['q'] or 0) > 0 else Decimal('0')
+        table_rows.append({
+            'mes': f"{y}-{m:02d}",
+            'apl_q': apl['q'] or 0, 'apl_v': apl['v'] or 0,
+            'hom_q': hom['q'] or 0, 'hom_v': hom['v'] or 0,
+            'pag_q': pag['q'] or 0, 'pag_v': pag['v'] or 0,
+            'ticket': ticket,
+        })
+
+    status_choices = AutoInfracao._meta.get_field('status').choices
+    from utils.choices import PAGAMENTO_FORMA_CHOICES
+    ctx = {
+        'inicio': d_ini, 'fim': d_fim,
+        'status_sel': status_list, 'forma_sel': forma_list,
+        'status_choices': status_choices, 'forma_choices': PAGAMENTO_FORMA_CHOICES,
+        'labels': series_labels, 'serie_apl': serie_apl, 'serie_hom': serie_hom, 'serie_pag': serie_pag,
+        'rows': table_rows,
+        'totais': {
+            'apl_q': total_apl_q, 'apl_v': total_apl_v,
+            'hom_q': total_hom_q, 'hom_v': total_hom_v,
+            'pag_q': total_pag_q, 'pag_v': total_pag_v,
+            'ticket': (total_pag_v / total_pag_q) if total_pag_q > 0 else Decimal('0'),
+        }
+    }
+    return render(request, "autoinfracao/imprimir_arrecadacao.html", ctx)
+
+
+@login_required
 def cadastrar(request):
     prefeitura_id = _get_prefeitura_id(request)
     if not prefeitura_id:
@@ -104,7 +420,12 @@ def cadastrar(request):
             if raw_vi and form.cleaned_data.get("valor_infracao") in (None, ""):
                 try:
                     from decimal import Decimal
-                    vi = Decimal(raw_vi.replace(".", "").replace(",", "."))
+                    s = raw_vi.replace(" ", "")
+                    if "," in s and "." in s:
+                        s = s.replace(".", "").replace(",", ".")
+                    elif "," in s:
+                        s = s.replace(",", ".")
+                    vi = Decimal(s)
                     obj.valor_infracao = vi
                 except Exception:
                     pass
@@ -113,6 +434,32 @@ def cadastrar(request):
             obj.atualizada_por = request.user
             obj.save()
             log_event(request, 'CREATE', instance=obj)
+
+            # Vincular Processo (herda de NTF/Denúncia quando existir; senão cria)
+            try:
+                from apps.processos.models import Processo
+                proc = None
+                if obj.notificacao_id and getattr(obj.notificacao, 'processo_id', None):
+                    proc = obj.notificacao.processo
+                elif obj.denuncia_id and getattr(obj.denuncia, 'processo_id', None):
+                    proc = obj.denuncia.processo
+                if proc is None:
+                    base_proto = obj.notificacao.protocolo if obj.notificacao_id else (obj.denuncia.protocolo if obj.denuncia_id else obj.protocolo)
+                    proc = Processo.objects.create(
+                        prefeitura_id=prefeitura_id,
+                        protocolo=base_proto,
+                        status='ABERTO',
+                        criado_por=getattr(request, 'user', None),
+                    )
+                    # retrovincula etapas anteriores, se houverem
+                    if obj.denuncia_id and getattr(obj.denuncia, 'processo_id', None) is None:
+                        d = obj.denuncia; d.processo = proc; d.save(update_fields=['processo'])
+                    if obj.notificacao_id and getattr(obj.notificacao, 'processo_id', None) is None:
+                        n = obj.notificacao; n.processo = proc; n.save(update_fields=['processo'])
+                obj.processo = proc
+                obj.save(update_fields=['processo'])
+            except Exception:
+                pass
 
             # Sugerir vínculos após criação independente
             pessoa_cand = _find_pessoa_candidata(
@@ -140,14 +487,19 @@ def cadastrar(request):
             # anexos (opcional)
             fotos = request.FILES.getlist("fotos")
             if fotos:
-                count = 0
-                for foto in fotos:
-                    anexo = AutoInfracaoAnexo(auto_infracao=obj, tipo="FOTO", arquivo=foto)
-                    anexo.save()
-                    anexo.processar_arquivo()
-                    anexo.save()
-                    count += 1
-                messages.success(request, f"{count} foto(s) anexada(s) com sucesso.")
+                existentes = obj.anexos.filter(tipo="FOTO").count()
+                restante = max(0, 4 - existentes)
+                if restante <= 0:
+                    messages.warning(request, "Limite de 4 fotos atingido. Nenhuma nova foto foi adicionada.")
+                else:
+                    count = 0
+                    for foto in fotos[:restante]:
+                        anexo = AutoInfracaoAnexo(auto_infracao=obj, tipo="FOTO", arquivo=foto)
+                        anexo.save(); anexo.processar_arquivo(); anexo.save(); count += 1
+                    if len(fotos) > restante:
+                        messages.warning(request, f"Apenas {restante} foto(s) foram processadas (limite total de 4).")
+                    if count:
+                        messages.success(request, f"{count} foto(s) anexada(s) com sucesso.")
 
             messages.success(request, f"Auto de Infração criado! Protocolo: {obj.protocolo}")
             if (pessoa_cand is not None) or (imovel_cand is not None):
@@ -483,7 +835,12 @@ def editar(request, pk):
                 vi_clean = form.cleaned_data.get("valor_infracao")
                 if vi_clean in (None, "") and raw_vi:
                     try:
-                        vi_clean = Decimal(raw_vi.replace(".", "").replace(",", "."))
+                        s = raw_vi.replace(" ", "")
+                        if "," in s and "." in s:
+                            s = s.replace(".", "").replace(",", ".")
+                        elif "," in s:
+                            s = s.replace(",", ".")
+                        vi_clean = Decimal(s)
                     except Exception:
                         vi_clean = None
                 if vi_clean is None:
@@ -516,14 +873,19 @@ def editar(request, pk):
                 # anexos
                 fotos = request.FILES.getlist("fotos")
                 if fotos:
-                    count = 0
-                    for foto in fotos:
-                        anexo = AutoInfracaoAnexo(auto_infracao=obj, tipo="FOTO", arquivo=foto)
-                        anexo.save()
-                        anexo.processar_arquivo()
-                        anexo.save()
-                        count += 1
-                    messages.success(request, f"{count} foto(s) anexada(s) com sucesso.")
+                    existentes = obj.anexos.filter(tipo='FOTO').count()
+                    restante = max(0, 4 - existentes)
+                    if restante <= 0:
+                        messages.warning(request, "Limite de 4 fotos atingido. Nenhuma nova foto foi adicionada.")
+                    else:
+                        count = 0
+                        for foto in fotos[:restante]:
+                            anexo = AutoInfracaoAnexo(auto_infracao=obj, tipo='FOTO', arquivo=foto)
+                            anexo.save(); anexo.processar_arquivo(); anexo.save(); count += 1
+                        if len(fotos) > restante:
+                            messages.warning(request, f"Apenas {restante} foto(s) foram processadas (limite total de 4).")
+                        if count:
+                            messages.success(request, f"{count} foto(s) anexada(s) com sucesso.")
 
                 messages.success(request, "Auto de Infração atualizado com sucesso.")
                 return redirect(reverse("autoinfracao:detalhe", kwargs={"pk": obj.pk}))
@@ -564,12 +926,66 @@ def imprimir(request, pk):
     obj = get_object_or_404(AutoInfracao, pk=pk, prefeitura_id=prefeitura_id)
     anexos = obj.anexos.all().order_by("-criada_em")
     valor_homologado_total = obj.valor_multa_homologado or obj.total_multa
+    # Galeria Hierárquica (AIF + NTF + Denúncia + Apontamentos) sem duplicar
+    def _build_denuncia_gallery(den):
+        gal = []
+        seen = set()
+        for fx in den.anexos.filter(tipo='FOTO').order_by('-criada_em'):
+            h = fx.hash_sha256 or f"path:{getattr(fx.arquivo, 'name', '')}"
+            if h in seen: continue
+            seen.add(h)
+            gal.append({'url': fx.arquivo.url if fx.arquivo else '', 'label': 'Denúncia', 'id': fx.id, 'owner': 'DEN'})
+        try:
+            for ap in getattr(den, 'apontamentos').all().order_by('-criado_em'):
+                for ax in ap.anexos.all().order_by('-criada_em'):
+                    h = ax.hash_sha256 or f"path:{getattr(ax.arquivo, 'name', '')}"
+                    if h in seen: continue
+                    seen.add(h)
+                    gal.append({'url': ax.arquivo.url if ax.arquivo else '', 'label': 'Apontamento', 'id': ax.id, 'owner': 'APONT'})
+        except Exception:
+            pass
+        return gal
+
+    galeria = []
+    seen_all = set()
+    if obj.notificacao_id:
+        # incluir galeria da notificação (que por sua vez herda da denúncia)
+        try:
+            # Reaproveita a função de detalhe da notificação? Simulamos aqui
+            n = obj.notificacao
+            # Denúncia
+            if n.denuncia_id:
+                for it in _build_denuncia_gallery(n.denuncia):
+                    h = it.get('hash') or it.get('url')
+                    if h in seen_all: continue
+                    seen_all.add(h); galeria.append(it)
+            # Próprias da notificação
+            for nx in n.anexos.filter(tipo='FOTO').order_by('-criada_em'):
+                h = nx.hash_sha256 or f"path:{getattr(nx.arquivo, 'name', '')}"
+                if h in seen_all: continue
+                seen_all.add(h); galeria.append({'url': nx.arquivo.url if nx.arquivo else '', 'label': 'Notificação'})
+        except Exception:
+            pass
+    elif obj.denuncia_id:
+        for it in _build_denuncia_gallery(obj.denuncia):
+            h = it.get('hash') or it.get('url')
+            if h in seen_all: continue
+            seen_all.add(h); galeria.append(it)
+
+    # Próprias do AIF
+    for ax in anexos.filter(tipo='FOTO'):
+        h = ax.hash_sha256 or f"path:{getattr(ax.arquivo, 'name', '')}"
+        if h in seen_all: continue
+        seen_all.add(h)
+        galeria.append({'url': ax.arquivo.url if ax.arquivo else '', 'label': 'AIF', 'id': ax.id, 'owner': 'AIF'})
+
     ctx = {
         "obj": obj,
         "anexos": anexos,
         "denuncia": obj.denuncia,
         "notificacao": obj.notificacao,
         "valor_homologado_total": valor_homologado_total,
+        "galeria": galeria,
     }
     log_event(request, 'PRINT', instance=obj)
     return render(request, "autoinfracao/imprimir_autoinfracao.html", ctx)
@@ -659,7 +1075,66 @@ def detalhe(request, pk):
 
     obj = get_object_or_404(AutoInfracao, pk=pk, prefeitura_id=prefeitura_id)
     anexos = obj.anexos.all().order_by("-criada_em")
-    return render(request, "autoinfracao/detalhe_autoinfracao.html", {"obj": obj, "anexos": anexos})
+
+    # Galeria Hierárquica (AIF + NTF + Denúncia + Apontamentos) sem duplicar
+    def _build_denuncia_gallery(den):
+        gal = []
+        seen = set()
+        for fx in den.anexos.filter(tipo='FOTO').order_by('-criada_em'):
+            h = fx.hash_sha256 or f"path:{getattr(fx.arquivo, 'name', '')}"
+            if h in seen:
+                continue
+            seen.add(h)
+            gal.append({'url': fx.arquivo.url if fx.arquivo else '', 'label': 'Denúncia'})
+        try:
+            for ap in getattr(den, 'apontamentos').all().order_by('-criado_em'):
+                for ax in ap.anexos.all().order_by('-criada_em'):
+                    h = ax.hash_sha256 or f"path:{getattr(ax.arquivo, 'name', '')}"
+                    if h in seen:
+                        continue
+                    seen.add(h)
+                    gal.append({'url': ax.arquivo.url if ax.arquivo else '', 'label': 'Apontamento'})
+        except Exception:
+            pass
+        return gal
+
+    galeria = []
+    seen_all = set()
+    if obj.notificacao_id:
+        try:
+            n = obj.notificacao
+            if n.denuncia_id:
+                for it in _build_denuncia_gallery(n.denuncia):
+                    key = it.get('url')
+                    if key in seen_all:
+                        continue
+                    seen_all.add(key)
+                    galeria.append(it)
+            for nx in n.anexos.filter(tipo='FOTO').order_by('-criada_em'):
+                h = nx.hash_sha256 or f"path:{getattr(nx.arquivo, 'name', '')}"
+                if h in seen_all:
+                    continue
+                seen_all.add(h)
+                galeria.append({'url': nx.arquivo.url if nx.arquivo else '', 'label': 'Notificação'})
+        except Exception:
+            pass
+    elif obj.denuncia_id:
+        for it in _build_denuncia_gallery(obj.denuncia):
+            key = it.get('url')
+            if key in seen_all:
+                continue
+            seen_all.add(key)
+            galeria.append(it)
+
+    # Próprias do AIF
+    for ax in anexos.filter(tipo='FOTO'):
+        h = ax.hash_sha256 or f"path:{getattr(ax.arquivo, 'name', '')}"
+        if h in seen_all:
+            continue
+        seen_all.add(h)
+        galeria.append({'url': ax.arquivo.url if ax.arquivo else '', 'label': 'AIF'})
+
+    return render(request, "autoinfracao/detalhe_autoinfracao.html", {"obj": obj, "anexos": anexos, "galeria": galeria})
 
 
 @login_required
@@ -1063,6 +1538,25 @@ def gerar_de_denuncia(request, den_pk):
         atualizada_por=request.user,
     )
     obj.save()
+    # Ao gerar AIF diretamente da Denúncia, marcar a Denúncia como PROCEDE + histórico
+    try:
+        if getattr(den, 'procedencia', None) != 'PROCEDE':
+            den.procedencia = 'PROCEDE'
+            den.save(update_fields=['procedencia'])
+            try:
+                xff = request.META.get('HTTP_X_FORWARDED_FOR')
+                ip = xff.split(',')[0].strip() if xff else request.META.get('REMOTE_ADDR')
+            except Exception:
+                ip = None
+            DenunciaHistorico.objects.create(
+                denuncia=den,
+                acao='ALTERACAO_PROCEDENCIA',
+                descricao='Procedência marcada PROCEDE ao gerar Auto de Infração.',
+                feito_por=getattr(request, 'user', None),
+                ip_origem=ip,
+            )
+    except Exception:
+        pass
     # Copiar fotos da Denúncia para o AIF
     try:
         count = 0

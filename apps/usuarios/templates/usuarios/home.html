@@ -77,14 +77,16 @@
       </div>
     </section>
 
-    <!-- Embargos / Interdições (placeholder) -->
-    <section class="dash-card emb" title="Em breve">
+    <!-- Embargos / Interdições -->
+    <section class="dash-card emb">
       <div class="dash-head">
         <h3 class="dash-title">Embargos / Interdições</h3>
-        <div class="dash-total">—</div>
+        <div class="dash-total">{{ stats.medidas.total }}</div>
       </div>
       <div class="dash-tags">
-        <span class="tag">Em breve</span>
+        {% for s in stats.medidas.por_status %}
+          <span class="tag">{{ s.label }}: <strong>{{ s.count }}</strong></span>
+        {% endfor %}
       </div>
     </section>
   </div>
@@ -125,7 +127,8 @@
   const COLORS = {
     den: ['#ef4444','#f59e0b','#f97316','#dc2626','#b91c1c','#fca5a5'],
     not: ['#2563eb','#0ea5e9','#38bdf8','#1d4ed8','#60a5fa','#93c5fd'],
-    aif: ['#16a34a','#22c55e','#84cc16','#065f46','#86efac','#bbf7d0']
+    aif: ['#16a34a','#22c55e','#84cc16','#065f46','#86efac','#bbf7d0'],
+    emb: ['#7c3aed','#8b5cf6','#a78bfa','#6d28d9','#c4b5fd','#ddd6fe']
   };
 
   function clear(){ ctx.clearRect(0,0,canvas.width,canvas.height); }
@@ -174,8 +177,8 @@
       if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
       // node
       ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.fill();
-      // value label
-      ctx.fillStyle = '#cbd5e1'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      // value label (black for better contrast)
+      ctx.fillStyle = '#111827'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
       if(v>0){ ctx.fillText(String(v), x, y-4); }
     });
     ctx.stroke();
@@ -204,8 +207,8 @@
       ctx.fillStyle = '#778';
       const lx = pad + (w/11)*i; // spread labels evenly
       ctx.fillText(months[i], lx, pad+h+16);
-      // value on top
-      if(v>0){ ctx.fillStyle = '#e5e7eb'; ctx.textBaseline = 'bottom'; ctx.fillText(String(v), x + bw/2, y-3); }
+      // value on top (black for better contrast)
+      if(v>0){ ctx.fillStyle = '#111827'; ctx.textBaseline = 'bottom'; ctx.fillText(String(v), x + bw/2, y-3); }
     });
     // y ticks (0, max)
     ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#889';
@@ -221,9 +224,11 @@
 
   function openChart(key){
     current.key = key; current.type = 'bar';
-    const map = { den:'denuncias', not:'notificacoes', aif:'aif' };
+    const map = { den:'denuncias', not:'notificacoes', aif:'aif', emb:'medidas' };
     const mod = map[key];
-    title.textContent = (key==='den'?'Denúncias': key==='not'?'Notificações':'Autos de Infração') + ' — '+stats.ano;
+    let ttl = '—';
+    if(key==='den') ttl='Denúncias'; else if(key==='not') ttl='Notificações'; else if(key==='aif') ttl='Autos de Infração'; else if(key==='emb') ttl='Embargos / Interdições';
+    title.textContent = ttl + ' — '+stats.ano;
     panel.style.display = 'block';
     ensureCanvasSize();
     render();
@@ -231,7 +236,7 @@
   }
 
   function render(){
-    const map = { den:'denuncias', not:'notificacoes', aif:'aif' };
+    const map = { den:'denuncias', not:'notificacoes', aif:'aif', emb:'medidas' };
     const mod = map[current.key];
     const palette = COLORS[current.key] || COLORS.den;
     const s = stats[mod];
@@ -251,6 +256,7 @@
       if(c.classList.contains('den')) openChart('den');
       else if(c.classList.contains('not')) openChart('not');
       else if(c.classList.contains('aif')) openChart('aif');
+      else if(c.classList.contains('emb')) openChart('emb');
     });
   });
 

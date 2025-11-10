@@ -12,6 +12,9 @@ urlpatterns = [
     path("<int:pk>/vincular-pessoa/", views.vincular_pessoa, name="vincular_pessoa"),
     path("<int:pk>/vincular-imovel/", views.vincular_imovel, name="vincular_imovel"),
     path("imprimir/<int:pk>/", views.imprimir, name="imprimir"),
+    # Relatórios
+    path("relatorio/arrecadacao/", views.relatorio_arrecadacao, name="relatorio_arrecadacao"),
+    path("relatorio/arrecadacao/print/", views.relatorio_arrecadacao_print, name="relatorio_arrecadacao_print"),
     # Medidas a partir do AIF
     path("<int:aif_pk>/gerar-embargo/", views.gerar_embargo, name="gerar_embargo"),
     path("<int:aif_pk>/gerar-interdicao/", views.gerar_interdicao, name="gerar_interdicao"),

@@ -23,8 +23,25 @@
       <div class="detail-actions">
         <a href="{% url 'denuncias:listar' %}" class="btn btn-sm btn-secondary">← Voltar</a>
         <a href="{% url 'denuncias:editar_basico' obj.pk %}" class="btn btn-sm btn-success">✏️ Editar (básico)</a>
-        <a href="{% url 'notificacoes:from_denuncia' obj.pk %}" class="btn btn-sm btn-primary">📄 Gerar Notificação</a>
-        <a href="{% url 'autoinfracao:from_denuncia' obj.pk %}" class="btn btn-sm btn-outline-primary">⚖️ Gerar Auto de Infração</a>
+        <a href="{% url 'denuncias:editar_completo' obj.pk %}" class="btn btn-sm btn-outline-success">🛠️ Editar (completo)</a>
+
+        {% if notificacoes and notificacoes|length > 0 %}
+          {% with n=notificacoes.0 %}
+            <a href="{% url 'notificacoes:detalhe' n.pk %}" class="btn btn-sm btn-primary">📄 Ver Notificação</a>
+          {% endwith %}
+        {% else %}
+            <a href="{% url 'notificacoes:from_denuncia' obj.pk %}" class="btn btn-sm btn-primary">📄 Gerar Notificação</a>
+        {% endif %}
+
+        {% if autos and autos|length > 0 %}
+          {% with a=autos.0 %}
+            <a href="{% url 'autoinfracao:detalhe' a.pk %}" class="btn btn-sm btn-outline-primary">⚖️ Ver Auto de Infração</a>
+          {% endwith %}
+        {% else %}
+            <a href="{% url 'autoinfracao:from_denuncia' obj.pk %}" class="btn btn-sm btn-outline-primary">⚖️ Gerar Auto de Infração</a>
+        {% endif %}
+
+        <a href="{% url 'denuncias:apontamento_novo' obj.pk %}" class="btn btn-sm btn-outline-info">📸 Apontamento de Campo</a>
       </div>
     </div>
 
@@ -99,7 +116,7 @@
       {% if not obj.pessoa %}
       <div class="card p-2">
         <div class="table-head"><div><strong>Pessoa</strong></div></div>
-        <form method="post" action="{% url 'denuncias:vincular_pessoa' obj.pk %}">
+        <form method="post" action="{% url 'denuncias:vincular_pessoa' obj.pk %}" novalidate>
           {% csrf_token %}
           <div class="detail-grid">
             <div class="f"><label>Tipo</label>
@@ -117,7 +134,7 @@
               </select>
             </div>
             <div class="f"><label>Doc. Número</label><input type="text" name="doc_num" class="form-control form-control-sm"></div>
-            <div class="f"><label>E-mail</label><input type="email" name="email" class="form-control form-control-sm"></div>
+            <div class="f"><label>E-mail</label><input type="text" name="email" class="form-control form-control-sm" placeholder="ex.: usuario@dominio.com (opcional)"></div>
             <div class="f"><label>Telefone</label><input type="text" name="telefone" class="form-control form-control-sm"></div>
           </div>
           <div class="form-actions" style="margin-top:6px;"><button class="btn btn-sm btn-primary">Vincular Pessoa</button></div>
@@ -127,7 +144,7 @@
       {% if not obj.imovel %}
       <div class="card p-2">
         <div class="table-head"><div><strong>Imóvel</strong></div></div>
-        <form method="post" action="{% url 'denuncias:vincular_imovel' obj.pk %}">
+        <form method="post" action="{% url 'denuncias:vincular_imovel' obj.pk %}" novalidate>
           {% csrf_token %}
           <div class="detail-grid">
             <div class="f"><label>Inscrição (opcional)</label><input type="text" name="inscricao" class="form-control form-control-sm"></div>
@@ -151,13 +168,85 @@
   <!-- Grid de cartões -->
   <div class="row g-3">
 
+    <!-- Galeria de Fotos (unificada) -->
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="table-head"><div><strong>📷 Galeria de Fotos (unificada)</strong></div></div>
+        <div class="table-wrap">
+          {% if galeria %}
+            <div class="anexos-grid">
+              {% for g in galeria %}
+                <div class="anexo-item">
+                  <a href="{{ g.url }}" target="_blank" rel="noopener">
+                    <img src="{{ g.url }}" alt="Foto" class="thumb" loading="lazy">
+                  </a>
+                  <p class="anexo-legenda">
+                    <span class="badge bg-secondary">{{ g.label }}</span>
+                    {% if g.owner == 'DEN' and g.id %}
+                      <a class="btn btn-sm btn-secondary" href="{% url 'denuncias:editar' obj.pk %}?del_anexo={{ g.id }}" onclick="return confirm('Remover esta foto da Denúncia?');" style="margin-left:6px;">Excluir</a>
+                    {% endif %}
+                  </p>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <em>Nenhuma foto para exibir.</em>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Apontamentos de Campo -->
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-header bg-light"><strong>Apontamentos de Campo</strong></div>
+        <div class="card-body">
+          {% if apontamentos %}
+          <div class="row" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:12px;">
+            {% for ap in apontamentos %}
+              <div class="p-2" style="border:1px solid #e5e7eb; border-radius:8px;">
+                <div class="small text-muted">{{ ap.criado_em|date:"d/m/Y H:i" }} — {% with u=ap.criado_por %}{% if u %}{{ u.get_full_name|default:u.email }}{% else %}—{% endif %}{% endwith %}</div>
+                {% if ap.observacao %}<div style="margin-top:4px; white-space:pre-line;">{{ ap.observacao }}</div>{% endif %}
+                {% if ap.anexos.all %}
+                  <div class="mt-2" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:6px;">
+                    {% for ax in ap.anexos.all %}
+                      <a href="{{ ax.arquivo.url }}" target="_blank" rel="noopener">
+                        <img src="{{ ax.arquivo.url }}" alt="Foto" style="width:100%; height:80px; object-fit:cover; border-radius:6px;" />
+                      </a>
+                    {% endfor %}
+                  </div>
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
+          {% else %}
+            <em>Nenhum apontamento cadastrado.</em>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
     <!-- Situação -->
     <div class="col-12">
       <div class="card shadow-sm">
         <div class="card-header bg-light"><strong>Situação</strong></div>
         <div class="card-body">
-          <div class="row">
-            <div class="col-md-3"><small class="text-muted d-block">Procedência:  </small>{{ obj.get_procedencia_display }}</div>
+          <div class="row align-items-end">
+            <div class="col-md-4">
+              <small class="text-muted d-block">Procedência:</small>
+              {% if notificacoes or autos %}
+                <div>{{ obj.get_procedencia_display }} <span class="hint">(bloqueado: já possui NTF/AIF)</span></div>
+              {% else %}
+                <form method="post" action="{% url 'denuncias:set_procedencia' obj.pk %}" class="d-flex" style="gap:8px; align-items:center;">
+                  {% csrf_token %}
+                  <select name="procedencia" class="form-select form-select-sm" style="max-width:220px;">
+                    <option value="PROCEDE" {% if obj.procedencia == 'PROCEDE' %}selected{% endif %}>Procede</option>
+                    <option value="NAO_PROCEDE" {% if obj.procedencia == 'NAO_PROCEDE' %}selected{% endif %}>Não procede</option>
+                  </select>
+                  <button class="btn btn-sm btn-primary">Atualizar</button>
+                </form>
+              {% endif %}
+            </div>
             <div class="col-md-3"><small class="text-muted d-block">Origem:  </small>{{ obj.get_origem_denuncia_display }}</div>
             <div class="col-md-3"><small class="text-muted d-block">Ativo?       </small>{{ obj.ativo|yesno:"Sim,Não" }}</div>
             <div class="col-md-3"><small class="text-muted d-block">Canal:  </small>{{ obj.get_canal_registro_display }}</div>
@@ -255,6 +344,65 @@
     </div>
 
   </div><!-- /row -->
+
+  <!-- Ficha Completa -->
+  <div class="card shadow-sm" style="margin-top:10px;">
+    <div class="card-header bg-light"><strong>📑 Ficha Completa</strong></div>
+    <div class="card-body">
+      <div class="detail-grid">
+        <!-- Situação geral -->
+        <div class="f"><label>Protocolo</label><div>{{ obj.protocolo }}</div></div>
+        <div class="f"><label>Status</label><div>{{ obj.get_status_display }}</div></div>
+        <div class="f"><label>Procedência</label><div>{{ obj.get_procedencia_display }}</div></div>
+        <div class="f"><label>Ativo?</label><div>{{ obj.ativo|yesno:"Sim,Não" }}</div></div>
+        <div class="f"><label>Canal de Registro</label><div>{{ obj.get_canal_registro_display }}</div></div>
+
+        <!-- Denunciado (alvo) -->
+        <div class="f"><label>Tipo Pessoa (Alvo)</label><div>{{ obj.get_denunciado_tipo_pessoa_display }}</div></div>
+        <div class="f"><label>Nome/Razão (Alvo)</label><div>{{ obj.denunciado_nome_razao }}</div></div>
+        <div class="f"><label>CPF/CNPJ (Alvo)</label><div>{{ obj.denunciado_cpf_cnpj|default:"—" }}</div></div>
+        <div class="f"><label>RG/IE (Alvo)</label><div>{{ obj.denunciado_rg_ie|default:"—" }}</div></div>
+        <div class="f"><label>Telefone (Alvo)</label><div>{{ obj.denunciado_telefone|default:"—" }}</div></div>
+        <div class="f"><label>E-mail (Alvo)</label><div>{{ obj.denunciado_email|default:"—" }}</div></div>
+
+        <!-- Endereço residencial do alvo -->
+        <div class="f"><label>Logradouro (Res.)</label><div>{{ obj.denunciado_res_logradouro|default:"—" }}</div></div>
+        <div class="f"><label>Número (Res.)</label><div>{{ obj.denunciado_res_numero|default:"—" }}</div></div>
+        <div class="f"><label>Complemento (Res.)</label><div>{{ obj.denunciado_res_complemento|default:"—" }}</div></div>
+        <div class="f"><label>Bairro (Res.)</label><div>{{ obj.denunciado_res_bairro|default:"—" }}</div></div>
+        <div class="f"><label>Cidade (Res.)</label><div>{{ obj.denunciado_res_cidade|default:"—" }}</div></div>
+        <div class="f"><label>UF (Res.)</label><div>{{ obj.denunciado_res_uf|default:"—" }}</div></div>
+        <div class="f"><label>CEP (Res.)</label><div>{{ obj.denunciado_res_cep|default:"—" }}</div></div>
+
+        <!-- Denunciante -->
+        <div class="f"><label>Denúncia Anônima?</label><div>{{ obj.denunciante_anonimo|yesno:"Sim,Não" }}</div></div>
+        <div class="f"><label>Denunciante (Nome)</label><div>{{ obj.denunciante_nome|default:"—" }}</div></div>
+        <div class="f"><label>Denunciante (Telefone)</label><div>{{ obj.denunciante_telefone|default:"—" }}</div></div>
+        <div class="f"><label>Denunciante (E-mail)</label><div>{{ obj.denunciante_email|default:"—" }}</div></div>
+        <div class="f"><label>Fiscal Denunciante</label><div>{{ obj.denunciante_fiscal|default:"—" }}</div></div>
+
+        <!-- Local da Ocorrência -->
+        <div class="f"><label>Logradouro (Ocorrência)</label><div>{{ obj.local_oco_logradouro }}</div></div>
+        <div class="f"><label>Nº / Lote / Quadra</label><div>{{ obj.local_oco_numero|default:"—" }}</div></div>
+        <div class="f"><label>Complemento</label><div>{{ obj.local_oco_complemento|default:"—" }}</div></div>
+        <div class="f"><label>Ponto de Referência</label><div>{{ obj.local_oco_pontoref|default:"—" }}</div></div>
+        <div class="f"><label>Bairro (Ocorrência)</label><div>{{ obj.local_oco_bairro }}</div></div>
+        <div class="f"><label>Cidade (Ocorrência)</label><div>{{ obj.local_oco_cidade }}</div></div>
+        <div class="f"><label>UF (Ocorrência)</label><div>{{ obj.local_oco_uf }}</div></div>
+        <div class="f"><label>CEP (Ocorrência)</label><div>{{ obj.local_oco_cep|default:"—" }}</div></div>
+        <div class="f"><label>Latitude</label><div>{{ obj.local_oco_lat|default:"—" }}</div></div>
+        <div class="f"><label>Longitude</label><div>{{ obj.local_oco_lng|default:"—" }}</div></div>
+        <div class="f span-3"><label>Descrição da Ocorrência</label><div style="white-space:pre-line;">{{ obj.descricao_oco }}</div></div>
+
+        <!-- Auditoria -->
+        <div class="f"><label>Criada em</label><div>{{ obj.criada_em|date:"d/m/Y H:i" }}</div></div>
+        <div class="f"><label>Atualizada em</label><div>{{ obj.atualizada_em|date:"d/m/Y H:i" }}</div></div>
+        <div class="f"><label>Criado por</label><div>{{ obj.criado_por|default:"—" }}</div></div>
+        <div class="f"><label>IP de Origem</label><div>{{ obj.ip_origem|default:"—" }}</div></div>
+        <div class="f span-3"><label>User-Agent</label><div class="text-break">{{ obj.user_agent|default:"—" }}</div></div>
+      </div>
+    </div>
+  </div>
 
 </div>
 {% endblock %}

@@ -41,22 +41,21 @@
 
     .sidebar{grid-area:sidebar;border-right:1px solid var(--border);background:rgba(255,255,255,.8);backdrop-filter:blur(8px);padding:.75rem}
     .menu{display:flex;flex-direction:column;gap:.25rem}
-    .menu-section{
-      display:flex; align-items:center; gap:.45rem;
-      margin:.95rem .25rem .45rem;
-      padding:.35rem .6rem;
-      font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
+    .menu-acc{ border:1px solid var(--border); border-radius:.5rem; background:rgba(255,255,255,.5); }
+    .menu-acc + .menu-acc{ margin-top:.35rem; }
+    .menu-acc[open]{ background:rgba(255,255,255,.8); }
+    .menu-acc summary.menu-section{
+      list-style:none; cursor:pointer; user-select:none;
+      display:flex; align-items:center; justify-content:space-between; gap:.45rem;
+      padding:.5rem .6rem; margin:0;
+      font-size:.8rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
       color:var(--primary);
-      background: rgba(96,165,250,.12);
-      border:1px solid rgba(96,165,250,.25);
-      border-radius:.5rem;
     }
-    .menu-section::before{
-      content:"";
-      width:8px; height:8px; border-radius:50%;
-      background: var(--primary);
-      box-shadow: 0 0 0 2px rgba(96,165,250,.18);
-    }
+    .menu-acc summary.menu-section::-webkit-details-marker{ display:none; }
+    .menu-acc summary.menu-section:after{ content:"▾"; font-size:.9rem; color:var(--primary); }
+    .menu-acc:not([open]) summary.menu-section:after{ content:"▸"; }
+    .menu-group{ display:flex; flex-direction:column; padding:.35rem .25rem .6rem; }
+    .menu-group .menu-item{ margin:.15rem .35rem; }
     .menu-item{display:block;padding:.55rem .6rem;border-radius:.5rem;color:var(--text);text-decoration:none;border:1px solid transparent;transition:background-color .15s ease, color .15s ease, border-color .15s ease}
     .menu-item:hover{background:var(--primary); color:#fff; border-color:transparent}
     .menu-item.active{background:var(--primary); color:#fff; border-color:transparent}
@@ -106,25 +105,46 @@
         <nav class="menu">
           <a href="/" class="menu-item {% block menu_home_active %}{% endblock %}">🏠 Início</a>
 
-          <div class="menu-section">Fiscalização</div>
-          <a href="{% url 'denuncias:listar' %}" class="menu-item {% block menu_denuncias_active %}{% endblock %}">📣 Denúncias</a>
-          <a href="{% url 'notificacoes:listar' %}" class="menu-item {% block menu_notificacoes_active %}{% endblock %}">📄 Notificações</a>
-          <a href="{% url 'autoinfracao:listar' %}" class="menu-item {% block menu_autoinfracao_active %}{% endblock %}">⚖️ Autos de Infração</a>
-          <a href="{% url 'autoinfracao:medidas_listar' %}" class="menu-item">⛔ Embargos / Interdições</a>
-          <a href="#" class="menu-item">📦 Termos de Apreensão</a>
-          <a href="#" class="menu-item">📝 Vistorias</a>
+          <details class="menu-acc">
+            <summary class="menu-section">Fiscalização</summary>
+            <div class="menu-group">
+              <a href="{% url 'denuncias:listar' %}" class="menu-item {% block menu_denuncias_active %}{% endblock %}">📣 Denúncias</a>
+              <a href="{% url 'notificacoes:listar' %}" class="menu-item {% block menu_notificacoes_active %}{% endblock %}">📄 Notificações</a>
+              <a href="{% url 'autoinfracao:listar' %}" class="menu-item {% block menu_autoinfracao_active %}{% endblock %}">⚖️ Autos de Infração</a>
+              <a href="{% url 'autoinfracao:medidas_listar' %}" class="menu-item">⛔ Embargos / Interdições</a>
+              <a href="#" class="menu-item">📦 Termos de Apreensão</a>
+              <a href="#" class="menu-item">📝 Vistorias</a>
+            </div>
+          </details>
 
-          <div class="menu-section">Infrações</div>
-          <a href="{% url 'autoinfracao:enq_listar' %}" class="menu-item">📜 Enquadramentos</a>
+          <details class="menu-acc">
+            <summary class="menu-section">Infrações</summary>
+            <div class="menu-group">
+              <a href="{% url 'autoinfracao:enq_listar' %}" class="menu-item">📜 Enquadramentos</a>
+            </div>
+          </details>
 
-          <div class="menu-section">Relatórios</div>
-          <a href="#" class="menu-item">📊 Painéis e PDFs</a>
+          <details class="menu-acc">
+            <summary class="menu-section">Relatórios</summary>
+            <div class="menu-group">
+              <a href="{% url 'relatorio_operacional' %}" class="menu-item">📊 Operacional (Entradas / Saídas / Processos Ativos)</a>
+              <a href="{% url 'autoinfracao:relatorio_arrecadacao' %}" class="menu-item">💵 Arrecadação AIF (Mensal)</a>
+            </div>
+          </details>
 
-          <div class="menu-section">Consultas</div>
-          <a href="{% url 'core_mapa' %}" class="menu-item {% block menu_mapa_active %}{% endblock %}">🗺️ Consultas Mapa</a>
+          <details class="menu-acc">
+            <summary class="menu-section">Consultas</summary>
+            <div class="menu-group">
+              <a href="{% url 'core_mapa' %}" class="menu-item {% block menu_mapa_active %}{% endblock %}">🗺️ Consultas Mapa</a>
+            </div>
+          </details>
 
-          <div class="menu-section">Sistema</div>
-          <a href="#" class="menu-item">⚙️ Configurações</a>
+          <details class="menu-acc">
+            <summary class="menu-section">Sistema</summary>
+            <div class="menu-group">
+              <a href="#" class="menu-item">⚙️ Configurações</a>
+            </div>
+          </details>
         </nav>
       </aside>
 
@@ -163,6 +183,10 @@
       const sidebar = document.getElementById('sidebar');
       if(toggle && sidebar){ toggle.addEventListener('click', ()=> sidebar.classList.toggle('open')); }
       setTimeout(()=>{ document.querySelectorAll('.alert').forEach(el=>{ if(!el.classList.contains('sticky')) el.remove(); }); }, 6000);
+      // Abre o accordion que contém o item ativo
+      document.querySelectorAll('.menu-acc').forEach(function(acc){
+        if(acc.querySelector('.menu-item.active')){ acc.open = true; }
+      });
     })();
   </script>
   {% endif %}

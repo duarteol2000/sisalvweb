@@ -110,15 +110,7 @@
   </section>
   {% endif %}
 
-  {% if obj.latitude or obj.longitude %}
-  <section class="section">
-    <h3>Geolocalização</h3>
-    <div class="grid cols-3">
-      <div class="field"><div class="label">Latitude</div><div class="value">{{ obj.latitude }}</div></div>
-      <div class="field"><div class="label">Longitude</div><div class="value">{{ obj.longitude }}</div></div>
-    </div>
-  </section>
-  {% endif %}
+  {# Seção de Geolocalização removida para evitar duplicação com o bloco do mapa #}
 
   <section class="section">
     <h3>Descrição/Constatação</h3>
@@ -145,7 +137,7 @@
         {% if fs %}
           <ul style="margin:0; padding-left:18px;">
             {% for f in fs %}
-              <li>{{ f.get_full_name|default:f.email }}</li>
+              {% if f %}<li>{{ f.get_full_name|default:f.email }}</li>{% endif %}
             {% endfor %}
           </ul>
         {% else %}
@@ -176,7 +168,7 @@
       <div class="field"><div class="label">Prazo p/ Regularização</div><div class="value">{{ obj.prazo_regularizacao_data|date:"d/m/Y"|default:"—" }}</div></div>
       <div class="field"><div class="label">Valor Homologado (Total)</div><div class="value">R$ {{ valor_homologado_total|floatformat:2 }}</div></div>
       <div class="field"><div class="label">Homologado em</div><div class="value">{{ obj.homologado_em|date:"d/m/Y H:i"|default:"—" }}</div></div>
-      <div class="field"><div class="label">Homologado por</div><div class="value">{{ obj.homologado_por.get_full_name|default:obj.homologado_por.email|default:"—" }}</div></div>
+      <div class="field"><div class="label">Homologado por</div><div class="value">{% with hp=obj.homologado_por %}{% if hp %}{{ hp.get_full_name|default:hp.email }}{% else %}—{% endif %}{% endwith %}</div></div>
       <div class="field"><div class="label">Regularizado em</div><div class="value">{{ obj.regularizado_em|date:"d/m/Y H:i"|default:"—" }}</div></div>
     </div>
   </section>
@@ -288,6 +280,20 @@
       </div>
     </div>
   </section>
+
+  {% if galeria %}
+  <section class="section">
+    <h3>📷 Galeria de Fotos (unificada)</h3>
+    <div class="grid cols-3">
+      {% for g in galeria %}
+        <div class="field">
+          <img src="{{ g.url }}" alt="Foto" style="max-width:100%; height:auto; border-radius:6px;" />
+          <div class="label">{{ g.label }}</div>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
 {% endblock %}
 {% block extra_js %}
 <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>

@@ -1,0 +1,127 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% block title %}Editar Denúncia — SISALVWEB{% endblock %}
+{% block content %}
+<div class="container mt-3">
+  <h2 class="page-title">✏️ Editar Denúncia</h2>
+  <div class="mb-2">
+    <a href="{% url 'denuncias:detalhe' obj.pk %}" class="btn btn-sm btn-secondary">← Voltar</a>
+  </div>
+
+  {% if messages %}
+    <div class="mb-2">
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} mb-2">{{ message }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <div class="card p-3">
+    <form method="post" enctype="multipart/form-data" novalidate>
+      {% csrf_token %}
+
+      <!-- Origem -->
+      <div class="section">
+        <h3>Origem da denúncia</h3>
+        <div class="form-grid">
+          <div class="field"><label>Origem</label>{{ form.origem_denuncia }}</div>
+          <div class="field"><label>Anônima?</label>{{ form.denunciante_anonimo }}</div>
+          <div class="field"><label>Fiscal denunciante</label>{{ form.denunciante_fiscal }}</div>
+          <div class="field"><label>Nome (contribuinte)</label>{{ form.denunciante_nome }}</div>
+          <div class="field"><label>E-mail (contribuinte)</label>{{ form.denunciante_email }}</div>
+          <div class="field"><label>Telefone (contribuinte)</label>{{ form.denunciante_telefone }}</div>
+        </div>
+      </div>
+
+      <!-- Denunciado -->
+      <div class="section">
+        <h3>Denunciado (alvo)</h3>
+        <div class="form-grid">
+          <div class="field"><label>Tipo de pessoa</label>{{ form.denunciado_tipo_pessoa }}</div>
+          <div class="field"><label>Nome/Razão social</label>{{ form.denunciado_nome_razao }}</div>
+          <div class="field"><label>CPF/CNPJ</label>{{ form.denunciado_cpf_cnpj }}</div>
+          <div class="field"><label>RG/IE</label>{{ form.denunciado_rg_ie }}</div>
+          <div class="field"><label>E-mail</label>{{ form.denunciado_email }}</div>
+          <div class="field"><label>Telefone</label>{{ form.denunciado_telefone }}</div>
+          <div class="field"><label>CEP</label>{{ form.denunciado_res_cep }}</div>
+          <div class="field"><label>Logradouro</label>{{ form.denunciado_res_logradouro }}</div>
+          <div class="field"><label>Número</label>{{ form.denunciado_res_numero }}</div>
+          <div class="field"><label>Complemento</label>{{ form.denunciado_res_complemento }}</div>
+          <div class="field"><label>Bairro</label>{{ form.denunciado_res_bairro }}</div>
+          <div class="field"><label>Cidade</label>{{ form.denunciado_res_cidade }}</div>
+          <div class="field"><label>UF</label>{{ form.denunciado_res_uf }}</div>
+        </div>
+      </div>
+
+      <!-- Local da ocorrência -->
+      <div class="section">
+        <h3>Local da ocorrência</h3>
+        <div class="form-grid">
+          <div class="field"><label>CEP</label>{{ form.local_oco_cep }}</div>
+          <div class="field"><label>Logradouro</label>{{ form.local_oco_logradouro }}</div>
+          <div class="field"><label>Nº / Lote / Quadra</label>{{ form.local_oco_numero }}</div>
+          <div class="field"><label>Complemento</label>{{ form.local_oco_complemento }}</div>
+          <div class="field"><label>Ponto de referência</label>{{ form.local_oco_pontoref }}</div>
+          <div class="field"><label>Bairro</label>{{ form.local_oco_bairro }}</div>
+          <div class="field"><label>Cidade</label>{{ form.local_oco_cidade }}</div>
+          <div class="field"><label>UF</label>{{ form.local_oco_uf }}</div>
+          <div class="field"><label>Latitude</label>{{ form.local_oco_lat }}</div>
+          <div class="field"><label>Longitude</label>{{ form.local_oco_lng }}</div>
+          <div class="field span-3"><label>Descrição detalhada</label>{{ form.descricao_oco }}</div>
+        </div>
+      </div>
+
+      <!-- Documentos do imóvel -->
+      <div class="section">
+        <h3>Documentos do imóvel</h3>
+        <p class="hint" style="margin:-6px 0 8px;">“Tipo” e “Arquivo” são obrigatórios para cada linha utilizada.</p>
+        {{ doc_formset.management_form }}
+        <div class="form-grid-2">
+          {% for f in doc_formset.forms %}
+            <div style="border:1px dashed #ccc; padding:10px; border-radius:6px;">
+              <div class="form-grid-2">
+                <div class="field"><label>Tipo</label>{{ f.tipo }}</div>
+                <div class="field"><label>Arquivo</label>{{ f.arquivo }}</div>
+              </div>
+              <div class="field" style="margin-top:8px;"><label>Observação</label>{{ f.observacao }}</div>
+              {% if f.instance.pk %}<div class="field" style="margin-top:6px;"><label>Excluir</label>{{ f.DELETE }}</div>{% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Fotos -->
+      <div class="section">
+        <h3>Fotos da ocorrência <small>(até 4 — ~95 KB, máx. 100 KB cada)</small></h3>
+        <div class="field">
+          <label>Adicionar fotos</label>
+          <input type="file" name="fotos" accept="image/*" capture="environment" multiple class="form-control" />
+          <small class="text-muted">Você já possui {{ fotos_existentes|default:0 }} foto(s). Restam {{ limite_restante|default:0 }}.</small>
+        </div>
+        {% if anexos_existentes %}
+        <div class="mt-2" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:10px;">
+          {% for a in anexos_existentes %}
+            <div class="preview-item">
+              {% if a.tipo == 'FOTO' %}
+                <a href="{{ a.arquivo.url }}" target="_blank" rel="noopener"><img src="{{ a.arquivo.url }}" alt="Foto"></a>
+                <div class="preview-name">{{ a.arquivo.name|cut:"denuncias/anexos/" }}</div>
+                <div class="mt-1"><a href="?del_anexo={{ a.id }}" class="btn btn-sm btn-secondary" onclick="return confirm('Remover anexo?')">Remover</a></div>
+              {% else %}
+                <a href="{{ a.arquivo.url }}" target="_blank" rel="noopener">{{ a.arquivo.name|cut:"denuncias/anexos/" }}</a>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="form-actions">
+        <a href="{% url 'denuncias:detalhe' obj.pk %}" class="btn btn-secondary btn-sm">Cancelar</a>
+        <button type="submit" class="btn btn-success btn-sm">Salvar alterações</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<link rel="stylesheet" href="{% static 'denuncias/css/denuncias.css' %}">
+{% endblock %}

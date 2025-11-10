@@ -98,6 +98,22 @@ class DenunciaEditForm(forms.ModelForm):
             "descricao_oco",
         ]
 
+    def __init__(self, *args, **kwargs):
+        from utils.choices import DENUNCIA_PROCEDENCIA_CHOICES
+        super().__init__(*args, **kwargs)
+        # Procedência: restringe a apenas PROCEDE / NAO_PROCEDE na UI
+        allowed = [("PROCEDE", "Procede"), ("NAO_PROCEDE", "Não procede")]
+        if "procedencia" in self.fields:
+            cur = getattr(self.instance, "procedencia", None)
+            # Se o valor atual não estiver entre os permitidos (ex.: INDETERMINADA),
+            # adiciona a opção atual no topo para não quebrar a validação e permitir manter.
+            if cur and cur not in {"PROCEDE", "NAO_PROCEDE"}:
+                label_map = dict(DENUNCIA_PROCEDENCIA_CHOICES)
+                current_label = label_map.get(cur, cur)
+                self.fields["procedencia"].choices = [(cur, f"{current_label} (atual)")] + allowed
+            else:
+                self.fields["procedencia"].choices = allowed
+
 # ============================================================
 # 2) Inline Formsets (documentos e anexos genéricos)
 # ============================================================
@@ -243,6 +259,23 @@ def process_photo_file(file_obj):
     largura, altura = img.size
     file_hash = _hash_sha256(data)
     uploaded = _make_inmemory_uploaded_jpg(data, getattr(file_obj, "name", "foto"))
+    return uploaded, largura, altura, file_hash
+
+# Versão com parâmetros de tamanho/qualidade (para tablets)
+def process_photo_file_custom(file_obj, *, target_kb: int = 95, tol_max_kb: int = 100, name_hint: str = 'foto'):
+    if not _is_image_file(file_obj):
+        raise ValidationError("Arquivo não reconhecido como imagem válida.")
+    img = Image.open(file_obj)
+    img = _auto_orient(img)
+    img = _crop_to_ratio(img, TARGET_W, TARGET_H)
+    img = _resize(img, TARGET_W, TARGET_H)
+    data = _binary_search_quality(img, target_kb, max(target_kb-20, 40), tol_max_kb)
+    # Enforce hard limit
+    if (len(data) // 1024) > tol_max_kb:
+        raise ValidationError(f"Arquivo acima de {tol_max_kb} KB após otimização.")
+    largura, altura = img.size
+    file_hash = _hash_sha256(data)
+    uploaded = _make_inmemory_uploaded_jpg(data, name_hint)
     return uploaded, largura, altura, file_hash
 
 # ---- Form de múltiplas fotos ----

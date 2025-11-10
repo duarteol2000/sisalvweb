@@ -40,6 +40,7 @@ body{
 
 /* Tabela “clara” e legível */
 table{ width:100%; border-collapse:separate; border-spacing:0; }
+.table.table-bordered{ border-collapse: collapse !important; border-spacing: 0 !important; }
 .table-bordered td, .table-bordered th{ border:1px solid var(--border); }
 .table thead th{
   background:#f8fafc;
@@ -48,13 +49,14 @@ table{ width:100%; border-collapse:separate; border-spacing:0; }
 }
 .table-striped tbody tr:nth-child(even){ background:#fbfdff; }
 .table-hover tbody tr:hover{ background:#eef6ff; }
-.table-sm td, .table-sm th{ padding:.35rem .5rem; }
+.table-sm td, .table-sm th{ padding:.35rem .5rem; line-height:1.25; }
 .table-actions{ white-space:nowrap; }
 
 /* Badges */
 .badge{ display:inline-block; padding:.25rem .5rem; border-radius:.35rem; font-size:.75rem; }
 .bg-warning{ background:#fde68a; color:#1f2937; }
 .bg-success{ background:#86efac; color:#064e3b; }
+.bg-danger{ background:#fecaca; color:#7f1d1d; }
 .bg-secondary{ background:#e5e7eb; color:#111827; }
 .bg-danger{ background:#fecaca; color:#7f1d1d; }
 
@@ -254,6 +256,7 @@ table { color: #111827 !important; }
 .table td, .table th {
   color: #111827 !important;
   border-color: #e5e7eb !important;
+  vertical-align: middle;
 }
 .table-striped tbody tr:nth-child(even) { background: #fbfdff !important; }
 .table-hover   tbody tr:hover            { background: #eef6ff !important; }
@@ -261,4 +264,5 @@ table { color: #111827 !important; }
 /* Badges (garante contraste) */
 .badge.bg-warning { background:#fde68a !important; color:#1f2937 !important; }
 .badge.bg-success { background:#86efac !important; color:#064e3b !important; }
+.badge.bg-danger  { background:#fecaca !important; color:#7f1d1d !important; }
 .badge.bg-secondary { background:#e5e7eb !important; color:#111827 !important; }

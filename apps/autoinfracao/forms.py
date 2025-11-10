@@ -14,10 +14,21 @@ class HTML5DateInput(forms.DateInput):
         super().__init__(*args, **kwargs)
 
 
+class HTML5DateTimeLocalInput(forms.DateTimeInput):
+    input_type = "datetime-local"
+    def __init__(self, *args, **kwargs):
+        # Formato padrão do input datetime-local: YYYY-MM-DDTHH:MM
+        kwargs.setdefault("format", "%Y-%m-%dT%H:%M")
+        super().__init__(*args, **kwargs)
+
+
 class AutoInfracaoCreateForm(forms.ModelForm):
     # Evita validação nativa de FloatField com vírgula; converteremos no clean
     latitude = forms.CharField(required=False)
     longitude = forms.CharField(required=False)
+    # Evita validação nativa de DecimalField com vírgula; tratamos no clean
+    valor_infracao = forms.CharField(required=False)
+    valor_multa_homologado = forms.CharField(required=False)
     tipos = forms.ModelMultipleChoiceField(
         queryset=InfracaoTipo.objects.none(), required=False, label="Tipos de Infração"
     )
@@ -124,11 +135,23 @@ class AutoInfracaoCreateForm(forms.ModelForm):
         from decimal import Decimal, InvalidOperation
         def _norm_dec_field(field):
             v = self.data.get(field, data.get(field))
-            if v in (None, ""): return
+            if v in (None, ""):
+                data[field] = None
+                return
             if isinstance(v, (int, float)):
                 data[field] = v
                 return
-            s = str(v).strip().replace(" ", "").replace(".", "").replace(",", ".")
+            s = str(v).strip().replace(" ", "")
+            # Aceita formatos com vírgula (BR) e/ou ponto. Regra:
+            # - Se tiver vírgula e ponto: ponto é milhar, vírgula é decimal
+            # - Se só vírgula: vírgula é decimal
+            # - Se só ponto: ponto é decimal
+            if "," in s and "." in s:
+                s = s.replace(".", "").replace(",", ".")
+            elif "," in s:
+                s = s.replace(",", ".")
+            else:
+                s = s
             try:
                 data[field] = Decimal(s)
             except InvalidOperation:
@@ -168,13 +191,46 @@ class AutoInfracaoMultaItemForm(forms.ModelForm):
 class AutoInfracaoEditForm(AutoInfracaoCreateForm):
     latitude = forms.CharField(required=False)
     longitude = forms.CharField(required=False)
+    # Também tratar pagamentos como texto para aceitar vírgula na entrada
+    valor_pago = forms.CharField(required=False)
     class Meta(AutoInfracaoCreateForm.Meta):
-        fields = AutoInfracaoCreateForm.Meta.fields + ["status"]
+        fields = AutoInfracaoCreateForm.Meta.fields + [
+            "status",
+            # pagamento
+            "pago", "valor_pago", "pago_em", "forma_pagamento", "guia_numero", "observacao_pagamento",
+        ]
+        widgets = dict(AutoInfracaoCreateForm.Meta.widgets, **{
+            "pago_em": HTML5DateInput(),
+            "valor_pago": forms.TextInput(attrs={"class": "js-decimal-2", "inputmode": "decimal", "placeholder": "ex.: 100,00"}),
+        })
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if "pago_em" in self.fields:
+            self.fields["pago_em"].input_formats = ["%Y-%m-%d", "%d/%m/%Y"]
 
     def clean(self):
         data = super().clean()
         if data.get("mezanino") and not data.get("area_mezanino_m2"):
             self.add_error("area_mezanino_m2", "Informe a área do mezanino (m²).")
+        # Normaliza valor_pago se vier com vírgula
+        from decimal import Decimal, InvalidOperation
+        raw = self.data.get("valor_pago") if hasattr(self, 'data') else None
+        # Se vazio, zera para None
+        if (raw in (None, "")) and (data.get("valor_pago") in (None, "")):
+            data["valor_pago"] = None
+        elif raw and not data.get("valor_pago"):
+            s = str(raw).strip().replace(" ", "")
+            if "," in s and "." in s:
+                s = s.replace(".", "").replace(",", ".")
+            elif "," in s:
+                s = s.replace(",", ".")
+            else:
+                s = s
+            try:
+                data["valor_pago"] = Decimal(s)
+            except InvalidOperation:
+                self.add_error("valor_pago", "Valor inválido. Use ponto ou vírgula como decimal.")
         return data
 
 class InfracaoTipoForm(forms.ModelForm):
@@ -196,19 +252,28 @@ class EmbargoEditForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if "prazo_regularizacao_data" in self.fields:
             self.fields["prazo_regularizacao_data"].input_formats = ["%Y-%m-%d", "%d/%m/%Y"]
+        # Aceitar datetime-local nos campos de afixação/entrega
+        for fld in ("afixado_no_local_em", "entregue_ao_responsavel_em"):
+            if fld in self.fields:
+                self.fields[fld].input_formats = [
+                    "%Y-%m-%dT%H:%M",  # HTML5 datetime-local
+                    "%Y-%m-%d %H:%M",
+                    "%d/%m/%Y %H:%M",
+                    "%Y-%m-%d %H:%M:%S",
+                ]
     class Meta:
         model = Embargo
         fields = [
             "status",
             "licenca_tipo",
-            "prazo_regularizacao_data",
             "exigencias_texto",
             "afixado_no_local_em",
             "entregue_ao_responsavel_em",
         ]
         widgets = {
-            "prazo_regularizacao_data": HTML5DateInput(),
             "exigencias_texto": forms.Textarea(attrs={"rows": 4}),
+            "afixado_no_local_em": HTML5DateTimeLocalInput(),
+            "entregue_ao_responsavel_em": HTML5DateTimeLocalInput(),
         }
 
 
@@ -217,6 +282,14 @@ class InterdicaoEditForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if "prazo_regularizacao_data" in self.fields:
             self.fields["prazo_regularizacao_data"].input_formats = ["%Y-%m-%d", "%d/%m/%Y"]
+        for fld in ("afixado_no_local_em", "entregue_ao_responsavel_em"):
+            if fld in self.fields:
+                self.fields[fld].input_formats = [
+                    "%Y-%m-%dT%H:%M",
+                    "%Y-%m-%d %H:%M",
+                    "%d/%m/%Y %H:%M",
+                    "%Y-%m-%d %H:%M:%S",
+                ]
     class Meta:
         model = Interdicao
         fields = [
@@ -230,6 +303,8 @@ class InterdicaoEditForm(forms.ModelForm):
         widgets = {
             "prazo_regularizacao_data": HTML5DateInput(),
             "condicoes_texto": forms.Textarea(attrs={"rows": 4}),
+            "afixado_no_local_em": HTML5DateTimeLocalInput(),
+            "entregue_ao_responsavel_em": HTML5DateTimeLocalInput(),
         }
 
 

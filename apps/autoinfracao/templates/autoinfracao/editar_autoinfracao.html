@@ -6,10 +6,6 @@
 {% block extra_js %}
 <script src="{% static 'js/viacep.js' %}"></script>
 <script src="{% static 'autoinfracao/js/autoinfracao.js' %}?v=20251030-1"></script>
-{% endblock %}
-
-{% block extra_js %}
-<script src="{% static 'js/viacep.js' %}"></script>
 <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
 <script>
 (function(){
@@ -258,6 +254,45 @@
     </div>
   </div>
 
+  <!-- Pagamento -->
+  <div class="card p-0 table-card shadow-sm" style="margin-top:10px;">
+    <div class="table-head"><div><strong>Pagamento</strong></div></div>
+    <div class="table-wrap">
+      <div class="form-grid">
+        <div>
+          {{ form.pago.label_tag }}
+          {{ form.pago }}
+          {{ form.pago.errors }}
+        </div>
+        <div>
+          {{ form.valor_pago.label_tag }}
+          {{ form.valor_pago }}
+          {{ form.valor_pago.errors }}
+        </div>
+        <div>
+          {{ form.pago_em.label_tag }}
+          {{ form.pago_em }}
+          {{ form.pago_em.errors }}
+        </div>
+        <div>
+          {{ form.forma_pagamento.label_tag }}
+          {{ form.forma_pagamento }}
+          {{ form.forma_pagamento.errors }}
+        </div>
+        <div>
+          {{ form.guia_numero.label_tag }}
+          {{ form.guia_numero }}
+          {{ form.guia_numero.errors }}
+        </div>
+        <div class="span-3">
+          {{ form.observacao_pagamento.label_tag }}
+          {{ form.observacao_pagamento }}
+          {{ form.observacao_pagamento.errors }}
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Tipos de Infração, Fiscais e Status -->
   <div class="card p-0 table-card shadow-sm" style="margin-top:10px;">
     <div class="table-head"><div><strong>Outros Dados</strong></div></div>
@@ -306,7 +341,7 @@
         <div class="span-3">
           <label for="id_fotos">Adicionar fotos</label>
           <input id="id_fotos" type="file" name="fotos" multiple accept="image/*">
-          <small>Você pode selecionar várias imagens.</small>
+          <small>Até 4 fotos por AIF (incluindo as já existentes).</small>
         </div>
       </div>
 

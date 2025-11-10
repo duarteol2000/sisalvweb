@@ -32,6 +32,7 @@ def upload_anexo_path(instance, filename):
 class Denuncia(models.Model):
     # Amarrações
     prefeitura = models.ForeignKey('prefeituras.Prefeitura', on_delete=models.PROTECT, related_name='denuncias')
+    processo = models.ForeignKey('processos.Processo', on_delete=models.SET_NULL, null=True, blank=True, related_name='denuncias')
     criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='denuncias_criadas')
     fiscais = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name='denuncias_atendidas')
 
@@ -189,3 +190,44 @@ class DenunciaHistorico(models.Model):
 
     def __str__(self):
         return f"{self.denuncia.protocolo} - {self.get_acao_display()}"
+
+
+# ===== Apontamento de Campo (registro leve) =====
+def upload_apontamento_path(instance, filename):
+    den_id = instance.apontamento.denuncia_id or 'tmp'
+    ap_id = instance.apontamento_id or 'new'
+    return f"denuncias/apontamentos/{den_id}/{ap_id}/{filename}"
+
+
+class DenunciaApontamento(models.Model):
+    denuncia = models.ForeignKey(Denuncia, on_delete=models.CASCADE, related_name='apontamentos')
+    observacao = models.CharField(max_length=280, blank=True)
+    atualizar_geo = models.BooleanField(default=False)
+    novo_lat = models.FloatField(null=True, blank=True)
+    novo_lng = models.FloatField(null=True, blank=True)
+    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    criado_em = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = 'denuncias_apontamento'
+        ordering = ['-criado_em']
+
+    def __str__(self):
+        return f"Apontamento #{self.id or '-'} de {self.denuncia.protocolo}"
+
+
+class DenunciaApontamentoAnexo(models.Model):
+    apontamento = models.ForeignKey(DenunciaApontamento, on_delete=models.CASCADE, related_name='anexos')
+    arquivo = models.FileField(upload_to=upload_apontamento_path)
+    largura_px = models.IntegerField(null=True, blank=True)
+    altura_px = models.IntegerField(null=True, blank=True)
+    hash_sha256 = models.CharField(max_length=64, blank=True)
+    otimizada = models.BooleanField(default=False)
+    criada_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'denuncias_apontamento_anexo'
+        ordering = ['-criada_em']
+
+    def __str__(self):
+        return f"ApontamentoAnexo #{self.id or '-'} de {self.apontamento_id}"

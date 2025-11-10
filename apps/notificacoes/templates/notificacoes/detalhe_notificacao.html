@@ -34,7 +34,11 @@
     <div class="actions">
       <a href="{% url 'notificacoes:listar' %}" class="btn btn-sm btn-secondary">← Voltar</a>
       <a href="{% url 'notificacoes:editar' obj.pk %}" class="btn btn-sm btn-outline-primary">Editar</a>
-      <a href="{% url 'autoinfracao:from_notificacao' obj.pk %}" class="btn btn-sm btn-primary">Gerar Auto de Infração</a>
+      {% if aif %}
+        <a href="{% url 'autoinfracao:detalhe' aif.pk %}" class="btn btn-sm btn-primary">Ver Auto de Infração</a>
+      {% else %}
+        <a href="{% url 'autoinfracao:from_notificacao' obj.pk %}" class="btn btn-sm btn-primary">Gerar Auto de Infração</a>
+      {% endif %}
     </div>
   </div>
   <div class="right detail-meta">
@@ -67,14 +71,14 @@
   <div class="table-wrap">
     <div class="detail-grid">
       {% if not obj.pessoa %}
-      <form method="post" action="{% url 'notificacoes:vincular_pessoa' obj.pk %}">
+      <form method="post" action="{% url 'notificacoes:vincular_pessoa' obj.pk %}" novalidate>
         {% csrf_token %}
         <div class="detail-grid">
           <div class="f"><label>Tipo</label><select name="tipo" class="form-select form-select-sm"><option value="PF">PF</option><option value="PJ">PJ</option></select></div>
           <div class="f"><label>Nome/Razão</label><input type="text" name="nome_razao" class="form-control form-control-sm" value="{{ obj.nome_razao }}"></div>
           <div class="f"><label>Doc. Tipo</label><select name="doc_tipo" class="form-select form-select-sm"><option value="OUTRO">Outro</option><option value="CPF">CPF</option><option value="CNPJ">CNPJ</option></select></div>
           <div class="f"><label>Doc. Número</label><input type="text" name="doc_num" class="form-control form-control-sm" value="{{ obj.cpf_cnpj }}"></div>
-          <div class="f"><label>E-mail</label><input type="email" name="email" class="form-control form-control-sm" value="{{ obj.email }}"></div>
+          <div class="f"><label>E-mail</label><input type="text" name="email" class="form-control form-control-sm" value="{{ obj.email }}" placeholder="ex.: usuario@dominio.com (opcional)"></div>
           <div class="f"><label>Telefone</label><input type="text" name="telefone" class="form-control form-control-sm" value="{{ obj.telefone }}"></div>
         </div>
         <div class="form-actions" style="margin-top:6px;"><button class="btn btn-sm btn-primary">Vincular Pessoa</button></div>
@@ -82,7 +86,7 @@
       {% endif %}
 
       {% if not obj.imovel %}
-      <form method="post" action="{% url 'notificacoes:vincular_imovel' obj.pk %}">
+      <form method="post" action="{% url 'notificacoes:vincular_imovel' obj.pk %}" novalidate>
         {% csrf_token %}
         <div class="detail-grid">
           <div class="f"><label>Inscrição</label><input type="text" name="inscricao" class="form-control form-control-sm"></div>
@@ -191,30 +195,67 @@
 </div>
 {% endif %}
 
+<!-- Ficha completa -->
 <div class="card p-0 table-card shadow-sm" style="margin-top:10px;">
-  <div class="table-head"><div><strong>📷 Fotos e Anexos</strong></div><div class="text-muted small">Total: {{ anexos|length }}</div></div>
+  <div class="table-head"><div><strong>📑 Ficha Completa</strong></div></div>
   <div class="table-wrap">
-    {% if anexos %}
+    <div class="detail-grid">
+      <div class="f"><label>Documento (tipo)</label><div class="v">{{ obj.get_documento_tipo_display|default:"—" }}</div></div>
+      <div class="f"><label>Status</label><div class="v">{{ obj.get_status_display }}</div></div>
+      <div class="f"><label>Criada em</label><div class="v">{{ obj.criada_em|date:"d/m/Y H:i" }}</div></div>
+
+      <div class="f"><label>Latitude</label><div class="v">{% if obj.latitude %}{{ obj.latitude|floatformat:'6' }}{% else %}—{% endif %}</div></div>
+      <div class="f"><label>Longitude</label><div class="v">{% if obj.longitude %}{{ obj.longitude|floatformat:'6' }}{% else %}—{% endif %}</div></div>
+
+      <div class="f"><label>Área (m²)</label><div class="v">{{ obj.area_m2|default:"—" }}</div></div>
+      <div class="f"><label>Testada (m)</label><div class="v">{{ obj.testada_m|default:"—" }}</div></div>
+      <div class="f"><label>Pé‑direito (m)</label><div class="v">{{ obj.pe_direito_m|default:"—" }}</div></div>
+      <div class="f"><label>Duplex</label><div class="v">{{ obj.duplex|yesno:"Sim,Não" }}</div></div>
+      <div class="f"><label>Qtd. cômodos</label><div class="v">{{ obj.qtd_comodos|default:"—" }}</div></div>
+      <div class="f"><label>Compartimentação</label><div class="v">{{ obj.compartimentacao|yesno:"Sim,Não" }}</div></div>
+      <div class="f"><label>Divisórias</label><div class="v">{{ obj.divisorias|yesno:"Sim,Não" }}</div></div>
+      <div class="f"><label>Mezanino</label><div class="v">{{ obj.mezanino|yesno:"Sim,Não" }}</div></div>
+      <div class="f"><label>Área mezanino (m²)</label><div class="v">{{ obj.area_mezanino_m2|default:"—" }}</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="card p-0 table-card shadow-sm" style="margin-top:10px;">
+  <div class="table-head"><div><strong>📷 Galeria de Fotos (unificada)</strong></div><div class="text-muted small">Total: {{ galeria|length }}</div></div>
+  <div class="table-wrap">
+    {% if galeria %}
       <div class="anexos-grid">
-        {% for a in anexos %}
+        {% for g in galeria %}
           <div class="anexo-item">
-            {% if a.tipo == "FOTO" %}
-              <a href="{{ a.arquivo.url }}" target="_blank" rel="noopener">
-                <img src="{{ a.arquivo.url }}" alt="Foto da notificação" class="thumb" loading="lazy">
-              </a>
-            {% else %}
-              <a href="{{ a.arquivo.url }}" target="_blank" rel="noopener" class="doc-link">
-                {{ a.arquivo.name|cut:"notificacoes/anexos/" }}
-              </a>
-            {% endif %}
-            {% if a.observacao %}
-              <p class="anexo-legenda">{{ a.observacao }}</p>
-            {% endif %}
+            <a href="{{ g.url }}" target="_blank" rel="noopener">
+              <img src="{{ g.url }}" alt="Foto" class="thumb" loading="lazy">
+            </a>
+            <p class="anexo-legenda">
+              <span class="badge bg-secondary">{{ g.label }}</span>
+              {% if g.owner == 'NOT' and g.id %}
+                <a class="btn btn-sm btn-secondary" href="{% url 'notificacoes:editar' obj.pk %}?del_anexo={{ g.id }}" onclick="return confirm('Remover esta foto da Notificação?');" style="margin-left:6px;">Excluir</a>
+              {% endif %}
+            </p>
           </div>
         {% endfor %}
       </div>
     {% else %}
-      <p class="text-muted" style="margin:8px 0;">Sem anexos.</p>
+      <p class="text-muted" style="margin:8px 0;">Sem fotos para exibir.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card p-0 table-card shadow-sm" style="margin-top:10px;">
+  <div class="table-head"><div><strong>📄 Documentos Anexos (Notificação)</strong></div><div class="text-muted small">Total: {{ docs|length }}</div></div>
+  <div class="table-wrap">
+    {% if docs %}
+      <ul>
+      {% for d in docs %}
+        <li><a href="{{ d.arquivo.url }}" target="_blank" rel="noopener">{{ d.arquivo.name|cut:"notificacoes/anexos/" }}</a></li>
+      {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-muted" style="margin:8px 0;">Sem documentos anexados.</p>
     {% endif %}
   </div>
 </div>

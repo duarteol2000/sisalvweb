@@ -18,7 +18,38 @@
 .filters-grid .span-3 { grid-column: 1 / -1; }
 
 .table-wrapper { margin-top: 12px; }
+.table-wrap { overflow-x: auto; }
 .actions .btn { margin-right: 4px; }
+
+/* Ações na tabela: inline no desktop, dropdown no mobile */
+.table-actions{ display:flex; gap:6px; flex-wrap:wrap; justify-content:center; align-items:center; }
+.actions-inline{
+  display:flex;
+  gap:6px;
+  flex-wrap:nowrap;
+  white-space:nowrap;
+  justify-content:center;
+}
+.actions-inline a.btn{ white-space: nowrap; }
+.table-actions .btn{ margin:0; border-color:transparent !important; box-shadow:none !important; line-height:1.25; }
+td.table-actions{ padding-top:.35rem; padding-bottom:.35rem; vertical-align:middle; }
+.actions-dropdown{ display:none; }
+@media (max-width: 700px){
+  .actions-inline{ display:none; }
+  .actions-dropdown{ display:block; }
+}
+.actions-dropdown summary{
+  list-style:none; cursor:pointer;
+  display:inline-block; padding:.25rem .5rem; border:1px solid #ccc; border-radius:6px; background:#fff;
+}
+.actions-dropdown summary::-webkit-details-marker{ display:none; }
+.actions-dropdown[open] summary{ background:#f1f1f1; }
+.actions-dropdown .dropdown-list{
+  margin-top:6px; border:1px solid #e5e7eb; border-radius:6px; padding:8px; background:#fff;
+  display:flex; flex-direction:column; gap:6px; min-width: 180px;
+  box-shadow:0 4px 16px rgba(0,0,0,.06);
+}
+.actions-dropdown .dropdown-list a{ display:block; text-decoration:none; }
 
 /* Cabeçalho compacto para campos com ações ao lado */
 .field-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:4px; }
@@ -26,7 +57,7 @@
 /* Campo com controle inline (select + botão) */
 .inline-field{ display:flex; gap:8px; align-items:center; }
 .inline-field select{ width:100%; max-width:300px; }
-.btn-compact{ padding:.25rem .4rem; line-height:1; }
+.btn-compact{ padding:.35rem .5rem; line-height:1; }
 .short-field{ max-width:120px; }
 
 /* Grid compacto para adicionar item (4 colunas no desktop) */

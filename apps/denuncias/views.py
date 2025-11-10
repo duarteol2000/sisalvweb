@@ -10,9 +10,19 @@ from django.db.models import F, Value as V
 from django.db.models.functions import Concat, Coalesce
 
 from .models import Denuncia, DenunciaDocumentoImovel, DenunciaAnexo
-from .forms import DenunciaOrigemForm, DenunciaFotosForm, process_photo_file  # usamos o form só para RENDER no GET
+from .forms import (
+    DenunciaOrigemForm,
+    DenunciaFotosForm,
+    process_photo_file,
+    process_photo_file_custom,
+)
 from apps.cadastros.models import Pessoa, Imovel
 from apps.usuarios.audit import log_event
+from .models import DenunciaHistorico
+from apps.notificacoes.models import Notificacao
+from utils.protocolo import gerar_protocolo
+from apps.prefeituras.models import Prefeitura
+from apps.autoinfracao.models import AutoInfracao
 
 # ==========================================================
 # Mapa de campos (centraliza nomes do model para filtros/annotate)
@@ -72,12 +82,36 @@ def denuncia_nova_step1(request):
                 obj.prefeitura_id = pref_id
                 if request.user.is_authenticated:
                     obj.criado_por = request.user
+                # Gera o protocolo já na view usando a matrícula do usuário logado
+                # para evitar qualquer interferência posterior.
+                try:
+                    pref = Prefeitura.objects.only("codigo_ibge").get(pk=pref_id)
+                    mat = getattr(request.user, "matricula", None) or None
+                    obj.protocolo = gerar_protocolo(pref.codigo_ibge or "", "DEN", matricula=mat)
+                except Exception:
+                    # Se algo falhar, o model.save() ainda gerará o protocolo.
+                    pass
                 if not obj.denunciado_nome_razao:
                     obj.denunciado_nome_razao = "A DEFINIR"
                 obj.save()
                 log_event(request, 'CREATE', instance=obj)
 
-                # 2) Documentos do Imóvel (opcionais)
+                # 2) Garantir Processo (raiz) — opção B: reutiliza protocolo da etapa raiz
+                try:
+                    from apps.processos.models import Processo
+                    if getattr(obj, 'processo_id', None) is None:
+                        proc = Processo.objects.create(
+                            prefeitura_id=pref_id,
+                            protocolo=obj.protocolo,
+                            status='ABERTO',
+                            criado_por=getattr(request, 'user', None),
+                        )
+                        obj.processo = proc
+                        obj.save(update_fields=['processo'])
+                except Exception:
+                    pass
+
+                # 3) Documentos do Imóvel (opcionais)
                 doc_formset = DocumentoImovelFormSet(
                     data=request.POST, files=request.FILES, instance=obj
                 )
@@ -94,10 +128,10 @@ def denuncia_nova_step1(request):
                     )
                 doc_formset.save()
 
-                # 3) FOTOS (opcionais) — processar manualmente, sem validar pelo Form
+                # 4) FOTOS (opcionais) — processar manualmente, sem validar pelo Form
                 files_list = request.FILES.getlist("fotos")
+                created = []
                 if files_list:
-                    created = []
                     for f in files_list:
                         try:
                             processed_file, w, h, hsh = process_photo_file(f)
@@ -135,11 +169,13 @@ def denuncia_nova_step1(request):
                                 {"form": form, "doc_formset": doc_formset, "fotos_form": fotos_form, "debug_exception": debug_exception},
                             )
 
-                messages.success(
-                    request,
-                    "Origem, Denunciado, Local da ocorrência, Documentos (se informados) e Fotos (se enviadas) salvos com sucesso."
-                )
-                return redirect(reverse("denuncias:nova_step1"))
+                # Feedback claro e redireciona para o detalhe (mostra miniaturas na galeria)
+                fotos_qtd = len(created)
+                if fotos_qtd > 0:
+                    messages.success(request, f"Denúncia salva com sucesso. {fotos_qtd} foto(s) adicionada(s) e otimizadas.")
+                else:
+                    messages.success(request, "Denúncia salva com sucesso. Nenhuma foto enviada.")
+                return redirect("denuncias:detalhe", pk=obj.pk)
 
             # Form principal inválido
             debug_exception = form.errors.as_text()
@@ -263,23 +299,145 @@ def denuncia_edit_basico(request, pk):
 
     if request.method == "POST":
         form = DenunciaOrigemForm(request.POST, instance=obj)
-        if form.is_valid():
+        doc_formset = DocumentoImovelFormSet(data=request.POST, files=request.FILES, instance=obj)
+        fotos_form = DenunciaFotosForm(request.POST, request.FILES, denuncia=obj)
+        if form.is_valid() and doc_formset.is_valid():
             obj_edit = form.save(commit=False)
             obj_edit.prefeitura_id = obj.prefeitura_id  # mantém integridade multi-prefeitura
             obj_edit.save()
+            doc_formset.save()
+
+            # Fotos opcionais (como no cadastro)
+            if request.FILES.getlist("fotos"):
+                if fotos_form.is_valid():
+                    created = fotos_form.save()
+                    if created:
+                        messages.success(request, f"{len(created)} foto(s) anexada(s) com sucesso.")
+                else:
+                    messages.error(request, "Erros ao anexar fotos. Verifique os arquivos e tente novamente.")
+
             log_event(request, 'UPDATE', instance=obj_edit)
             messages.success(request, "Denúncia atualizada com sucesso (dados básicos).")
-            return redirect("denuncias:listar")
+            return redirect("denuncias:detalhe", pk=obj.pk)
         else:
-            messages.error(request, "Corrija os erros do formulário.")
+            if not form.is_valid():
+                messages.error(request, "Corrija os erros do formulário.")
+            if not doc_formset.is_valid():
+                messages.error(request, "Há erros nos documentos do imóvel. Corrija e envie novamente.")
     else:
         form = DenunciaOrigemForm(instance=obj)
+        doc_formset = DocumentoImovelFormSet(instance=obj)
+        fotos_form = DenunciaFotosForm(denuncia=obj)
 
     return render(
         request,
-        "denuncias/cadastrar_denuncia.html",  # reaproveita o mesmo template
-        {"form": form, "obj": obj, "modo_edicao": True},
+        "denuncias/cadastrar_denuncia.html",  # reaproveita o mesmo template de cadastro
+        {
+            "form": form,
+            "doc_formset": doc_formset,
+            "fotos_form": fotos_form,
+            "obj": obj,
+            "modo_edicao": True,
+        },
     )
+
+
+# ==========================================================
+# EDITAR — COMPLETO (todos os campos + docs + fotos)
+# ==========================================================
+@login_required
+def denuncia_editar_completo(request, pk):
+    pref_id = request.session.get("prefeitura_id")
+    if not pref_id:
+        messages.error(request, "Prefeitura não definida na sessão.")
+        return redirect("/")
+
+    obj = get_object_or_404(Denuncia, pk=pk, prefeitura_id=pref_id)
+
+    # Remoção simples de anexo (foto) via GET
+    del_ax = request.GET.get('del_anexo')
+    if del_ax:
+        ax = obj.anexos.filter(pk=del_ax).first()
+        if ax:
+            ax.delete()
+            messages.info(request, 'Anexo removido.')
+        return redirect(request.path)
+
+    # Contagem de fotos existentes para respeitar o limite global (4)
+    fotos_existentes = obj.anexos.filter(tipo='FOTO').count()
+    limite_restante = max(0, 4 - fotos_existentes)
+
+    if request.method == 'POST':
+        form = DenunciaOrigemForm(request.POST, instance=obj)
+        doc_formset = DocumentoImovelFormSet(data=request.POST, files=request.FILES, instance=obj)
+        if form.is_valid() and doc_formset.is_valid():
+            den = form.save(commit=False)
+            den.prefeitura_id = pref_id
+            den.save()
+            doc_formset.save()
+
+            # Processar fotos (até 3, 100 KB) com nome IBGE-end_slug-YYYYMMDD-HHMMSS-fotoNN.jpg
+            files_list = request.FILES.getlist('fotos')
+            if files_list:
+                if limite_restante <= 0:
+                    messages.warning(request, 'Limite de 4 fotos atingido. Nenhuma nova foto foi adicionada.')
+                else:
+                    from django.utils.text import slugify
+                    logradouro = den.local_oco_logradouro or 'end'
+                    numero = (den.local_oco_numero or '').strip() or 's-n'
+                    end_slug = slugify(f"{logradouro}-{numero}")[:40] or 'local'
+                    ibge = (getattr(den.prefeitura, 'codigo_ibge', '') or '').strip() or '0000000'
+                    from django.utils import timezone as _tz
+                    ts = _tz.localtime().strftime('%Y%m%d-%H%M%S')
+
+                    added = 0
+                    # Só processa até o restante permitido para totalizar no máximo 4
+                    to_process = files_list[:limite_restante]
+                    for idx, f in enumerate(to_process, start=1):
+                        try:
+                            final_name = f"{ibge}-{end_slug}-{ts}-foto{idx:02d}.jpg"
+                            uploaded, w, h, hsh = process_photo_file_custom(
+                                f, target_kb=95, tol_max_kb=100, name_hint=final_name
+                            )
+                            an = DenunciaAnexo(
+                                denuncia=den,
+                                tipo='FOTO',
+                                arquivo=uploaded,
+                                observacao=(request.POST.get('observacao') or '')[:140],
+                                largura_px=w,
+                                altura_px=h,
+                                hash_sha256=hsh,
+                                otimizada=True,
+                            )
+                            an.save(); added += 1
+                        except Exception as e:
+                            messages.error(request, f"Falha ao processar uma foto: {e}")
+                    if len(files_list) > limite_restante:
+                        messages.warning(request, f'Somente as {limite_restante} primeiras fotos foram processadas (limite total por denúncia).')
+                    if added:
+                        messages.success(request, f"{added} foto(s) adicionada(s).")
+
+            log_event(request, 'UPDATE', instance=den)
+            messages.success(request, 'Denúncia atualizada com sucesso.')
+            return redirect('denuncias:detalhe', pk=den.pk)
+        else:
+            if not form.is_valid():
+                messages.error(request, 'Erros no formulário. Verifique os campos.')
+            if not doc_formset.is_valid():
+                messages.error(request, 'Erros nos documentos do imóvel.')
+    else:
+        form = DenunciaOrigemForm(instance=obj)
+        doc_formset = DocumentoImovelFormSet(instance=obj)
+
+    anexos_existentes = obj.anexos.all().order_by('-criada_em')
+    return render(request, 'denuncias/editar_denuncia_completo.html', {
+        'form': form,
+        'doc_formset': doc_formset,
+        'obj': obj,
+        'anexos_existentes': anexos_existentes,
+        'fotos_existentes': fotos_existentes,
+        'limite_restante': limite_restante,
+    })
 
 
 # ==========================================================
@@ -315,14 +473,99 @@ def denuncia_detail(request, pk):
     notifs = Notificacao.objects.filter(denuncia_id=obj.id, prefeitura_id=prefeitura_id).order_by('-criada_em')
     aifs = AutoInfracao.objects.filter(denuncia_id=obj.id, prefeitura_id=prefeitura_id).order_by('-criada_em')
 
+    # Galeria unificada (Denúncia + Apontamentos) sem duplicatas (por hash)
+    def _build_denuncia_gallery(den):
+        gal = []
+        seen = set()
+        # Fotos da Denúncia (próprias)
+        for fx in den.anexos.filter(tipo='FOTO').order_by('-criada_em'):
+            h = fx.hash_sha256 or f"path:{getattr(fx.arquivo, 'name', '')}"
+            if h in seen:
+                continue
+            seen.add(h)
+            gal.append({
+                'url': fx.arquivo.url if fx.arquivo else '',
+                'label': 'Denúncia',
+                'id': fx.id,
+                'owner': 'DEN',
+            })
+        # Fotos de Apontamentos
+        try:
+            for ap in getattr(den, 'apontamentos').all().order_by('-criado_em'):
+                for ax in ap.anexos.all().order_by('-criada_em'):
+                    h = ax.hash_sha256 or f"path:{getattr(ax.arquivo, 'name', '')}"
+                    if h in seen:
+                        continue
+                    seen.add(h)
+                    gal.append({
+                        'url': ax.arquivo.url if ax.arquivo else '',
+                        'label': 'Apontamento',
+                        'id': ax.id,
+                        'owner': 'APONT',
+                    })
+        except Exception:
+            pass
+        return gal
+
+    galeria = _build_denuncia_gallery(obj)
+
+    # Apontamentos de Campo
+    ap_list = []
+    try:
+        ap_list = list(getattr(obj, 'apontamentos').all().order_by('-criado_em'))
+    except Exception:
+        ap_list = []
+
     context = {
         "obj": obj,
         "endereco_oco": endereco_oco,
         "notificacoes": notifs,
         "autos": aifs,
+        "apontamentos": ap_list,
+        "galeria": galeria,
     }
     log_event(request, 'VIEW', instance=obj)
     return render(request, "denuncias/detalhe_denuncia.html", context)
+
+
+@login_required
+def denuncia_set_procedencia(request, pk):
+    pref_id = request.session.get("prefeitura_id")
+    if not pref_id:
+        messages.error(request, "Prefeitura não definida na sessão.")
+        return redirect("denuncias:listar")
+    obj = get_object_or_404(Denuncia, pk=pk, prefeitura_id=pref_id)
+    if request.method != "POST":
+        return redirect("denuncias:detalhe", pk=pk)
+    proc = (request.POST.get("procedencia") or "").upper().strip()
+    if proc not in {"PROCEDE", "NAO_PROCEDE"}:
+        messages.error(request, "Procedência inválida.")
+        return redirect("denuncias:detalhe", pk=pk)
+    # Regra: se já houver Notificação ou AIF gerados, não permitir alteração
+    has_docs = Notificacao.objects.filter(denuncia_id=obj.id, prefeitura_id=pref_id).exists() or \
+               AutoInfracao.objects.filter(denuncia_id=obj.id, prefeitura_id=pref_id).exists()
+    if has_docs:
+        messages.error(request, "Procedência bloqueada: já existe Notificação ou Auto de Infração gerado.")
+        return redirect("denuncias:detalhe", pk=pk)
+
+    if obj.procedencia != proc:
+        obj.procedencia = proc
+        obj.save(update_fields=["procedencia"])
+        try:
+            xff = request.META.get('HTTP_X_FORWARDED_FOR')
+            ip = xff.split(',')[0].strip() if xff else request.META.get('REMOTE_ADDR')
+        except Exception:
+            ip = None
+        DenunciaHistorico.objects.create(
+            denuncia=obj,
+            acao='ALTERACAO_PROCEDENCIA',
+            descricao=f'Procedência marcada {proc.replace("_"," ")}.',
+            feito_por=getattr(request, 'user', None),
+            ip_origem=ip,
+        )
+        log_event(request, 'UPDATE', instance=obj, extra={'procedencia': proc})
+        messages.success(request, "Procedência atualizada.")
+    return redirect("denuncias:detalhe", pk=pk)
 
 
 # ===============================
@@ -461,11 +704,131 @@ def denuncia_imprimir(request, pk):
     except Exception:
         pass
 
+    # Galeria unificada para impressão (Denúncia + Apontamentos)
+    def _build_denuncia_gallery(den):
+        gal = []
+        seen = set()
+        for fx in den.anexos.filter(tipo='FOTO').order_by('-criada_em'):
+            h = fx.hash_sha256 or f"path:{getattr(fx.arquivo, 'name', '')}"
+            if h in seen:
+                continue
+            seen.add(h)
+            gal.append({'url': fx.arquivo.url if fx.arquivo else '', 'label': 'Denúncia'})
+        try:
+            for ap in getattr(den, 'apontamentos').all().order_by('-criado_em'):
+                for ax in ap.anexos.all().order_by('-criada_em'):
+                    h = ax.hash_sha256 or f"path:{getattr(ax.arquivo, 'name', '')}"
+                    if h in seen:
+                        continue
+                    seen.add(h)
+                    gal.append({'url': ax.arquivo.url if ax.arquivo else '', 'label': 'Apontamento'})
+        except Exception:
+            pass
+        return gal
+
+    galeria = _build_denuncia_gallery(obj)
+    docs = anexos.exclude(tipo='FOTO')
+
     ctx = {
         "obj": obj,
         "anexos": anexos,
         "endereco_oco": endereco_oco,
         "pontoref": pontoref,
+        "galeria": galeria,
+        "docs": docs,
     }
     log_event(request, 'PRINT', instance=obj)
     return render(request, "denuncias/imprimir_denuncia.html", ctx)
+
+
+# ==========================================================
+# APONTAMENTO DE CAMPO — observação + até 3 fotos (<=100KB cada)
+# ==========================================================
+@login_required
+def apontamento_novo(request, den_pk):
+    pref_id = request.session.get("prefeitura_id")
+    if not pref_id:
+        messages.error(request, "Prefeitura não definida na sessão.")
+        return redirect("denuncias:listar")
+    den = get_object_or_404(Denuncia, pk=den_pk, prefeitura_id=pref_id)
+
+    if request.method == 'POST':
+        observacao = (request.POST.get('observacao') or '').strip()[:280]
+        atualizar_geo = request.POST.get('atualizar_geo') == 'on'
+        novo_lat = request.POST.get('novo_lat') or ''
+        novo_lng = request.POST.get('novo_lng') or ''
+
+        files = request.FILES.getlist('fotos')
+        if len(files) == 0:
+            messages.error(request, 'Envie ao menos 1 foto (máx. 4).')
+            return render(request, 'denuncias/apontamento_form.html', {'den': den, 'observacao': observacao, 'atualizar_geo': atualizar_geo})
+        if len(files) > 4:
+            messages.error(request, 'Máximo de 4 fotos por envio.')
+            return render(request, 'denuncias/apontamento_form.html', {'den': den, 'observacao': observacao, 'atualizar_geo': atualizar_geo})
+
+        from .models import DenunciaApontamento, DenunciaApontamentoAnexo
+        ap = DenunciaApontamento.objects.create(
+            denuncia=den,
+            observacao=observacao,
+            atualizar_geo=atualizar_geo,
+            criado_por=request.user,
+        )
+
+        # Compor slug do endereço e nome final
+        from django.utils.text import slugify
+        logradouro = den.local_oco_logradouro or 'end'
+        numero = (den.local_oco_numero or '').strip() or 's-n'
+        end_slug = slugify(f"{logradouro}-{numero}")[:40] or 'local'
+        ibge = (getattr(den.prefeitura, 'codigo_ibge', '') or '').strip() or '0000000'
+        from django.utils import timezone as _tz
+        ts = _tz.localtime().strftime('%Y%m%d-%H%M%S')
+
+        created_count = 0
+        for idx, f in enumerate(files, start=1):
+            try:
+                seq = f"{idx:02d}"
+                final_name = f"{ibge}-{end_slug}-{ts}-foto{seq}.jpg"
+                uploaded, w, h, sha = process_photo_file_custom(
+                    f, target_kb=95, tol_max_kb=100, name_hint=final_name
+                )
+                an = DenunciaApontamentoAnexo(
+                    apontamento=ap,
+                    arquivo=uploaded,
+                    largura_px=w,
+                    altura_px=h,
+                    hash_sha256=sha,
+                    otimizada=True,
+                )
+                an.save()
+                created_count += 1
+            except Exception as e:
+                messages.error(request, f"Falha ao processar uma das fotos: {e}")
+        log_event(request, 'CREATE', instance=den, extra={'apontamento_id': ap.id, 'fotos': created_count})
+
+        # Atualizar geo da denúncia, se solicitado
+        if atualizar_geo:
+            from utils.geo import to_float_or_none, clamp_lat_lng
+            lat = to_float_or_none(novo_lat)
+            lng = to_float_or_none(novo_lng)
+            lat, lng = clamp_lat_lng(lat, lng)
+            if lat is not None and lng is not None:
+                den.local_oco_lat = lat
+                den.local_oco_lng = lng
+                den.save(update_fields=['local_oco_lat', 'local_oco_lng'])
+                try:
+                    xff = request.META.get('HTTP_X_FORWARDED_FOR')
+                    ip = xff.split(',')[0].strip() if xff else request.META.get('REMOTE_ADDR')
+                except Exception:
+                    ip = None
+                DenunciaHistorico.objects.create(
+                    denuncia=den,
+                    acao='INCLUSAO_ANEXO',
+                    descricao='Apontamento de Campo: atualização de geolocalização aplicada.',
+                    feito_por=getattr(request, 'user', None),
+                    ip_origem=ip,
+                )
+
+        messages.success(request, f"Apontamento registrado com {created_count} foto(s).")
+        return redirect('denuncias:detalhe', pk=den.pk)
+
+    return render(request, 'denuncias/apontamento_form.html', {'den': den})

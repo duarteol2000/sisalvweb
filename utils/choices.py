@@ -124,3 +124,13 @@ INTERDICAO_MOTIVO_CHOICES = [
     ("FUNCIONAMENTO", "Funcionamento"),
     ("MP", "Ministério Público (ofício)"),
 ]
+
+# Formas de pagamento (AIF)
+PAGAMENTO_FORMA_CHOICES = [
+    ("PIX", "PIX"),
+    ("BOLETO", "Boleto"),
+    ("TRANSFERENCIA", "Transferência"),
+    ("CARTAO", "Cartão"),
+    ("DINHEIRO", "Dinheiro"),
+    ("OUTRO", "Outro"),
+]

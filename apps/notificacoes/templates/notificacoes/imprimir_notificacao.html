@@ -106,6 +106,20 @@
     <div class="field"><div class="value">{{ obj.prazo_regularizacao|date:"d/m/Y" }}</div></div>
   </section>
   {% endif %}
+
+  {% if galeria %}
+  <section class="section">
+    <h3>📷 Galeria de Fotos (unificada)</h3>
+    <div class="grid cols-3">
+      {% for g in galeria %}
+        <div class="field">
+          <img src="{{ g.url }}" alt="Foto" style="max-width:100%; height:auto; border-radius:6px;" />
+          <div class="label">{{ g.label }}</div>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
 {% endblock %}
 {% block extra_js %}
 <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>

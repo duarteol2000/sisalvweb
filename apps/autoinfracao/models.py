@@ -10,6 +10,7 @@ from utils.choices import (
     MEDIDA_STATUS_CHOICES,
     LICENCA_TIPO_CHOICES,
     INTERDICAO_MOTIVO_CHOICES,
+    PAGAMENTO_FORMA_CHOICES,
 )
 import os
 import hashlib
@@ -53,6 +54,7 @@ class AutoInfracao(models.Model):
     # Identificação
     protocolo = models.CharField(max_length=64, unique=True, editable=False)
     prefeitura = models.ForeignKey(Prefeitura, on_delete=models.PROTECT)
+    processo = models.ForeignKey('processos.Processo', on_delete=models.SET_NULL, null=True, blank=True, related_name='autos')
     denuncia = models.ForeignKey("denuncias.Denuncia", null=True, blank=True, on_delete=models.SET_NULL)
     notificacao = models.ForeignKey("notificacoes.Notificacao", null=True, blank=True, on_delete=models.SET_NULL)
 
@@ -100,6 +102,14 @@ class AutoInfracao(models.Model):
     homologado_por = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, blank=True, related_name="aif_homologados")
     homologado_em = models.DateTimeField(null=True, blank=True)
     regularizado_em = models.DateTimeField(null=True, blank=True)
+
+    # Pagamento
+    pago = models.BooleanField(default=False)
+    valor_pago = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    pago_em = models.DateField(null=True, blank=True)
+    forma_pagamento = models.CharField(max_length=20, choices=PAGAMENTO_FORMA_CHOICES, null=True, blank=True)
+    guia_numero = models.CharField(max_length=60, null=True, blank=True)
+    observacao_pagamento = models.CharField(max_length=200, blank=True)
 
     # Dados construtivos (solicitados)
     area_m2 = models.DecimalField("Área (m²)", max_digits=10, decimal_places=2, null=True, blank=True)
@@ -185,7 +195,7 @@ class AutoInfracao(models.Model):
         d = self.dias_restantes
         if d is None:
             return ''
-        if d > 7:
+        if d > 5:
             return 'bg-success'
         if d >= 1:
             return 'bg-warning'
@@ -237,6 +247,13 @@ class Embargo(models.Model):
         return f"{self.protocolo} — {self.auto_infracao.protocolo}"
 
     @property
+    def processo(self):
+        try:
+            return self.auto_infracao.processo
+        except Exception:
+            return None
+
+    @property
     def dias_restantes(self):
         if not self.prazo_regularizacao_data:
             return None
@@ -248,7 +265,7 @@ class Embargo(models.Model):
         d = self.dias_restantes
         if d is None:
             return ''
-        if d > 7:
+        if d > 5:
             return 'bg-success'
         if d >= 1:
             return 'bg-warning'
@@ -286,25 +303,43 @@ class EmbargoAnexo(models.Model):
         if not self.arquivo:
             return
         try:
-            img = Image.open(self.arquivo)
-            img_format = img.format
-            original_io = BytesIO()
-            img.save(original_io, format=img_format)
-            self.largura_px, self.altura_px = img.size
-            if self.largura_px and self.largura_px > 1000:
-                proporcao = 1000 / self.largura_px
-                nova_altura = int((self.altura_px or 0) * proporcao)
-                if nova_altura > 0:
-                    img = img.resize((1000, nova_altura))
+            MAX_KB = 100
+            TARGET_KB = 95
+            def _encode(img, quality):
+                buf = BytesIO()
                 if img.mode not in ("RGB", "L"):
                     img = img.convert("RGB")
-                new_io = BytesIO()
-                img.save(new_io, format="JPEG", quality=85)
-                base, _ext = os.path.splitext(os.path.basename(self.arquivo.name))
-                new_name = f"{base}.jpg"
-                self.arquivo.save(new_name, ContentFile(new_io.getvalue()), save=False)
-                self.otimizada = True
-                self.largura_px, self.altura_px = img.size
+                img.save(buf, format="JPEG", quality=quality, optimize=True, progressive=True)
+                return buf.getvalue()
+
+            img = Image.open(self.arquivo)
+            w, h = img.size
+            if w and w > 1000:
+                proporcao = 1000 / float(w)
+                new_h = max(1, int((h or 0) * proporcao))
+                img = img.resize((1000, new_h))
+                w, h = img.size
+            self.largura_px, self.altura_px = w, h
+
+            lo, hi = 40, 95
+            best = _encode(img, 85)
+            best_diff = abs((len(best)//1024) - TARGET_KB)
+            for _ in range(8):
+                mid = (lo + hi)//2
+                data = _encode(img, mid)
+                size_kb = len(data)//1024
+                diff = abs(size_kb - TARGET_KB)
+                if diff < best_diff and size_kb <= MAX_KB:
+                    best, best_diff = data, diff
+                if size_kb > MAX_KB or size_kb > TARGET_KB:
+                    hi = mid - 1
+                else:
+                    lo = mid + 1
+
+            base, _ext = os.path.splitext(os.path.basename(self.arquivo.name))
+            new_name = f"{base}.jpg"
+            self.arquivo.save(new_name, ContentFile(best), save=False)
+            self.otimizada = True
 
             # hash
             hash_obj = hashlib.sha256()
@@ -350,6 +385,13 @@ class Interdicao(models.Model):
         return f"{self.protocolo} — {self.auto_infracao.protocolo}"
 
     @property
+    def processo(self):
+        try:
+            return self.auto_infracao.processo
+        except Exception:
+            return None
+
+    @property
     def dias_restantes(self):
         if not self.prazo_regularizacao_data:
             return None
@@ -361,7 +403,7 @@ class Interdicao(models.Model):
         d = self.dias_restantes
         if d is None:
             return ''
-        if d > 7:
+        if d > 5:
             return 'bg-success'
         if d >= 1:
             return 'bg-warning'
@@ -399,25 +441,43 @@ class InterdicaoAnexo(models.Model):
         if not self.arquivo:
             return
         try:
-            img = Image.open(self.arquivo)
-            img_format = img.format
-            original_io = BytesIO()
-            img.save(original_io, format=img_format)
-            self.largura_px, self.altura_px = img.size
-            if self.largura_px and self.largura_px > 1000:
-                proporcao = 1000 / self.largura_px
-                nova_altura = int((self.altura_px or 0) * proporcao)
-                if nova_altura > 0:
-                    img = img.resize((1000, nova_altura))
+            MAX_KB = 100
+            TARGET_KB = 95
+            def _encode(img, quality):
+                buf = BytesIO()
                 if img.mode not in ("RGB", "L"):
                     img = img.convert("RGB")
-                new_io = BytesIO()
-                img.save(new_io, format="JPEG", quality=85)
-                base, _ext = os.path.splitext(os.path.basename(self.arquivo.name))
-                new_name = f"{base}.jpg"
-                self.arquivo.save(new_name, ContentFile(new_io.getvalue()), save=False)
-                self.otimizada = True
-                self.largura_px, self.altura_px = img.size
+                img.save(buf, format="JPEG", quality=quality, optimize=True, progressive=True)
+                return buf.getvalue()
+
+            img = Image.open(self.arquivo)
+            w, h = img.size
+            if w and w > 1000:
+                proporcao = 1000 / float(w)
+                new_h = max(1, int((h or 0) * proporcao))
+                img = img.resize((1000, new_h))
+                w, h = img.size
+            self.largura_px, self.altura_px = w, h
+
+            lo, hi = 40, 95
+            best = _encode(img, 85)
+            best_diff = abs((len(best)//1024) - TARGET_KB)
+            for _ in range(8):
+                mid = (lo + hi)//2
+                data = _encode(img, mid)
+                size_kb = len(data)//1024
+                diff = abs(size_kb - TARGET_KB)
+                if diff < best_diff and size_kb <= MAX_KB:
+                    best, best_diff = data, diff
+                if size_kb > MAX_KB or size_kb > TARGET_KB:
+                    hi = mid - 1
+                else:
+                    lo = mid + 1
+
+            base, _ext = os.path.splitext(os.path.basename(self.arquivo.name))
+            new_name = f"{base}.jpg"
+            self.arquivo.save(new_name, ContentFile(best), save=False)
+            self.otimizada = True
 
             # hash
             hash_obj = hashlib.sha256()
@@ -464,25 +524,43 @@ class AutoInfracaoAnexo(models.Model):
         if not self.arquivo:
             return
         try:
-            img = Image.open(self.arquivo)
-            img_format = img.format
-            original_io = BytesIO()
-            img.save(original_io, format=img_format)
-            self.largura_px, self.altura_px = img.size
-            if self.largura_px and self.largura_px > 1000:
-                proporcao = 1000 / self.largura_px
-                nova_altura = int((self.altura_px or 0) * proporcao)
-                if nova_altura > 0:
-                    img = img.resize((1000, nova_altura))
+            MAX_KB = 100
+            TARGET_KB = 95
+            def _encode(img, quality):
+                buf = BytesIO()
                 if img.mode not in ("RGB", "L"):
                     img = img.convert("RGB")
-                new_io = BytesIO()
-                img.save(new_io, format="JPEG", quality=85)
-                base, _ext = os.path.splitext(os.path.basename(self.arquivo.name))
-                new_name = f"{base}.jpg"
-                self.arquivo.save(new_name, ContentFile(new_io.getvalue()), save=False)
-                self.otimizada = True
-                self.largura_px, self.altura_px = img.size
+                img.save(buf, format="JPEG", quality=quality, optimize=True, progressive=True)
+                return buf.getvalue()
+
+            img = Image.open(self.arquivo)
+            w, h = img.size
+            if w and w > 1000:
+                proporcao = 1000 / float(w)
+                new_h = max(1, int((h or 0) * proporcao))
+                img = img.resize((1000, new_h))
+                w, h = img.size
+            self.largura_px, self.altura_px = w, h
+
+            lo, hi = 40, 95
+            best = _encode(img, 85)
+            best_diff = abs((len(best)//1024) - TARGET_KB)
+            for _ in range(8):
+                mid = (lo + hi)//2
+                data = _encode(img, mid)
+                size_kb = len(data)//1024
+                diff = abs(size_kb - TARGET_KB)
+                if diff < best_diff and size_kb <= MAX_KB:
+                    best, best_diff = data, diff
+                if size_kb > MAX_KB or size_kb > TARGET_KB:
+                    hi = mid - 1
+                else:
+                    lo = mid + 1
+
+            base, _ext = os.path.splitext(os.path.basename(self.arquivo.name))
+            new_name = f"{base}.jpg"
+            self.arquivo.save(new_name, ContentFile(best), save=False)
+            self.otimizada = True
 
             # hash
             hash_obj = hashlib.sha256()

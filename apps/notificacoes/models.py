@@ -29,6 +29,7 @@ class Notificacao(models.Model):
     # Aumentado para 64 para comportar matrícula no protocolo (ex.: IBGE-SIGLA-DATA-MATRICULA)
     protocolo = models.CharField(max_length=64, unique=True, editable=False)
     prefeitura = models.ForeignKey(Prefeitura, on_delete=models.PROTECT)
+    processo = models.ForeignKey('processos.Processo', on_delete=models.SET_NULL, null=True, blank=True, related_name='notificacoes')
     denuncia = models.ForeignKey("denuncias.Denuncia", null=True, blank=True, on_delete=models.SET_NULL)
 
     # 🔹 Dados do notificado
@@ -114,6 +115,29 @@ class Notificacao(models.Model):
     def __str__(self):
         return f"{self.protocolo} - {self.nome_razao}"
 
+    @property
+    def dias_restantes(self):
+        """Diferença em dias até o prazo de regularização.
+        Valor negativo indica prazo vencido. Retorna None quando não há prazo.
+        """
+        if not self.prazo_regularizacao:
+            return None
+        from django.utils import timezone
+        delta = self.prazo_regularizacao - timezone.localdate()
+        return delta.days
+
+    @property
+    def prazo_badge_class(self):
+        """Classe de badge compatível com Bootstrap conforme proximidade do prazo."""
+        d = self.dias_restantes
+        if d is None:
+            return ''
+        if d > 5:
+            return 'bg-success'
+        if d >= 1:
+            return 'bg-warning'
+        return 'bg-danger'
+
 
 # ----------------------------------------
 # Model de Anexos da Notificação
@@ -157,30 +181,47 @@ class NotificacaoAnexo(models.Model):
             return
 
         try:
-            img = Image.open(self.arquivo)
-            img_format = img.format
-            original_io = BytesIO()
-            img.save(original_io, format=img_format)
+            MAX_KB = 100
+            TARGET_KB = 95
 
-            # Tamanho original
-            self.largura_px, self.altura_px = img.size
-
-            # Reduz se maior que 1000 px
-            if self.largura_px > 1000:
-                proporcao = 1000 / self.largura_px
-                nova_altura = int(self.altura_px * proporcao)
-                img = img.resize((1000, nova_altura))
-                # Converte para RGB para evitar problemas ao salvar JPEG (ex.: PNG com alpha)
+            def _encode_jpeg(img, quality):
+                buf = BytesIO()
                 if img.mode not in ("RGB", "L"):
                     img = img.convert("RGB")
-                new_io = BytesIO()
-                img.save(new_io, format="JPEG", quality=85)
-                # Garante extensão .jpg quando reencodar como JPEG
-                base, _ext = os.path.splitext(os.path.basename(self.arquivo.name))
-                new_name = f"{base}.jpg"
-                self.arquivo.save(new_name, ContentFile(new_io.getvalue()), save=False)
-                self.otimizada = True
-                self.largura_px, self.altura_px = img.size
+                img.save(buf, format="JPEG", quality=quality, optimize=True, progressive=True)
+                return buf.getvalue()
+
+            img = Image.open(self.arquivo)
+            # Redimensiona se necessário
+            w, h = img.size
+            if w and w > 1000:
+                proporcao = 1000 / float(w)
+                new_h = max(1, int(h * proporcao))
+                img = img.resize((1000, new_h))
+                w, h = img.size
+            self.largura_px, self.altura_px = w, h
+
+            # Busca binária simples para chegar perto de 95 KB, <= 100 KB
+            lo, hi = 40, 95
+            best = _encode_jpeg(img, 85)
+            best_diff = abs((len(best)//1024) - TARGET_KB)
+            for _ in range(8):
+                mid = (lo + hi) // 2
+                data = _encode_jpeg(img, mid)
+                size_kb = len(data)//1024
+                diff = abs(size_kb - TARGET_KB)
+                if diff < best_diff and size_kb <= MAX_KB:
+                    best, best_diff = data, diff
+                if size_kb > MAX_KB or size_kb > TARGET_KB:
+                    hi = mid - 1
+                else:
+                    lo = mid + 1
+
+            # Salva como JPG
+            base, _ext = os.path.splitext(os.path.basename(self.arquivo.name))
+            new_name = f"{base}.jpg"
+            self.arquivo.save(new_name, ContentFile(best), save=False)
+            self.otimizada = True
 
             # Gerar hash SHA256
             hash_obj = hashlib.sha256()

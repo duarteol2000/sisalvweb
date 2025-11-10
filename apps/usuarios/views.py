@@ -11,7 +11,7 @@ from django.db.models import Count
 from django.db.models.functions import TruncMonth
 from apps.denuncias.models import Denuncia
 from apps.notificacoes.models import Notificacao
-from apps.autoinfracao.models import AutoInfracao
+from apps.autoinfracao.models import AutoInfracao, Embargo, Interdicao
 
 def login_view(request):
     # Já autenticado? Mantém seu comportamento
@@ -196,7 +196,32 @@ def home_view(request):
     stats_aif = _counts_by_status(aif_qs)
     stats_aif["mensal"] = _counts_by_month(aif_qs)
 
-    stats = { "ano": ano, "denuncias": stats_den, "notificacoes": stats_not, "aif": stats_aif }
+    # Embargos / Interdições — estatística combinada por status
+    emb_qs = Embargo.objects.filter(prefeitura_id=prefeitura.id, criada_em__gte=dt_ini, criada_em__lt=dt_fim)
+    itd_qs = Interdicao.objects.filter(prefeitura_id=prefeitura.id, criada_em__gte=dt_ini, criada_em__lt=dt_fim)
+    # Contagens por status separadas
+    emb_counts = {r["status"]: r["c"] for r in emb_qs.values("status").annotate(c=Count("id"))}
+    itd_counts = {r["status"]: r["c"] for r in itd_qs.values("status").annotate(c=Count("id"))}
+    # Choices de status (usa Embargo como referência)
+    medida_choices = dict(Embargo._meta.get_field("status").choices)
+    medidas_items = []
+    total_medidas = emb_qs.count() + itd_qs.count()
+    for code, label in medida_choices.items():
+        c = emb_counts.get(code, 0) + itd_counts.get(code, 0)
+        medidas_items.append({"code": code, "label": label, "count": c})
+    # Adiciona quaisquer códigos fora dos choices (resiliência)
+    for src in (emb_counts, itd_counts):
+        for code, c in src.items():
+            if code not in medida_choices:
+                medidas_items.append({"code": code, "label": code, "count": c})
+    # Série mensal combinada (Embargo + Interdição)
+    emb_m = _counts_by_month(emb_qs)
+    itd_m = _counts_by_month(itd_qs)
+    med_m = [(emb_m[i] if i < len(emb_m) else 0) + (itd_m[i] if i < len(itd_m) else 0) for i in range(12)]
+
+    stats_medidas = {"total": total_medidas, "por_status": medidas_items, "mensal": med_m}
+
+    stats = { "ano": ano, "denuncias": stats_den, "notificacoes": stats_not, "aif": stats_aif, "medidas": stats_medidas }
 
     # Opções de ano (atual e 5 anteriores)
     years = list(range(timezone.localdate().year, timezone.localdate().year - 6, -1))

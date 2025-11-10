@@ -12,6 +12,7 @@
     <div class="buttons-left">
       <a href="{% url 'autoinfracao:tipos_listar' %}" class="btn btn-outline-primary btn-sm">Gerenciar Tipos</a>
       <a href="{% url 'autoinfracao:enq_listar' %}" class="btn btn-outline-primary btn-sm">Gerenciar Enquadramentos</a>
+      <a href="{% url 'autoinfracao:relatorio_arrecadacao' %}" class="btn btn-outline-success btn-sm">💵 Relatório de Arrecadação</a>
     </div>
   </div>
 
@@ -67,8 +68,7 @@
             <th>Embargo</th>
             <th>Interdição</th>
             <th>Prazo</th>
-            <th>Vlr. Infração</th>
-            <th>Vlr. Homologado</th>
+            <th class="text-right">Multa(R$)</th>
             <th class="text-center">Ações</th>
           </tr>
         </thead>
@@ -117,21 +117,35 @@
                 —
               {% endif %}
             </td>
-            <td>R$ {{ a.valor_infracao|default_if_none:a.total_multa }}</td>
-            <td>R$ {{ a.valor_multa_homologado|default:"—" }}</td>
-            <td class="text-center table-actions">
-              <a href="{% url 'autoinfracao:detalhe' a.pk %}" class="btn btn-sm btn-outline-info">Ver</a>
-              <a href="{% url 'autoinfracao:editar' a.pk %}" class="btn btn-sm btn-outline-primary">Editar</a>
-              <a href="{% url 'autoinfracao:imprimir' a.pk %}" class="btn btn-sm btn-secondary" target="_blank" rel="noopener">Imprimir</a>
-              {% if a.status != 'REGULARIZADO' %}
-                <a href="{% url 'autoinfracao:gerar_embargo' a.pk %}" class="btn btn-sm btn-outline-primary" title="Gerar Embargo">⛔ Embargo</a>
-                <a href="{% url 'autoinfracao:gerar_interdicao' a.pk %}" class="btn btn-sm btn-outline-primary" title="Gerar Interdição">🚫 Interdição</a>
+            <td class="text-right">
+              {% if a.valor_multa_homologado %}
+                {{ a.valor_multa_homologado|floatformat:2 }}
+              {% else %}
+                —
               {% endif %}
+            </td>
+            <td class="text-center table-actions">
+              <!-- Desktop/tablet: ações inline -->
+              <div class="actions-inline">
+                <a href="{% url 'autoinfracao:detalhe' a.pk %}" class="btn btn-sm btn-outline-info btn-compact" title="Ver"><span>👁</span> Ver</a>
+                <a href="{% url 'autoinfracao:editar' a.pk %}" class="btn btn-sm btn-outline-primary btn-compact" title="Editar"><span>✏️</span> Editar</a>
+                <a href="{% url 'autoinfracao:imprimir' a.pk %}" class="btn btn-sm btn-secondary btn-compact" target="_blank" rel="noopener" title="Imprimir"><span>🖨️</span> Imp</a>
+              </div>
+
+              <!-- Mobile: menu de ações compacto -->
+              <details class="actions-dropdown">
+                <summary>Ações</summary>
+                <div class="dropdown-list">
+                  <a href="{% url 'autoinfracao:detalhe' a.pk %}">👁 Ver</a>
+                  <a href="{% url 'autoinfracao:editar' a.pk %}">✏️ Editar</a>
+                  <a href="{% url 'autoinfracao:imprimir' a.pk %}" target="_blank" rel="noopener">🖨️ Imp</a>
+                </div>
+              </details>
             </td>
           </tr>
           {% empty %}
           <tr>
-            <td colspan="11" class="text-center text-muted py-4">Nenhum auto encontrado.</td>
+            <td colspan="10" class="text-center text-muted py-4">Nenhum auto encontrado.</td>
           </tr>
           {% endfor %}
         </tbody>

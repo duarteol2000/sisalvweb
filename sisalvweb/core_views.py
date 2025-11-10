@@ -1,4 +1,4 @@
-from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseForbidden
+from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseForbidden, HttpResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_GET
 from django.contrib.auth.decorators import login_required
@@ -10,6 +10,8 @@ import logging
 from apps.notificacoes.models import Notificacao
 from apps.autoinfracao.models import AutoInfracao
 from apps.prefeituras.models import Prefeitura
+from apps.denuncias.models import Denuncia
+from apps.notificacoes.models import Notificacao
 
 logger = logging.getLogger(__name__)
 
@@ -192,3 +194,85 @@ def api_mapa_processos(request):
     if has_more:
         jr["X-Has-More"] = "true"
     return jr
+
+
+@login_required
+def relatorio_operacional(request):
+    """Painel: Entradas, Saídas e Processos Ativos por período, com CSV.
+
+    - Entradas: criadas no período (criada_em)
+    - Saídas: encerradas no período (por status de fechamento, com fallback em atualizado)
+    - Processos Ativos: status não-encerrado em relação ao fim do período
+    """
+    prefeitura_id = _get_prefeitura_id(request)
+    if not prefeitura_id:
+        return HttpResponseBadRequest("Prefeitura não definida na sessão.")
+
+    def _parse_date(s):
+        if not s:
+            return None
+        s = s.strip()
+        for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
+            try:
+                return timezone.datetime.strptime(s, fmt).date()
+            except Exception:
+                pass
+        return None
+
+    today = timezone.localdate()
+    # padrão: mês corrente
+    default_start = today.replace(day=1)
+    default_end = today
+
+    d_ini = _parse_date(request.GET.get("inicio")) or default_start
+    d_fim = _parse_date(request.GET.get("fim")) or default_end
+    if d_ini > d_fim:
+        d_ini, d_fim = d_fim, d_ini
+    # janelas datetime (início inclusivo, fim exclusivo via +1 dia)
+    dt_ini = timezone.make_aware(timezone.datetime(d_ini.year, d_ini.month, d_ini.day, 0, 0))
+    dt_fim_ex = timezone.make_aware(timezone.datetime(d_fim.year, d_fim.month, d_fim.day, 0, 0)) + timezone.timedelta(days=1)
+
+    # Conjuntos de status de encerramento por módulo
+    DEN_FECHADOS = {"ARQUIVADA", "CANCELADA"}
+    NOT_FECHADOS = {"CONCLUIDA", "CANCELADA"}
+    AIF_FECHADOS = {"REGULARIZADO", "CANCELADO"}
+
+    # Entradas
+    den_entradas = Denuncia.objects.filter(prefeitura_id=prefeitura_id, criada_em__gte=dt_ini, criada_em__lt=dt_fim_ex).count()
+    not_entradas = Notificacao.objects.filter(prefeitura_id=prefeitura_id, criada_em__gte=dt_ini, criada_em__lt=dt_fim_ex).count()
+    aif_entradas = AutoInfracao.objects.filter(prefeitura_id=prefeitura_id, criada_em__gte=dt_ini, criada_em__lt=dt_fim_ex).count()
+
+    # Saídas
+    den_saidas = Denuncia.objects.filter(prefeitura_id=prefeitura_id, status__in=DEN_FECHADOS, atualizada_em__gte=dt_ini, atualizada_em__lt=dt_fim_ex).count()
+    not_saidas = Notificacao.objects.filter(prefeitura_id=prefeitura_id, status__in=NOT_FECHADOS, atualizada_em__gte=dt_ini, atualizada_em__lt=dt_fim_ex).count()
+    # AIF: REGULARIZADO usa regularizado_em; CANCELADO usa atualizada_em
+    aif_saidas_reg = AutoInfracao.objects.filter(prefeitura_id=prefeitura_id, status="REGULARIZADO", regularizado_em__isnull=False, regularizado_em__date__gte=d_ini, regularizado_em__date__lte=d_fim).count()
+    aif_saidas_canc = AutoInfracao.objects.filter(prefeitura_id=prefeitura_id, status="CANCELADO", atualizada_em__gte=dt_ini, atualizada_em__lt=dt_fim_ex).count()
+    aif_saidas = aif_saidas_reg + aif_saidas_canc
+
+    # Processos Ativos (saldo) no fim do período: status não-encerrado e criados até o fim do período
+    den_ativos = Denuncia.objects.filter(prefeitura_id=prefeitura_id, criada_em__lt=dt_fim_ex).exclude(status__in=DEN_FECHADOS).count()
+    not_ativos = Notificacao.objects.filter(prefeitura_id=prefeitura_id, criada_em__lt=dt_fim_ex).exclude(status__in=NOT_FECHADOS).count()
+    aif_ativos = AutoInfracao.objects.filter(prefeitura_id=prefeitura_id, criada_em__lt=dt_fim_ex).exclude(status__in=AIF_FECHADOS).count()
+
+    data = {
+        "periodo": {"inicio": d_ini, "fim": d_fim},
+        "denuncias": {"entradas": den_entradas, "saidas": den_saidas, "ativos": den_ativos},
+        "notificacoes": {"entradas": not_entradas, "saidas": not_saidas, "ativos": not_ativos},
+        "aif": {"entradas": aif_entradas, "saidas": aif_saidas, "ativos": aif_ativos},
+    }
+
+    if (request.GET.get("format") or "").lower() == "csv":
+        import csv
+        resp = HttpResponse(content_type="text/csv; charset=utf-8")
+        resp["Content-Disposition"] = "attachment; filename=relatorio_operacional.csv"
+        w = csv.writer(resp)
+        w.writerow(["Período", d_ini.isoformat(), d_fim.isoformat()])
+        w.writerow([])
+        w.writerow(["Módulo", "Entradas", "Saídas", "Processos Ativos"])
+        w.writerow(["Denúncias", data["denuncias"]["entradas"], data["denuncias"]["saidas"], data["denuncias"]["ativos"]])
+        w.writerow(["Notificações", data["notificacoes"]["entradas"], data["notificacoes"]["saidas"], data["notificacoes"]["ativos"]])
+        w.writerow(["Autos de Infração", data["aif"]["entradas"], data["aif"]["saidas"], data["aif"]["ativos"]])
+        return resp
+
+    return render(request, "relatorios/operacional.html", {"data": data})

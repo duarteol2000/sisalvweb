@@ -8,7 +8,7 @@ from django.urls import reverse
 
 from .models import Notificacao, NotificacaoAnexo
 from apps.autoinfracao.models import AutoInfracao
-from apps.denuncias.models import Denuncia
+from apps.denuncias.models import Denuncia, DenunciaHistorico
 from django.core.files.base import ContentFile
 import os
 from .forms import NotificacaoCreateForm, NotificacaoEditForm
@@ -135,7 +135,7 @@ def listar(request):
     telefone = request.GET.get("telefone", "").strip()
     endereco = request.GET.get("endereco", "").strip()
     status = request.GET.get("status", "").strip()
-    pontoref = request.GET.get("pontoref", "").strip()
+    # campo de ponto de referência removido do filtro/listagem
 
     if protocolo: qs = qs.filter(protocolo__icontains=protocolo)
     if cpf_cnpj: qs = qs.filter(cpf_cnpj__icontains=cpf_cnpj)
@@ -150,10 +150,14 @@ def listar(request):
             | Q(cidade__icontains=endereco)
         )
     if status: qs = qs.filter(status=status)
-    if pontoref:
-        qs = qs.filter(pontoref_oco__icontains=pontoref)
 
-    page_obj = Paginator(qs, 20).get_page(request.GET.get("page"))
+    # Ordenação: crescente por dias de prazo (negativos primeiro, sem prazo no final)
+    itens = list(qs)
+    def _key(n):
+        d = getattr(n, 'dias_restantes', None)
+        return d if d is not None else 10**9
+    itens.sort(key=_key)
+    page_obj = Paginator(itens, 20).get_page(request.GET.get("page"))
 
     # Monta querystring sem o parâmetro 'page' para paginação estável
     params = request.GET.copy()
@@ -165,7 +169,6 @@ def listar(request):
         "filtros": {
             "protocolo": protocolo, "cpf_cnpj": cpf_cnpj, "nome_razao": nome_razao,
             "rg": rg, "telefone": telefone, "endereco": endereco, "status": status,
-            "pontoref": pontoref,
         },
         "status_choices": Notificacao._meta.get_field("status").choices,
         "querystring": querystring,
@@ -192,6 +195,29 @@ def criar(request):
             obj.save()
             log_event(request, 'CREATE', instance=obj)
 
+            # Vincular Processo (raiz = etapa que nasceu primeiro)
+            try:
+                from apps.processos.models import Processo
+                proc = None
+                # Se vier de Denúncia (form pode carregar denuncia_id), tenta herdar
+                if getattr(obj, 'denuncia_id', None) and getattr(obj.denuncia, 'processo_id', None):
+                    proc = obj.denuncia.processo
+                if proc is None:
+                    proc = Processo.objects.create(
+                        prefeitura_id=prefeitura_id,
+                        protocolo=(obj.denuncia.protocolo if getattr(obj, 'denuncia_id', None) else obj.protocolo),
+                        status='ABERTO',
+                        criado_por=getattr(request, 'user', None),
+                    )
+                    if getattr(obj, 'denuncia_id', None) and getattr(obj.denuncia, 'processo_id', None) is None:
+                        den = obj.denuncia
+                        den.processo = proc
+                        den.save(update_fields=['processo'])
+                obj.processo = proc
+                obj.save(update_fields=['processo'])
+            except Exception:
+                pass
+
             # Tenta sugerir vínculos (somente em criação independente)
             pessoa_cand = _find_pessoa_candidata(
                 prefeitura_id, obj.cpf_cnpj
@@ -210,14 +236,19 @@ def criar(request):
             # Upload direto do request.FILES
             fotos = request.FILES.getlist("fotos")
             if fotos:
-                count = 0
-                for foto in fotos:
-                    anexo = NotificacaoAnexo(notificacao=obj, tipo="FOTO", arquivo=foto)
-                    anexo.save()
-                    anexo.processar_arquivo()
-                    anexo.save()
-                    count += 1
-                messages.success(request, f"{count} foto(s) anexada(s) com sucesso.")
+                existentes = obj.anexos.filter(tipo="FOTO").count()
+                restante = max(0, 4 - existentes)
+                if restante <= 0:
+                    messages.warning(request, "Limite de 4 fotos atingido. Nenhuma nova foto foi adicionada.")
+                else:
+                    count = 0
+                    for foto in fotos[:restante]:
+                        anexo = NotificacaoAnexo(notificacao=obj, tipo="FOTO", arquivo=foto)
+                        anexo.save(); anexo.processar_arquivo(); anexo.save(); count += 1
+                    if len(fotos) > restante:
+                        messages.warning(request, f"Apenas {restante} foto(s) foram processadas (limite total de 4).")
+                    if count:
+                        messages.success(request, f"{count} foto(s) anexada(s) com sucesso.")
 
             messages.success(request, f"Notificação criada com sucesso! Protocolo: {obj.protocolo}")
 
@@ -246,6 +277,15 @@ def editar(request, pk):
         return redirect("/")
 
     obj = get_object_or_404(Notificacao, pk=pk, prefeitura_id=prefeitura_id)
+
+    # Exclusão de anexo via GET
+    del_ax = request.GET.get("del_anexo")
+    if del_ax:
+        ax = obj.anexos.filter(pk=del_ax).first()
+        if ax:
+            ax.delete()
+            messages.info(request, "Anexo removido.")
+        return redirect(request.path)
 
     if request.method == "POST":
         data = request.POST.copy()
@@ -282,14 +322,19 @@ def editar(request, pk):
 
             fotos = request.FILES.getlist("fotos")
             if fotos:
-                count = 0
-                for foto in fotos:
-                    anexo = NotificacaoAnexo(notificacao=obj, tipo="FOTO", arquivo=foto)
-                    anexo.save()
-                    anexo.processar_arquivo()
-                    anexo.save()
-                    count += 1
-                messages.success(request, f"{count} foto(s) anexada(s) com sucesso.")
+                existentes = obj.anexos.filter(tipo="FOTO").count()
+                restante = max(0, 4 - existentes)
+                if restante <= 0:
+                    messages.warning(request, "Limite de 4 fotos atingido. Nenhuma nova foto foi adicionada.")
+                else:
+                    count = 0
+                    for foto in fotos[:restante]:
+                        anexo = NotificacaoAnexo(notificacao=obj, tipo="FOTO", arquivo=foto)
+                        anexo.save(); anexo.processar_arquivo(); anexo.save(); count += 1
+                    if len(fotos) > restante:
+                        messages.warning(request, f"Apenas {restante} foto(s) foram processadas (limite total de 4).")
+                    if count:
+                        messages.success(request, f"{count} foto(s) anexada(s) com sucesso.")
 
             messages.success(request, "Notificação atualizada com sucesso.")
             return redirect(reverse("notificacoes:detalhe", kwargs={"pk": obj.pk}))
@@ -318,7 +363,53 @@ def detalhe(request, pk):
     anexos = obj.anexos.all().order_by("-criada_em")
     # AIF relacionado (se existir)
     aif = AutoInfracao.objects.filter(notificacao_id=obj.pk, prefeitura_id=prefeitura_id).order_by("-criada_em").first()
-    return render(request, "notificacoes/detalhe_notificacao.html", {"obj": obj, "anexos": anexos, "aif": aif})
+
+    # Galeria Hierárquica (Denúncia -> Apontamentos -> Notificação) sem duplicar
+    def _build_denuncia_gallery(den):
+        gal = []
+        seen = set()
+        for fx in den.anexos.filter(tipo='FOTO').order_by('-criada_em'):
+            h = fx.hash_sha256 or f"path:{getattr(fx.arquivo, 'name', '')}"
+            if h in seen: continue
+            seen.add(h)
+            gal.append({'url': fx.arquivo.url if fx.arquivo else '', 'label': 'Denúncia', 'id': fx.id, 'owner': 'DEN'})
+        try:
+            for ap in getattr(den, 'apontamentos').all().order_by('-criado_em'):
+                for ax in ap.anexos.all().order_by('-criada_em'):
+                    h = ax.hash_sha256 or f"path:{getattr(ax.arquivo, 'name', '')}"
+                    if h in seen: continue
+                    seen.add(h)
+                    gal.append({'url': ax.arquivo.url if ax.arquivo else '', 'label': 'Apontamento', 'id': ax.id, 'owner': 'APONT'})
+        except Exception:
+            pass
+        return gal
+
+    galeria = []
+    seen_all = set()
+    if obj.denuncia_id:
+        dgal = _build_denuncia_gallery(obj.denuncia)
+        for it in dgal:
+            h = it.get('hash') or it.get('url')
+            if h in seen_all: continue
+            seen_all.add(h)
+            galeria.append(it)
+    # Fotos próprias da notificação
+    for nx in anexos.filter(tipo='FOTO'):
+        h = nx.hash_sha256 or f"path:{getattr(nx.arquivo, 'name', '')}"
+        if h in seen_all: continue
+        seen_all.add(h)
+        galeria.append({'url': nx.arquivo.url if nx.arquivo else '', 'label': 'Notificação', 'id': nx.id, 'owner': 'NOT'})
+
+    # Documentos (não-fotos) da notificação
+    docs = anexos.exclude(tipo='FOTO')
+
+    return render(request, "notificacoes/detalhe_notificacao.html", {
+        "obj": obj,
+        "anexos": anexos,
+        "aif": aif,
+        "galeria": galeria,
+        "docs": docs,
+    })
 
 
 @login_required
@@ -502,8 +593,47 @@ def imprimir(request, pk):
     # Relacionados
     den = obj.denuncia  # pode ser None
     aifs = AutoInfracao.objects.filter(notificacao_id=obj.pk, prefeitura_id=prefeitura_id).order_by("-criada_em")
+
+    # Galeria Hierárquica (Denúncia -> Apontamentos -> Notificação) sem duplicar
+    def _build_denuncia_gallery(den_obj):
+        gal = []
+        seen = set()
+        for fx in den_obj.anexos.filter(tipo='FOTO').order_by('-criada_em'):
+            h = fx.hash_sha256 or f"path:{getattr(fx.arquivo, 'name', '')}"
+            if h in seen:
+                continue
+            seen.add(h)
+            gal.append({'url': fx.arquivo.url if fx.arquivo else '', 'label': 'Denúncia'})
+        try:
+            for ap in getattr(den_obj, 'apontamentos').all().order_by('-criado_em'):
+                for ax in ap.anexos.all().order_by('-criada_em'):
+                    h = ax.hash_sha256 or f"path:{getattr(ax.arquivo, 'name', '')}"
+                    if h in seen:
+                        continue
+                    seen.add(h)
+                    gal.append({'url': ax.arquivo.url if ax.arquivo else '', 'label': 'Apontamento'})
+        except Exception:
+            pass
+        return gal
+
+    galeria = []
+    seen_all = set()
+    if den is not None:
+        for it in _build_denuncia_gallery(den):
+            key = it.get('url')
+            if key in seen_all:
+                continue
+            seen_all.add(key)
+            galeria.append(it)
+    for nx in anexos.filter(tipo='FOTO'):
+        h = nx.hash_sha256 or f"path:{getattr(nx.arquivo, 'name', '')}"
+        if h in seen_all:
+            continue
+        seen_all.add(h)
+        galeria.append({'url': nx.arquivo.url if nx.arquivo else '', 'label': 'Notificação'})
+
     log_event(request, 'PRINT', instance=obj)
-    ctx = {"obj": obj, "anexos": anexos, "denuncia": den, "aifs": aifs}
+    ctx = {"obj": obj, "anexos": anexos, "denuncia": den, "aifs": aifs, "galeria": galeria}
     return render(request, "notificacoes/imprimir_notificacao.html", ctx)
 
 
@@ -604,6 +734,42 @@ def gerar_de_denuncia(request, den_pk):
     )
     obj.save()
     log_event(request, 'CREATE', instance=obj, extra={'from': 'denuncia', 'denuncia_id': den.pk})
+    # Vincular Processo ao criar a partir da Denúncia
+    try:
+        from apps.processos.models import Processo
+        proc = getattr(den, 'processo', None)
+        if proc is None:
+            proc = Processo.objects.create(
+                prefeitura_id=prefeitura_id,
+                protocolo=den.protocolo,
+                status='ABERTO',
+                criado_por=getattr(request, 'user', None),
+            )
+            den.processo = proc
+            den.save(update_fields=['processo'])
+        obj.processo = proc
+        obj.save(update_fields=['processo'])
+    except Exception:
+        pass
+    # Ao gerar Notificação, marcar a Denúncia como PROCEDE + histórico
+    try:
+        if getattr(den, 'procedencia', None) != 'PROCEDE':
+            den.procedencia = 'PROCEDE'
+            den.save(update_fields=['procedencia'])
+            try:
+                xff = request.META.get('HTTP_X_FORWARDED_FOR')
+                ip = xff.split(',')[0].strip() if xff else request.META.get('REMOTE_ADDR')
+            except Exception:
+                ip = None
+            DenunciaHistorico.objects.create(
+                denuncia=den,
+                acao='ALTERACAO_PROCEDENCIA',
+                descricao='Procedência marcada PROCEDE ao gerar Notificação.',
+                feito_por=getattr(request, 'user', None),
+                ip_origem=ip,
+            )
+    except Exception:
+        pass
     # Vincula referências para visão 360°
     if p is not None:
         obj.pessoa = p

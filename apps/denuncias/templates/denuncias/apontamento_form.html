@@ -1,0 +1,77 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% block content %}
+<div class="container mt-4">
+  <h2 class="page-title">📸 Apontamento de Campo — Denúncia <code>{{ den.protocolo }}</code></h2>
+  <div class="mb-2">
+    <a href="{% url 'denuncias:detalhe' den.pk %}" class="btn btn-sm btn-secondary">← Voltar</a>
+  </div>
+
+  <form method="post" enctype="multipart/form-data" class="card p-3 shadow-sm">
+    {% csrf_token %}
+
+    <div class="mb-2">
+      <label class="form-label">Observação</label>
+      <textarea name="observacao" rows="3" class="form-control" maxlength="280">{{ observacao }}</textarea>
+      <small class="hint">Máx. 280 caracteres</small>
+    </div>
+
+    <div class="mb-2">
+      <label class="form-label">Fotos (máx. 4, até 100 KB cada)</label>
+      <input type="file" name="fotos" accept="image/*" capture="environment" multiple class="form-control" />
+      <small class="hint">No tablet, a câmera será sugerida automaticamente.</small>
+    </div>
+
+    <div class="form-check mb-2">
+      <input class="form-check-input" type="checkbox" id="id_atualizar_geo" name="atualizar_geo" {% if atualizar_geo %}checked{% endif %}>
+      <label for="id_atualizar_geo" class="form-check-label">Atualizar geolocalização da Denúncia com o ponto abaixo</label>
+    </div>
+
+    <div id="geo-box" style="display:none;">
+      <div class="row g-2">
+        <div class="col-md-4">
+          <label class="form-label">Latitude</label>
+          <input type="text" class="form-control" id="id_novo_lat" name="novo_lat" value="" placeholder="Ex.: -3,876543">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Longitude</label>
+          <input type="text" class="form-control" id="id_novo_lng" name="novo_lng" value="" placeholder="Ex.: -38,654321">
+        </div>
+      </div>
+      <div class="mt-2">
+        <div id="map-pick" style="height:300px; border:1px solid #e5e7eb; border-radius:8px;"></div>
+      </div>
+    </div>
+
+    <div class="form-actions mt-3">
+      <button type="submit" class="btn btn-primary">Salvar Apontamento</button>
+    </div>
+  </form>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+<script>
+(function(){
+  const cb = document.getElementById('id_atualizar_geo');
+  const box = document.getElementById('geo-box');
+  const latI = document.getElementById('id_novo_lat');
+  const lngI = document.getElementById('id_novo_lng');
+  function parseNum(v){ if(v==null||v==='') return null; v=(v+'').replace(',', '.'); var n=parseFloat(v); return isNaN(n)?null:n; }
+  function toggle(){ box.style.display = cb.checked ? 'block':'none'; if(cb.checked && window.L && !window.__ap_map){
+      let lat = parseNum(latI.value), lng = parseNum(lngI.value);
+      if(lat==null||lng==null){ lat = {{ den.local_oco_lat|default:'-3.7327' }}; lng = {{ den.local_oco_lng|default:'-38.5270' }}; }
+      const map = L.map('map-pick'); map.setView([lat,lng], 16); window.__ap_map = map;
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'&copy; OpenStreetMap'}).addTo(map);
+      let mark = L.marker([lat,lng], {draggable:true}).addTo(map);
+      mark.on('dragend', ()=>{ const p=mark.getLatLng(); latI.value=p.lat.toFixed(6); lngI.value=p.lng.toFixed(6); });
+      map.on('click', e=>{ const p=e.latlng; mark.setLatLng(p); latI.value=p.lat.toFixed(6); lngI.value=p.lng.toFixed(6);});
+      setTimeout(()=> map.invalidateSize(), 50);
+  } }
+  cb.addEventListener('change', toggle);
+  if(cb.checked){ toggle(); }
+})();
+</script>
+{% endblock %}

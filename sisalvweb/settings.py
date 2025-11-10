@@ -26,23 +26,16 @@ if str(APPS_DIR) not in sys.path:
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-6rpp9=iv6im5rxzjs=ddyu+dp(_6n2ym4m7-^=7$2%amd839om'
+# Lê da variável de ambiente SECRET_KEY; usa uma chave insegura apenas para desenvolvimento local
+SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-insecure-change-me')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 # ALLOWED_HOSTS = ["10.1.41.110","127.0.0.1", "localhost"]
-ALLOWED_HOSTS = [
-    'localhost', '127.0.0.1',
-    'enriqueta-sporocystic-franchesca.ngrok-free.dev',
-    '.ngrok-free.dev', '.ngrok-free.app',
-]
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,.ngrok-free.dev,.ngrok-free.app').split(',')
 
-CSRF_TRUSTED_ORIGINS = [
-    'https://enriqueta-sporocystic-franchesca.ngrok-free.dev',
-    'https://*.ngrok-free.dev',   # deixa genérico pra próximos túneis
-    'https://*.ngrok-free.app',
-]
+CSRF_TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', 'https://*.ngrok-free.dev,https://*.ngrok-free.app').split(',')
 
 
 # Application definition
@@ -61,6 +54,7 @@ INSTALLED_APPS = [
     'apps.notificacoes',
     'apps.autoinfracao',
     'apps.cadastros',
+    'apps.processos',
 ]
 
 AUTH_USER_MODEL = 'usuarios.Usuario'
