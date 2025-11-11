@@ -94,6 +94,40 @@
     });
   }
 
+  // Variante sem keyguard (não bloqueia teclas, só saneia) — útil para casos com teclado que não envia keydown correto
+  function attachDecimalMaskNoKeyguard(input, maxDecimals) {
+    function sanitize(val) {
+      if (!val) return '';
+      let s = String(val).replace(/\s+/g, '');
+      s = s.replace(/\./g, ',');
+      s = s.replace(/[^0-9,\-]/g, '');
+      const parts = s.split(',');
+      if (parts.length > 1) {
+        let int = parts.shift() || '';
+        let dec = parts.join('');
+        if (typeof maxDecimals === 'number') dec = dec.slice(0, maxDecimals);
+        s = int + (dec.length ? ',' + dec : '');
+      }
+      return s;
+    }
+    function padOnBlur(val) {
+      if (typeof maxDecimals !== 'number') return val;
+      if (!val) return val;
+      const hasComma = val.includes(',');
+      if (!hasComma) return val;
+      const [i, d = ''] = val.split(',');
+      return i + ',' + (d + '0'.repeat(maxDecimals)).slice(0, maxDecimals);
+    }
+    input.addEventListener('input', () => {
+      const cur = input.value;
+      const san = sanitize(cur);
+      if (cur !== san) input.value = san;
+    });
+    input.addEventListener('blur', () => {
+      input.value = padOnBlur(input.value);
+    });
+  }
+
   function attachIntMask(input) {
     input.addEventListener('input', () => {
       const cur = input.value;
@@ -135,7 +169,8 @@
   // Aplica máscara decimal de 2 casas em todos os campos marcados
   document.querySelectorAll('input.js-decimal-2').forEach(el => {
     try{ el.type = 'text'; el.removeAttribute('pattern'); el.removeAttribute('step'); el.setAttribute('inputmode','decimal'); }catch(_){ }
-    attachDecimalMask(el, 2, false);
+    // Usa versão sem keyguard para máxima compatibilidade em navegadores que bloqueiam ','/'.'
+    attachDecimalMaskNoKeyguard(el, 2);
   });
   // Para js-decimal-6, ignorar latitude/longitude; máscara genérica só para outros campos raros
   document.querySelectorAll('input.js-decimal-6').forEach(el => {

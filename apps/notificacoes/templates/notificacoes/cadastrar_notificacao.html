@@ -196,7 +196,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'notificacoes/js/notificacoes.js' %}?v=20251111-1"></script>
+<script src="{% static 'notificacoes/js/notificacoes.js' %}?v=20251111-2"></script>
 <script src="{% static 'js/viacep.js' %}"></script>
 <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
 <script>
@@ -216,6 +216,17 @@
   latI.addEventListener('change', ()=>{ const a=parseNum(latI.value), b=parseNum(lngI.value); if(a!=null&&b!=null){ mark.setLatLng([a,b]); map.setView([a,b], 17);} });
   lngI.addEventListener('change', ()=>{ const a=parseNum(latI.value), b=parseNum(lngI.value); if(a!=null&&b!=null){ mark.setLatLng([a,b]); map.setView([a,b], 17);} });
   setTimeout(()=> map.invalidateSize(), 50);
+})();
+</script>
+<script>
+// Fallback extra (força tipo texto nos campos decimais) — compat Firefox/Chrome desktop
+(function(){
+  var names = ['area_m2','testada_m','pe_direito_m','area_mezanino_m2'];
+  names.forEach(function(n){
+    var el = document.querySelector('input[name="'+n+'"]');
+    if(!el) return;
+    try{ el.type='text'; el.removeAttribute('step'); el.removeAttribute('pattern'); el.setAttribute('inputmode','decimal'); }catch(_){ }
+  });
 })();
 </script>
 {% endblock %}
