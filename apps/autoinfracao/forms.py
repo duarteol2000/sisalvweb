@@ -95,6 +95,8 @@ class AutoInfracaoCreateForm(forms.ModelForm):
             self.fields["fiscais"].queryset = Usuario.objects.filter(
                 prefeitura_id=prefeitura_id
             ).order_by("first_name", "last_name", "email")
+            # Garante múltipla seleção visível
+            self.fields["fiscais"].widget = forms.SelectMultiple(attrs={"size": "8"})
         # Força lat/lng com 6 casas na renderização
         from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
         for fld in ("latitude", "longitude"):

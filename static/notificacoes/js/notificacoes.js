@@ -132,12 +132,9 @@
     });
   }
 
-  // Evita aplicar máscara decimal genérica nos campos de medidas (que usam moeda/2casas)
-  const CURRENCY_2_FIELDS = new Set(['area_m2','testada_m','pe_direito_m','area_mezanino_m2']);
+  // Aplica máscara decimal de 2 casas em todos os campos marcados
   document.querySelectorAll('input.js-decimal-2').forEach(el => {
-    if (!CURRENCY_2_FIELDS.has(el.name)) {
-      attachDecimalMask(el, 2, false);
-    }
+    attachDecimalMask(el, 2, false);
   });
   // Para js-decimal-6, ignorar latitude/longitude; máscara genérica só para outros campos raros
   document.querySelectorAll('input.js-decimal-6').forEach(el => {
@@ -151,14 +148,7 @@
 
   // Fallback: se o template ainda renderizou como type=number sem classes, força text e aplica máscara por nome
   (function(){
-    const byNames2 = ['area_m2','testada_m','pe_direito_m','area_mezanino_m2'];
     const byNames6 = ['latitude','longitude'];
-    byNames2.forEach(n=>{
-      const el = document.querySelector('input[name="'+n+'"]');
-      if(!el) return;
-      try{ el.type = 'text'; el.removeAttribute('pattern'); el.removeAttribute('step'); el.setAttribute('inputmode','decimal'); }catch(_){ }
-      // não aplica attachDecimalMask aqui — será formatado via formatarDecimal2 abaixo
-    });
     // Latitude/Longitude: aceitar ponto e normalizar vírgula -> ponto, sem converter para vírgula
     function attachLatLngInput(el){
       try{ el.type = 'text'; el.removeAttribute('pattern'); el.removeAttribute('step'); el.setAttribute('inputmode','decimal'); }catch(_){ }
@@ -193,29 +183,5 @@
     });
   })();
 
-  // ------ Formatação estilo moeda (2 casas) — baseada no seu exemplo ------
-  function formatarDecimal2(campo) {
-    let v = (campo.value || '');
-    // remove tudo que não é número
-    v = v.replace(/\D/g, '');
-    if (v.length === 0) { campo.value = ''; return; }
-    // Converte para 2 casas decimais
-    v = (parseInt(v, 10) / 100).toFixed(2) + '';
-    // ponto → vírgula
-    v = v.replace('.', ',');
-    // milhar com ponto
-    v = v.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    campo.value = v;
-  }
-
-  // Aplica o formatarDecimal2 nos campos de medidas (2 casas)
-  (function(){
-    ['area_m2','testada_m','pe_direito_m','area_mezanino_m2'].forEach(name => {
-      const el = document.querySelector('input[name="'+name+'"]');
-      if (!el) return;
-      // força text
-      try{ el.type = 'text'; el.removeAttribute('pattern'); el.removeAttribute('step'); el.setAttribute('inputmode','decimal'); }catch(_){ }
-      el.addEventListener('input', () => formatarDecimal2(el));
-    });
-  })();
+  // Removida a formatação tipo moeda; usamos a máscara decimal genérica acima.
 })();
