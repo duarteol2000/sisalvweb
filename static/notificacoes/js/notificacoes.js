@@ -134,6 +134,7 @@
 
   // Aplica máscara decimal de 2 casas em todos os campos marcados
   document.querySelectorAll('input.js-decimal-2').forEach(el => {
+    try{ el.type = 'text'; el.removeAttribute('pattern'); el.removeAttribute('step'); el.setAttribute('inputmode','decimal'); }catch(_){ }
     attachDecimalMask(el, 2, false);
   });
   // Para js-decimal-6, ignorar latitude/longitude; máscara genérica só para outros campos raros

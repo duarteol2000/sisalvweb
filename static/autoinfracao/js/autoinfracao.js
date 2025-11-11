@@ -70,7 +70,10 @@
     });
   }
 
-  document.querySelectorAll('input.js-decimal-2').forEach(el=> attachDecimalMask(el, 2, false));
+  document.querySelectorAll('input.js-decimal-2').forEach(el=> {
+    try{ el.type = 'text'; el.removeAttribute('pattern'); el.removeAttribute('step'); el.setAttribute('inputmode','decimal'); }catch(_){ }
+    attachDecimalMask(el, 2, false);
+  });
   document.querySelectorAll('input.js-decimal-6').forEach(el=> attachDecimalMask(el, 6, true));
   document.querySelectorAll('input.js-int').forEach(el=> attachIntMask(el));
   document.querySelectorAll('input.js-doc').forEach(el=> attachDocMask(el));
