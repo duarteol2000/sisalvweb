@@ -3,10 +3,14 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from .models import Usuario, UsuarioLoginLog, AuditLog
 from django.utils.translation import gettext_lazy as _
+from .forms import UsuarioCreationForm, UsuarioChangeForm
 
 @admin.register(Usuario)
 class UsuarioAdmin(UserAdmin):
     # Como não temos username, usamos email
+    add_form = UsuarioCreationForm
+    form = UsuarioChangeForm
+    model = Usuario
     ordering = ('email',)
     list_display = ('email', 'first_name', 'last_name', 'tipo', 'matricula', 'prefeitura', 'is_active', 'is_staff')
     list_filter = ('tipo', 'prefeitura', 'is_active', 'is_staff', 'is_superuser')
@@ -18,6 +22,25 @@ class UsuarioAdmin(UserAdmin):
         (_('Perfil SISALV'), {'fields': ('tipo', 'matricula', 'prefeitura')}),
         (_('Permissões'), {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         (_('Datas importantes'), {'fields': ('last_login', 'date_joined')}),
+    )
+
+    add_fieldsets = (
+        (_('Credenciais'), {
+            'classes': ('wide',),
+            'fields': ('email', 'password1', 'password2'),
+        }),
+        (_('Informações pessoais'), {
+            'classes': ('wide',),
+            'fields': ('first_name', 'last_name'),
+        }),
+        (_('Perfil SISALV'), {
+            'classes': ('wide',),
+            'fields': ('tipo', 'matricula', 'prefeitura'),
+        }),
+        (_('Permissões'), {
+            'classes': ('wide',),
+            'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions'),
+        }),
     )
 
 
@@ -45,17 +68,4 @@ class AuditLogAdmin(admin.ModelAdmin):
     date_hierarchy = "criado_em"
     readonly_fields = ("usuario", "prefeitura", "acao", "recurso", "app_label", "model", "object_id", "url", "metodo", "ip", "user_agent", "extra", "criado_em")
 
-    add_fieldsets = (
-        (_('Credenciais'), {
-            'classes': ('wide',),
-            'fields': ('email', 'password1', 'password2'),
-        }),
-        (_('Perfil SISALV'), {
-            'classes': ('wide',),
-            'fields': ('tipo', 'matricula', 'prefeitura'),
-        }),
-        (_('Permissões'), {
-            'classes': ('wide',),
-            'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions'),
-        }),
-    )
+    # sem add_fieldsets aqui (não aplicável a AuditLog)
