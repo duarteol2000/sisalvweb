@@ -242,7 +242,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'notificacoes/js/notificacoes.js' %}?v=20251111-2"></script>
+<script src="{% static 'notificacoes/js/notificacoes.js' %}?v=20251111-3"></script>
 <script src="{% static 'js/viacep.js' %}"></script>
 <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
 <script>
@@ -271,7 +271,11 @@
   names.forEach(function(n){
     var el = document.querySelector('input[name="'+n+'"]');
     if(!el) return;
-    try{ el.type='text'; el.removeAttribute('step'); el.removeAttribute('pattern'); el.setAttribute('inputmode','decimal'); }catch(_){ }
+    try{
+      var clone = el.cloneNode(true);
+      el.parentNode.replaceChild(clone, el);
+      clone.type='text'; clone.removeAttribute('step'); clone.removeAttribute('pattern'); clone.setAttribute('inputmode','decimal');
+    }catch(_){ }
   });
 })();
 </script>
