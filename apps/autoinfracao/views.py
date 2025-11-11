@@ -979,6 +979,7 @@ def imprimir(request, pk):
         seen_all.add(h)
         galeria.append({'url': ax.arquivo.url if ax.arquivo else '', 'label': 'AIF', 'id': ax.id, 'owner': 'AIF'})
 
+    docs = anexos.exclude(tipo='FOTO')
     ctx = {
         "obj": obj,
         "anexos": anexos,
@@ -986,6 +987,7 @@ def imprimir(request, pk):
         "notificacao": obj.notificacao,
         "valor_homologado_total": valor_homologado_total,
         "galeria": galeria,
+        "docs": docs,
     }
     log_event(request, 'PRINT', instance=obj)
     return render(request, "autoinfracao/imprimir_autoinfracao.html", ctx)
@@ -1477,21 +1479,7 @@ def gerar_de_notificacao(request, notif_pk):
         atualizada_por=request.user,
     )
     obj.save()
-    # Copiar fotos da Notificação para o AIF
-    try:
-        count = 0
-        for a in notif.anexos.all():
-            if a.tipo != "FOTO" or not a.arquivo:
-                continue
-            a.arquivo.open("rb"); data = a.arquivo.read(); a.arquivo.close()
-            filename = os.path.basename(a.arquivo.name)
-            novo = AutoInfracaoAnexo(auto_infracao=obj, tipo="FOTO")
-            novo.arquivo.save(filename, ContentFile(data), save=True)
-            novo.processar_arquivo(); novo.save(); count += 1
-        if count:
-            messages.success(request, f"{count} foto(s) copiadas da Notificação.")
-    except Exception as e:
-        messages.warning(request, f"Falha ao copiar fotos: {e}")
+    # Não copiar fotos físicas: a galeria unificada já exibe as da Notificação/Denúncia sem duplicar
     messages.success(request, f"Auto de Infração criado a partir da Notificação {notif.protocolo}.")
     return redirect("autoinfracao:editar", pk=obj.pk)
 
@@ -1557,21 +1545,7 @@ def gerar_de_denuncia(request, den_pk):
             )
     except Exception:
         pass
-    # Copiar fotos da Denúncia para o AIF
-    try:
-        count = 0
-        for a in den.anexos.all():
-            if a.tipo != "FOTO" or not a.arquivo:
-                continue
-            a.arquivo.open("rb"); data = a.arquivo.read(); a.arquivo.close()
-            filename = os.path.basename(a.arquivo.name)
-            novo = AutoInfracaoAnexo(auto_infracao=obj, tipo="FOTO")
-            novo.arquivo.save(filename, ContentFile(data), save=True)
-            novo.processar_arquivo(); novo.save(); count += 1
-        if count:
-            messages.success(request, f"{count} foto(s) copiadas da Denúncia.")
-    except Exception as e:
-        messages.warning(request, f"Falha ao copiar fotos: {e}")
+    # Não copiar fotos físicas: a galeria unificada já exibe as da Denúncia sem duplicar
     messages.success(request, f"Auto de Infração criado a partir da Denúncia {den.protocolo}.")
     return redirect("autoinfracao:editar", pk=obj.pk)
 

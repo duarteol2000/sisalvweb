@@ -208,18 +208,14 @@
     {% endwith %}
   </section>
 
-  {% if anexos %}
+  {% if docs %}
   <section class="section anexos-section">
-    <h3>Anexos</h3>
+    <h3>Documentos</h3>
     <div class="grid cols-3">
-      {% for a in anexos %}
+      {% for d in docs %}
         <div class="field">
-          {% if a.tipo == 'FOTO' %}
-            <img src="{{ a.arquivo.url }}" alt="Foto" style="max-width:100%; height:auto; border-radius:6px;" />
-          {% else %}
-            <a href="{{ a.arquivo.url }}" target="_blank" rel="noopener">{{ a.arquivo.name|cut:"autoinfracao/anexos/" }}</a>
-          {% endif %}
-          {% if a.observacao %}<div class="label">{{ a.observacao }}</div>{% endif %}
+          <a href="{{ d.arquivo.url }}" target="_blank" rel="noopener">{{ d.arquivo.name|cut:"autoinfracao/anexos/" }}</a>
+          {% if d.observacao %}<div class="label">{{ d.observacao }}</div>{% endif %}
         </div>
       {% endfor %}
     </div>

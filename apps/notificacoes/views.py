@@ -777,25 +777,7 @@ def gerar_de_denuncia(request, den_pk):
         obj.imovel = i
     if obj.pessoa_id or obj.imovel_id:
         obj.save(update_fields=["pessoa", "imovel"]) 
-    # Copiar fotos da Denúncia para a Notificação
-    try:
-        count = 0
-        for a in den.anexos.all():
-            if a.tipo != "FOTO" or not a.arquivo:
-                continue
-            a.arquivo.open("rb")
-            data = a.arquivo.read()
-            a.arquivo.close()
-            filename = os.path.basename(a.arquivo.name)
-            novo = NotificacaoAnexo(notificacao=obj, tipo="FOTO")
-            novo.arquivo.save(filename, ContentFile(data), save=True)
-            novo.processar_arquivo()
-            novo.save()
-            count += 1
-        if count:
-            messages.success(request, f"{count} foto(s) copiadas da Denúncia.")
-    except Exception as e:
-        messages.warning(request, f"Falha ao copiar fotos: {e}")
+    # Não copiar fotos físicas: a galeria unificada já exibe as da Denúncia sem duplicar
 
     messages.success(request, f"Notificação criada a partir da Denúncia {den.protocolo}.")
     return redirect("notificacoes:editar", pk=obj.pk)
