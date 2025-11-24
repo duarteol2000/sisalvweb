@@ -70,6 +70,14 @@ class Notificacao(models.Model):
     documento_tipo = models.CharField("Tipo de Documento", max_length=30, choices=DOC_TIPO_CHOICES, blank=True, null=True)
     prazo_regularizacao = models.DateField(blank=True, null=True)
     status = models.CharField(max_length=20, choices=NOTIFICACAO_STATUS_CHOICES, default="ABERTA")
+    # Conclusão (opcionais): motivo livre e documento (PDF/DOC)
+    conclusao_motivo = models.TextField(blank=True, null=True)
+    def upload_conclusao_path(instance, filename):
+        # media/notificacoes/conclusao/<notificacao_id>/<filename>
+        return f"notificacoes/conclusao/{instance.id or 'new'}/{filename}"
+    conclusao_documento = models.FileField(upload_to=upload_conclusao_path, blank=True, null=True)
+    # Quando ocorreu o fato (informado pelo fiscal)
+    ocorrido_em = models.DateTimeField(blank=True, null=True)
 
     # Dados construtivos (para edificações)
     area_m2 = models.DecimalField("Área (m²)", max_digits=10, decimal_places=2, null=True, blank=True)
@@ -87,6 +95,9 @@ class Notificacao(models.Model):
     atualizada_em = models.DateTimeField(auto_now=True)
     criado_por = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, related_name="notificacoes_criadas")
     atualizada_por = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, related_name="notificacoes_editadas")
+
+    # Equipe responsável (um ou mais fiscais)
+    fiscais = models.ManyToManyField(Usuario, blank=True, related_name='notificacoes_atendidas')
 
     # Vínculos opcionais de referência
     pessoa = models.ForeignKey('cadastros.Pessoa', null=True, blank=True, on_delete=models.SET_NULL, related_name='notificacoes')

@@ -135,6 +135,7 @@ def listar(request):
     telefone = request.GET.get("telefone", "").strip()
     endereco = request.GET.get("endereco", "").strip()
     status = request.GET.get("status", "").strip()
+    fiscal = request.GET.get("fiscal", "").strip()
     # campo de ponto de referência removido do filtro/listagem
 
     if protocolo: qs = qs.filter(protocolo__icontains=protocolo)
@@ -150,6 +151,11 @@ def listar(request):
             | Q(cidade__icontains=endereco)
         )
     if status: qs = qs.filter(status=status)
+    if fiscal:
+        try:
+            qs = qs.filter(fiscais__id=int(fiscal))
+        except Exception:
+            pass
 
     # Ordenação: crescente por dias de prazo (negativos primeiro, sem prazo no final)
     itens = list(qs)
@@ -171,6 +177,7 @@ def listar(request):
             "rg": rg, "telefone": telefone, "endereco": endereco, "status": status,
         },
         "status_choices": Notificacao._meta.get_field("status").choices,
+        "fiscais_opts": __import__('apps.usuarios.models', fromlist=['Usuario']).Usuario.objects.filter(prefeitura_id=prefeitura_id, is_active=True).order_by('first_name','last_name','email'),
         "querystring": querystring,
     }
     return render(request, "notificacoes/listar_notificacoes.html", context)
@@ -186,7 +193,7 @@ def criar(request):
     if request.method == "POST":
         data = request.POST.copy()
         _normalize_decimal_inputs(data)
-        form = NotificacaoCreateForm(data)
+        form = NotificacaoCreateForm(data, prefeitura_id=prefeitura_id)
         if form.is_valid():
             obj = form.save(commit=False)
             obj.prefeitura_id = prefeitura_id
@@ -194,6 +201,16 @@ def criar(request):
             obj.atualizada_por = request.user
             obj.save()
             log_event(request, 'CREATE', instance=obj)
+            # Fiscais (múltiplos, opcional)
+            try:
+                fiscais = form.cleaned_data.get("fiscais")
+                if fiscais:
+                    obj.fiscais.set(fiscais)
+                elif getattr(request, 'user', None) and getattr(request.user, 'tipo', None) == 'FISCAL':
+                    # Default: incluir o criador apenas se for FISCAL
+                    obj.fiscais.add(request.user)
+            except Exception:
+                pass
 
             # Vincular Processo (raiz = etapa que nasceu primeiro)
             try:
@@ -264,7 +281,13 @@ def criar(request):
             errs = form.errors.as_json()
             messages.error(request, f"Erros no formulário. Verifique os campos. Detalhes: {errs}")
     else:
-        form = NotificacaoCreateForm()
+        initial = {}
+        try:
+            if request.user.is_authenticated and getattr(request.user, 'tipo', None) == 'FISCAL' and getattr(request.user, 'prefeitura_id', None) == prefeitura_id:
+                initial['fiscais'] = [request.user.pk]
+        except Exception:
+            pass
+        form = NotificacaoCreateForm(prefeitura_id=prefeitura_id, initial=initial)
 
     return render(request, "notificacoes/cadastrar_notificacao.html", {"form": form})
 
@@ -290,7 +313,7 @@ def editar(request, pk):
     if request.method == "POST":
         data = request.POST.copy()
         _normalize_decimal_inputs(data)
-        form = NotificacaoEditForm(data, instance=obj)
+        form = NotificacaoEditForm(data, request.FILES, instance=obj, prefeitura_id=prefeitura_id)
         if form.is_valid():
             obj = form.save(commit=False)
             # Reaplicar precedência de geolocalização, como na geração a partir da Denúncia
@@ -320,6 +343,14 @@ def editar(request, pk):
             obj.save()
             log_event(request, 'UPDATE', instance=obj)
 
+            # Atualiza fiscais
+            try:
+                fiscais = form.cleaned_data.get("fiscais")
+                if fiscais is not None:
+                    obj.fiscais.set(fiscais)
+            except Exception:
+                pass
+
             fotos = request.FILES.getlist("fotos")
             if fotos:
                 existentes = obj.anexos.filter(tipo="FOTO").count()
@@ -342,7 +373,7 @@ def editar(request, pk):
             errs = form.errors.as_json()
             messages.error(request, f"Erros no formulário. Verifique os campos. Detalhes: {errs}")
     else:
-        form = NotificacaoEditForm(instance=obj)
+        form = NotificacaoEditForm(instance=obj, prefeitura_id=prefeitura_id)
 
     anexos_existentes = obj.anexos.all().order_by("-criada_em")
     return render(request, "notificacoes/editar_notificacao.html", {
@@ -427,9 +458,55 @@ def vincular_pessoa(request, pk):
     doc_num = (request.POST.get("doc_num") or "").strip()
     email = (request.POST.get("email") or "").strip() or obj.email or ""
     telefone = (request.POST.get("telefone") or "").strip() or obj.telefone or ""
+    # Fluxo de confirmação (segunda etapa)
+    confirm_action = request.POST.get('confirm_action')
+    if confirm_action:
+        sel_id = request.POST.get('confirm_person_id')
+        pessoa = Pessoa.objects.filter(id=sel_id, prefeitura_id=prefeitura_id, ativo=True).first()
+        if not pessoa:
+            messages.error(request, 'Pessoa selecionada não encontrada para vincular.')
+            return redirect("notificacoes:detalhe", pk=pk)
+        if confirm_action == 'update':
+            pessoa.tipo = tipo if tipo in ("PF","PJ") else pessoa.tipo
+            pessoa.nome_razao = nome or pessoa.nome_razao
+            pessoa.doc_tipo = doc_tipo if doc_tipo in ("CPF","CNPJ","OUTRO") else pessoa.doc_tipo
+            if doc_num:
+                pessoa.doc_num = ''.join(filter(str.isdigit, doc_num))
+            pessoa.email = email or pessoa.email
+            pessoa.telefone = telefone or pessoa.telefone
+            try:
+                pessoa.save()
+            except Exception:
+                pass
+        obj.pessoa = pessoa
+        obj.save(update_fields=["pessoa"])
+        log_event(request, 'LINK', instance=obj, extra={'pessoa_id': pessoa.id, 'confirm_action': confirm_action})
+        messages.success(request, "Pessoa vinculada à notificação.")
+        return redirect("notificacoes:detalhe", pk=pk)
     pessoa = None
     if doc_num:
-        pessoa = Pessoa.objects.filter(prefeitura_id=prefeitura_id, doc_num=''.join(filter(str.isdigit, doc_num))).first()
+        _doc = ''.join(filter(str.isdigit, doc_num))
+        qs = Pessoa.objects.filter(prefeitura_id=prefeitura_id, doc_num=_doc)
+        if qs.exists():
+            default_person = None
+            if qs.count() > 1 and nome:
+                default_person = qs.filter(nome_razao__iexact=nome).first()
+            if not default_person:
+                default_person = qs.order_by('-atualizado_em', '-criado_em').first()
+            return render(request, 'core/confirmar_pessoa.html', {
+                'action_url': reverse('notificacoes:vincular_pessoa', kwargs={'pk': pk}),
+                'cancel_url': reverse('notificacoes:detalhe', kwargs={'pk': pk}),
+                'pessoas': list(qs),
+                'default_person_id': getattr(default_person, 'id', None),
+                'proposed': {
+                    'tipo': tipo,
+                    'nome_razao': nome,
+                    'doc_tipo': doc_tipo,
+                    'doc_num': doc_num,
+                    'email': email,
+                    'telefone': telefone,
+                },
+            })
     if not pessoa:
         pessoa = Pessoa.objects.create(
             prefeitura_id=prefeitura_id,
@@ -709,6 +786,82 @@ def gerar_de_denuncia(request, den_pk):
     except Exception:
         pass
 
+    # Compor descrição padrão (modelo) com data/hora do ocorrido + endereço + base legal
+    def _mes_extenso(dt):
+        meses = [
+            "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+            "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+        ]
+        try:
+            return meses[int(dt.strftime('%m')) - 1]
+        except Exception:
+            return ""
+
+    def _format_data_hora(dobj):
+        from django.utils import timezone as _tz
+        dt = getattr(den, 'ocorrido_em', None) or getattr(den, 'criada_em', None)
+        try:
+            dt = _tz.localtime(dt)
+        except Exception:
+            pass
+        if not dt:
+            return ""
+        dia = dt.day
+        mes_nome = _mes_extenso(dt)
+        ano = dt.year
+        hora = dt.strftime('%H:%M')
+        return f"Aos {dia} dias de {mes_nome} do ano de {ano} às {hora} horas,"
+
+    def _format_endereco():
+        parts = []
+        if logradouro:
+            parts.append(str(logradouro))
+        if numero:
+            parts.append(str(numero))
+        end = ", ".join([p for p in parts if p])
+        tail = []
+        if bairro:
+            tail.append(str(bairro))
+        loc = None
+        if cidade and uf:
+            loc = f"{cidade}/{uf}"
+        elif cidade:
+            loc = str(cidade)
+        elif uf:
+            loc = str(uf)
+        if loc:
+            tail.append(loc)
+        if tail:
+            if end:
+                end += f" — {' — '.join(tail)}"
+            else:
+                end = " — ".join(tail)
+        if cep:
+            end += f" • CEP: {cep}"
+        return end
+
+    data_hora_txt = _format_data_hora(den)
+    local_txt = _format_endereco()
+    # Singular/plural leve no primeiro verbo (se houver mais de um fiscal na denúncia)
+    try:
+        plural = max(1, getattr(den, 'fiscais').count()) > 1
+    except Exception:
+        plural = False
+    verbo_ini = "Verificamos" if plural else "Verifiquei"
+    base_legal = (
+        "Como o fato constitui infração ao disposto no Artigo nº _____, da Lei nº 729, de 13 de Julho de 2000, "
+        "do Código de Obras e Posturas do Município de Maracanaú. Fica o contribuinte acima qualificado, notificado das irregularidades "
+        "e intimado a saná-las no prazo de 10 (dez) dias úteis, a contar da data desta, sob pena de, se não o fizer, ser lavrado o competente AUTO DE INFRAÇÃO "
+        "e aplicadas todas as PENALIDADES previstas na legislação vigente."
+    )
+    desc_padrao = (
+        f"{data_hora_txt} {verbo_ini} que no ato da fiscalização pedimos que nos fosse apresentado o Alvará de Funcionamento do imóvel "
+        f"que é destinado ao funcionamento de eventos/confraternizações e a licença solicitada não nos foi apresentada.\n\n"
+        f"Local da irregularidade: {local_txt}\n\n"
+        f"{base_legal}\n\n"
+        f"Obs: "
+    ).strip()
+
     obj = Notificacao(
         prefeitura_id=prefeitura_id,
         denuncia=den,
@@ -728,12 +881,22 @@ def gerar_de_denuncia(request, den_pk):
         latitude=latitude,
         longitude=longitude,
         pontoref_oco=getattr(den, 'local_oco_pontoref', '') or den.local_oco_complemento,
-        descricao=den.descricao_oco,
+        descricao=desc_padrao or den.descricao_oco,
+        ocorrido_em=getattr(den, 'ocorrido_em', None),
         criado_por=request.user,
         atualizada_por=request.user,
     )
     obj.save()
     log_event(request, 'CREATE', instance=obj, extra={'from': 'denuncia', 'denuncia_id': den.pk})
+    # Herdar fiscais da denúncia (e incluir o criador se ainda não estiver)
+    try:
+        den_fiscais = list(getattr(den, 'fiscais').all())
+        if getattr(request, 'user', None) and request.user.is_authenticated and getattr(request.user, 'tipo', None) == 'FISCAL' and request.user not in den_fiscais:
+            den_fiscais.append(request.user)
+        if den_fiscais:
+            obj.fiscais.set(den_fiscais)
+    except Exception:
+        pass
     # Vincular Processo ao criar a partir da Denúncia
     try:
         from apps.processos.models import Processo

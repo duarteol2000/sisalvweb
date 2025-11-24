@@ -1,0 +1,52 @@
+{% extends "core/base.html" %}
+{% block content %}
+<div class="container mt-3">
+  <h2 class="page-title">👤 Relatório — Pessoa 360</h2>
+  <p class="text-muted">Busque pelo nome ou CPF/CNPJ para abrir o relatório consolidado.</p>
+
+  {% if erro %}<div class="alert alert-danger">{{ erro }}</div>{% endif %}
+
+  <div class="card p-3">
+    <form method="get" class="filters-card">
+      <div class="filters-grid">
+        <div class="f">
+          <label>Nome ou CPF/CNPJ</label>
+          <input type="text" name="q" value="{{ q|default:'' }}" class="form-control" placeholder="Ex.: Maria Souza ou 123.456.789-00">
+        </div>
+      </div>
+      <div class="filters-actions">
+        <button class="btn btn-primary btn-sm">Buscar</button>
+      </div>
+    </form>
+  </div>
+
+  {% if pessoas %}
+  <div class="card p-3" style="margin-top:10px;">
+    <h3>Resultados</h3>
+    <div class="table-responsive">
+      <table class="table table-striped table-sm">
+        <thead>
+          <tr>
+            <th>Nome/Razão</th>
+            <th>Tipo</th>
+            <th>Documento</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in pessoas %}
+            <tr>
+              <td>{{ p.nome_razao }}</td>
+              <td>{{ p.get_tipo_display }}</td>
+              <td>{{ p.doc_num }}</td>
+              <td><a class="btn btn-sm btn-primary" href="{% url 'relatorio_pessoa' p.id %}">Abrir Relatório</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+

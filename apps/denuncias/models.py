@@ -79,6 +79,8 @@ class Denuncia(models.Model):
     local_oco_lat = models.FloatField(null=True, blank=True, validators=[MinValueValidator(-90.0), MaxValueValidator(90.0)])
     local_oco_lng = models.FloatField(null=True, blank=True, validators=[MinValueValidator(-180.0), MaxValueValidator(180.0)])
     descricao_oco = models.TextField()
+    # Data/hora do ocorrido (informado pelo fiscal)
+    ocorrido_em = models.DateTimeField(null=True, blank=True)
 
     # Vínculos opcionais (referências)
     pessoa = models.ForeignKey('cadastros.Pessoa', null=True, blank=True, on_delete=models.SET_NULL, related_name='denuncias')

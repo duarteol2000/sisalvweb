@@ -121,6 +121,8 @@ class AutoInfracao(models.Model):
     divisorias = models.BooleanField("Divisórias (galpão)", default=False)
     mezanino = models.BooleanField("Possui mezanino", default=False)
     area_mezanino_m2 = models.DecimalField("Área do mezanino (m²)", max_digits=10, decimal_places=2, null=True, blank=True)
+    # Quando ocorreu o fato (informado pelo fiscal)
+    ocorrido_em = models.DateTimeField(null=True, blank=True)
 
     # Participantes
     fiscais = models.ManyToManyField(Usuario, blank=True, related_name="autos_infracao")
@@ -182,6 +184,24 @@ class AutoInfracao(models.Model):
             except Exception:
                 total += 0
         return total
+
+    @property
+    def valor_multa_aplicada(self):
+        """Valor aplicado do AIF: `valor_infracao` quando informado; caso contrário,
+        soma dos itens de multa (`total_infracao_itens`)."""
+        try:
+            return self.valor_infracao if self.valor_infracao not in (None, '') else (self.total_infracao_itens or 0)
+        except Exception:
+            return self.total_infracao_itens or 0
+
+    @property
+    def valor_multa_prevalente(self):
+        """Valor a exibir quando for necessário um único número representativo:
+        homologado quando existir; senão, o valor aplicado."""
+        try:
+            return self.valor_multa_homologado if self.valor_multa_homologado not in (None, '') else self.valor_multa_aplicada
+        except Exception:
+            return self.valor_multa_aplicada
 
     @property
     def dias_restantes(self):
@@ -496,6 +516,7 @@ class AutoInfracaoAnexo(models.Model):
         ("ALVARA_FUNCIONAMENTO", "Alvará de Funcionamento"),
         ("FOTO", "Foto"),
         ("DOCUMENTO", "Documento"),
+        ("DEFESA", "Documento de Defesa"),
         ("OUTRO", "Outro"),
     ]
 

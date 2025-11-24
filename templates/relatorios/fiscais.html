@@ -1,0 +1,55 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% block content %}
+<div class="container mt-3">
+  <h2 class="page-title">👷 Carga por Fiscal</h2>
+
+  <div class="card p-3" style="margin-top:8px;">
+    <form method="get" class="filters-card">
+      <div style="display:grid; grid-template-columns: repeat(3, minmax(160px, 1fr)); gap:8px;">
+        <div><label>De</label><input type="date" name="de" class="form-control" value="{{ de|date:'Y-m-d' }}"></div>
+        <div><label>Até</label><input type="date" name="ate" class="form-control" value="{{ ate|date:'Y-m-d' }}"></div>
+        <div style="display:flex; align-items:end; gap:8px;">
+          <button class="btn btn-primary btn-sm" type="submit">Aplicar</button>
+          <a class="btn btn-secondary btn-sm" href="{% url 'relatorio_fiscais' %}">Limpar</a>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="table-card shadow-sm" style="margin-top:10px;">
+    <div class="table-head"><div><strong>Distribuição de Carga</strong></div></div>
+    <div class="table-wrap table-responsive">
+      <table class="table table-striped table-sm mb-0">
+        <thead>
+          <tr>
+            <th>Fiscal</th>
+            <th class="text-right">NTF (período)</th>
+            <th class="text-right">AIF (período)</th>
+            <th class="text-right">Total</th>
+            <th class="text-right">NTF abertos</th>
+            <th class="text-right">AIF abertos</th>
+            <th class="text-right">Soma dos Itens Ainda não Encerrados</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for r in rows %}
+          <tr>
+            <td>{{ r.u.get_full_name|default:r.u.email }}</td>
+            <td class="text-right">{{ r.ntf }}</td>
+            <td class="text-right">{{ r.aif }}</td>
+            <td class="text-right"><strong>{{ r.total }}</strong></td>
+            <td class="text-right">{{ r.ntf_ab }}</td>
+            <td class="text-right">{{ r.aif_ab }}</td>
+            <td class="text-right">{{ r.ab_total }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="7"><em>Nenhuma atividade encontrada para o período.</em></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

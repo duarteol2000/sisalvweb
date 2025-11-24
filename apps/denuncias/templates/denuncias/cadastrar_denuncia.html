@@ -47,9 +47,9 @@
           <div class="field"><label>Anônima?</label>{{ form.denunciante_anonimo }}</div>
           <div class="field"><label>Fiscal denunciante</label>{{ form.denunciante_fiscal }}</div>
 
-          <div class="field"><label>Nome (contribuinte)</label>{{ form.denunciante_nome }}</div>
-          <div class="field"><label>E-mail (contribuinte)</label>{{ form.denunciante_email }}</div>
-          <div class="field"><label>Telefone (contribuinte)</label>{{ form.denunciante_telefone }}</div>
+          <div class="field"><label>Nome (Denunciante)</label>{{ form.denunciante_nome }}</div>
+          <div class="field"><label>E-mail (Denunciante)</label>{{ form.denunciante_email }}</div>
+          <div class="field"><label>Telefone (Denunciante)</label>{{ form.denunciante_telefone }}</div>
         </div>
       </div>
 
@@ -103,6 +103,35 @@
           <div class="field span-3">
             <label>Descrição detalhada <span aria-hidden="true" style="color:#c00">*</span></label>
             {{ form.descricao_oco }}
+          </div>
+          <div class="field">
+            <label>Data/Hora do Ocorrido</label>
+            {{ form.ocorrido_em }}
+          </div>
+        </div>
+      </div>
+
+      <!-- FISCAIS RESPONSÁVEIS -->
+      <div class="section">
+        <h3>Fiscais responsáveis</h3>
+        <div class="form-grid">
+          <div class="field span-3">
+            {{ form.fiscais.label_tag }}
+            {{ form.fiscais.errors }}
+            {% with qs=form.fiscais.field.queryset selected=form.fiscais.value %}
+              {% if qs %}
+                <div class="checkbox-grid">
+                  {% for u in qs %}
+                    <label class="chk">
+                      <input type="checkbox" name="fiscais" value="{{ u.pk }}" {% if selected and u.pk|stringformat:"s" in selected %}checked{% endif %}>
+                      {{ u.get_full_name|default:u.email }}{% if u.matricula %} ({{ u.matricula }}){% endif %}
+                    </label>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <div class="text-muted small">Nenhum fiscal disponível para a prefeitura ativa. <a href="/admin/usuarios/usuario/add/" target="_blank" rel="noopener">Cadastrar fiscal</a> ou <a href="/admin/usuarios/usuario/" target="_blank" rel="noopener">ativar/ajustar usuários</a>.</div>
+              {% endif %}
+            {% endwith %}
           </div>
         </div>
       </div>
@@ -205,6 +234,17 @@
       r.readAsDataURL(f);
     });
   });
+})();
+</script>
+<script>
+// Evita duplo envio: desabilita botão no submit
+(function(){
+  const form = document.querySelector('form.denuncia-form');
+  if(!form) return;
+  form.addEventListener('submit', function(){
+    const btn = form.querySelector('button[type="submit"]');
+    if(btn){ btn.disabled = true; btn.textContent = 'Enviando…'; }
+  }, { once: true });
 })();
 </script>
 <script>

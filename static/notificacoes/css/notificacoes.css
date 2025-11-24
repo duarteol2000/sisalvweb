@@ -33,7 +33,7 @@
   .notificacao-form .form-grid, .filters-form .row-3col { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 700px) {
-  .notificacao-form .form-grid, .filters-form .row-3col { grid-template-columns: 1fr; }
+.notificacao-form .form-grid, .filters-form .row-3col { grid-template-columns: 1fr; }
 }
 
 .detail-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 12px; }
@@ -96,6 +96,16 @@
   color: #555;
   margin-top: 6px;
 }
+
+/* Checkboxes de fiscais mais legíveis */
+.notificacao-form ul { list-style: none; padding-left: 0; margin: 0; }
+.notificacao-form ul li { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.checkbox-grid{ display:grid; grid-template-columns: repeat(4, minmax(160px, 1fr)); gap:8px; }
+@media (max-width: 1200px){ .checkbox-grid{ grid-template-columns: repeat(3, minmax(160px, 1fr)); } }
+@media (max-width: 900px){ .checkbox-grid{ grid-template-columns: repeat(2, minmax(160px, 1fr)); } }
+@media (max-width: 600px){ .checkbox-grid{ grid-template-columns: 1fr; } }
+.checkbox-grid .chk{ display:grid; grid-template-columns: 20px 1fr; align-items:center; gap:8px; padding:6px 8px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; overflow:visible; white-space:normal; line-height:1.2; overflow-wrap:anywhere; }
+.checkbox-grid .chk input[type="checkbox"]{ width:18px !important; height:18px; margin:0; justify-self:start; align-self:center; }
 
 .doc-link {
   display: inline-block;

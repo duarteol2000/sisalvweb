@@ -5,6 +5,7 @@ from django.shortcuts import redirect, render, get_object_or_404
 from django.urls import reverse
 from django.forms import inlineformset_factory
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.core.paginator import Paginator
 from django.db.models import F, Value as V
 from django.db.models.functions import Concat, Coalesce
@@ -74,66 +75,57 @@ def denuncia_nova_step1(request):
             print(f"FOTO[{i}] name={getattr(f, 'name', '')} size={getattr(f, 'size', '?')}")
         print("---- UPLOAD DEBUG END ----")
 
-        form = DenunciaOrigemForm(request.POST)
+        form = DenunciaOrigemForm(request.POST, prefeitura_id=pref_id)
         try:
             if form.is_valid():
-                # 1) Salvar núcleo
-                obj: Denuncia = form.save(commit=False)
-                obj.prefeitura_id = pref_id
-                if request.user.is_authenticated:
-                    obj.criado_por = request.user
-                # Gera o protocolo já na view usando a matrícula do usuário logado
-                # para evitar qualquer interferência posterior.
-                try:
-                    pref = Prefeitura.objects.only("codigo_ibge").get(pk=pref_id)
-                    mat = getattr(request.user, "matricula", None) or None
-                    obj.protocolo = gerar_protocolo(pref.codigo_ibge or "", "DEN", matricula=mat)
-                except Exception:
-                    # Se algo falhar, o model.save() ainda gerará o protocolo.
-                    pass
-                if not obj.denunciado_nome_razao:
-                    obj.denunciado_nome_razao = "A DEFINIR"
-                obj.save()
-                log_event(request, 'CREATE', instance=obj)
+                with transaction.atomic():
+                    # 1) Salvar núcleo
+                    obj: Denuncia = form.save(commit=False)
+                    obj.prefeitura_id = pref_id
+                    if request.user.is_authenticated:
+                        obj.criado_por = request.user
+                    # Protocolo com matrícula, se houver
+                    try:
+                        pref = Prefeitura.objects.only("codigo_ibge").get(pk=pref_id)
+                        mat = getattr(request.user, "matricula", None) or None
+                        obj.protocolo = gerar_protocolo(pref.codigo_ibge or "", "DEN", matricula=mat)
+                    except Exception:
+                        pass
+                    if not obj.denunciado_nome_razao:
+                        obj.denunciado_nome_razao = "A DEFINIR"
+                    obj.save()
+                    try:
+                        form.save_m2m()  # salva fiscais selecionados (M2M)
+                    except Exception:
+                        pass
+                    log_event(request, 'CREATE', instance=obj)
 
-                # 2) Garantir Processo (raiz) — opção B: reutiliza protocolo da etapa raiz
-                try:
-                    from apps.processos.models import Processo
-                    if getattr(obj, 'processo_id', None) is None:
-                        proc = Processo.objects.create(
-                            prefeitura_id=pref_id,
-                            protocolo=obj.protocolo,
-                            status='ABERTO',
-                            criado_por=getattr(request, 'user', None),
-                        )
-                        obj.processo = proc
-                        obj.save(update_fields=['processo'])
-                except Exception:
-                    pass
+                    # 2) Processo
+                    try:
+                        from apps.processos.models import Processo
+                        if getattr(obj, 'processo_id', None) is None:
+                            proc = Processo.objects.create(
+                                prefeitura_id=pref_id,
+                                protocolo=obj.protocolo,
+                                status='ABERTO',
+                                criado_por=getattr(request, 'user', None),
+                            )
+                            obj.processo = proc
+                            obj.save(update_fields=['processo'])
+                    except Exception:
+                        pass
 
-                # 3) Documentos do Imóvel (opcionais)
-                doc_formset = DocumentoImovelFormSet(
-                    data=request.POST, files=request.FILES, instance=obj
-                )
-                if not doc_formset.is_valid():
-                    messages.error(request, "Há erros nos documentos do imóvel. Corrija e envie novamente.")
-                    # renderiza com erros do formset; fotos: apenas mostrar o input
-                    fotos_form = DenunciaFotosForm(denuncia=obj)
-                    nfe = doc_formset.non_form_errors()
-                    debug_exception = nfe and "\n".join(nfe) or str(doc_formset.errors)
-                    return render(
-                        request,
-                        "denuncias/cadastrar_denuncia.html",
-                        {"form": form, "doc_formset": doc_formset, "fotos_form": fotos_form, "debug_exception": debug_exception},
-                    )
-                doc_formset.save()
+                    # 3) Documentos do Imóvel (valida primeiro)
+                    doc_formset = DocumentoImovelFormSet(data=request.POST, files=request.FILES, instance=obj)
+                    if not doc_formset.is_valid():
+                        raise ValidationError({"documentos_imovel": doc_formset.errors})
+                    doc_formset.save()
 
-                # 4) FOTOS (opcionais) — processar manualmente, sem validar pelo Form
-                files_list = request.FILES.getlist("fotos")
-                created = []
-                if files_list:
-                    for f in files_list:
-                        try:
+                    # 4) Fotos (se falhar, aborta tudo)
+                    files_list = request.FILES.getlist("fotos")
+                    created = []
+                    if files_list:
+                        for f in files_list:
                             processed_file, w, h, hsh = process_photo_file(f)
                             anexo = DenunciaAnexo(
                                 denuncia=obj,
@@ -145,31 +137,9 @@ def denuncia_nova_step1(request):
                                 hash_sha256=hsh,
                                 otimizada=True,
                             )
-                            anexo.save()
-                            created.append(anexo)
-                        except ValidationError as ve:
-                            messages.error(request, f"Foto inválida: {ve}")
-                            # Recarrega página mantendo o que digitou, com linhas de docs e input de fotos
-                            doc_formset = DocumentoImovelFormSet(instance=obj)
-                            fotos_form = DenunciaFotosForm(denuncia=obj)
-                            debug_exception = f"Erro ao processar foto: {ve}"
-                            return render(
-                                request,
-                                "denuncias/cadastrar_denuncia.html",
-                                {"form": form, "doc_formset": doc_formset, "fotos_form": fotos_form, "debug_exception": debug_exception},
-                            )
-                        except Exception as e:
-                            messages.error(request, "Erro inesperado ao processar uma foto.")
-                            doc_formset = DocumentoImovelFormSet(instance=obj)
-                            fotos_form = DenunciaFotosForm(denuncia=obj)
-                            debug_exception = f"EXCEPTION process_photo_file: {e}"
-                            return render(
-                                request,
-                                "denuncias/cadastrar_denuncia.html",
-                                {"form": form, "doc_formset": doc_formset, "fotos_form": fotos_form, "debug_exception": debug_exception},
-                            )
+                            anexo.save(); created.append(anexo)
 
-                # Feedback claro e redireciona para o detalhe (mostra miniaturas na galeria)
+                # fora do atomic (sucesso)
                 fotos_qtd = len(created)
                 if fotos_qtd > 0:
                     messages.success(request, f"Denúncia salva com sucesso. {fotos_qtd} foto(s) adicionada(s) e otimizadas.")
@@ -178,8 +148,11 @@ def denuncia_nova_step1(request):
                 return redirect("denuncias:detalhe", pk=obj.pk)
 
             # Form principal inválido
-            debug_exception = form.errors.as_text()
-            messages.error(request, "Há erros no formulário. Verifique os campos destacados abaixo.")
+            try:
+                debug_exception = form.errors.get_json_data()
+            except Exception:
+                debug_exception = form.errors.as_json() if hasattr(form.errors, 'as_json') else form.errors.as_text()
+            messages.error(request, f"Erros no formulário. Detalhes: {debug_exception}")
             dummy = Denuncia(prefeitura_id=pref_id)
             doc_formset = DocumentoImovelFormSet(instance=dummy)
             fotos_form = DenunciaFotosForm(denuncia=None)
@@ -191,7 +164,7 @@ def denuncia_nova_step1(request):
 
         except Exception as exc:
             debug_exception = f"EXCEPTION:\n{exc}"
-            messages.error(request, "Ocorreu um erro inesperado ao salvar a denúncia.")
+            messages.error(request, f"Falha ao salvar. Nenhum dado foi gravado. Detalhes: {exc}")
             dummy = Denuncia(prefeitura_id=pref_id)
             doc_formset = DocumentoImovelFormSet(instance=dummy)
             fotos_form = DenunciaFotosForm(denuncia=None)
@@ -202,7 +175,7 @@ def denuncia_nova_step1(request):
             )
 
     # GET
-    form = DenunciaOrigemForm()
+    form = DenunciaOrigemForm(prefeitura_id=pref_id)
     dummy = Denuncia(prefeitura_id=pref_id)
     doc_formset = DocumentoImovelFormSet(instance=dummy)
     fotos_form = DenunciaFotosForm(denuncia=None)  # só para renderizar o input
@@ -298,13 +271,17 @@ def denuncia_edit_basico(request, pk):
     obj = get_object_or_404(Denuncia, pk=pk, prefeitura_id=prefeitura_id)
 
     if request.method == "POST":
-        form = DenunciaOrigemForm(request.POST, instance=obj)
+        form = DenunciaOrigemForm(request.POST, instance=obj, prefeitura_id=prefeitura_id)
         doc_formset = DocumentoImovelFormSet(data=request.POST, files=request.FILES, instance=obj)
         fotos_form = DenunciaFotosForm(request.POST, request.FILES, denuncia=obj)
         if form.is_valid() and doc_formset.is_valid():
             obj_edit = form.save(commit=False)
             obj_edit.prefeitura_id = obj.prefeitura_id  # mantém integridade multi-prefeitura
             obj_edit.save()
+            try:
+                form.save_m2m()  # salva seleção de fiscais
+            except Exception:
+                pass
             doc_formset.save()
 
             # Fotos opcionais (como no cadastro)
@@ -321,11 +298,19 @@ def denuncia_edit_basico(request, pk):
             return redirect("denuncias:detalhe", pk=obj.pk)
         else:
             if not form.is_valid():
-                messages.error(request, "Corrija os erros do formulário.")
+                try:
+                    ferr = form.errors.get_json_data()
+                except Exception:
+                    ferr = form.errors.as_json() if hasattr(form.errors, 'as_json') else str(form.errors)
+                messages.error(request, f"Erros no formulário. Detalhes: {ferr}")
             if not doc_formset.is_valid():
-                messages.error(request, "Há erros nos documentos do imóvel. Corrija e envie novamente.")
+                try:
+                    derr = doc_formset.errors
+                except Exception:
+                    derr = str(doc_formset.errors)
+                messages.error(request, f"Erros nos documentos do imóvel. Detalhes: {derr}")
     else:
-        form = DenunciaOrigemForm(instance=obj)
+        form = DenunciaOrigemForm(instance=obj, prefeitura_id=prefeitura_id)
         doc_formset = DocumentoImovelFormSet(instance=obj)
         fotos_form = DenunciaFotosForm(denuncia=obj)
 
@@ -368,12 +353,16 @@ def denuncia_editar_completo(request, pk):
     limite_restante = max(0, 4 - fotos_existentes)
 
     if request.method == 'POST':
-        form = DenunciaOrigemForm(request.POST, instance=obj)
+        form = DenunciaOrigemForm(request.POST, instance=obj, prefeitura_id=pref_id)
         doc_formset = DocumentoImovelFormSet(data=request.POST, files=request.FILES, instance=obj)
         if form.is_valid() and doc_formset.is_valid():
             den = form.save(commit=False)
             den.prefeitura_id = pref_id
             den.save()
+            try:
+                form.save_m2m()  # atualiza M2M (fiscais)
+            except Exception:
+                pass
             doc_formset.save()
 
             # Processar fotos (até 3, 100 KB) com nome IBGE-end_slug-YYYYMMDD-HHMMSS-fotoNN.jpg
@@ -422,11 +411,19 @@ def denuncia_editar_completo(request, pk):
             return redirect('denuncias:detalhe', pk=den.pk)
         else:
             if not form.is_valid():
-                messages.error(request, 'Erros no formulário. Verifique os campos.')
+                try:
+                    ferr = form.errors.get_json_data()
+                except Exception:
+                    ferr = form.errors.as_json() if hasattr(form.errors, 'as_json') else str(form.errors)
+                messages.error(request, f"Erros no formulário. Detalhes: {ferr}")
             if not doc_formset.is_valid():
-                messages.error(request, 'Erros nos documentos do imóvel.')
+                try:
+                    derr = doc_formset.errors
+                except Exception:
+                    derr = str(doc_formset.errors)
+                messages.error(request, f"Erros nos documentos do imóvel. Detalhes: {derr}")
     else:
-        form = DenunciaOrigemForm(instance=obj)
+        form = DenunciaOrigemForm(instance=obj, prefeitura_id=pref_id)
         doc_formset = DocumentoImovelFormSet(instance=obj)
 
     anexos_existentes = obj.anexos.all().order_by('-criada_em')
@@ -587,11 +584,61 @@ def denuncia_vincular_pessoa(request, pk):
     tipo = (request.POST.get("tipo") or "PF").upper()
     email = (request.POST.get("email") or "").strip()
     telefone = (request.POST.get("telefone") or "").strip()
+    # Fluxo de confirmação (segunda etapa)
+    confirm_action = request.POST.get('confirm_action')
+    if confirm_action:
+        sel_id = request.POST.get('confirm_person_id')
+        pessoa = Pessoa.objects.filter(id=sel_id, prefeitura_id=pref_id, ativo=True).first()
+        if not pessoa:
+            messages.error(request, 'Pessoa selecionada não encontrada para vincular.')
+            return redirect("denuncias:detalhe", pk=pk)
+        if confirm_action == 'update':
+            # Atualiza campos básicos com os dados informados agora
+            pessoa.tipo = tipo if tipo in ("PF","PJ") else pessoa.tipo
+            pessoa.nome_razao = nome or pessoa.nome_razao
+            pessoa.doc_tipo = doc_tipo if doc_tipo in ("CPF","CNPJ","OUTRO") else pessoa.doc_tipo
+            # doc_num já é o mesmo que gerou a confirmação; não vamos sobrescrever com vazio
+            if doc_num:
+                pessoa.doc_num = ''.join(filter(str.isdigit, doc_num))
+            pessoa.email = email or pessoa.email
+            pessoa.telefone = telefone or pessoa.telefone
+            try:
+                pessoa.save()
+            except Exception:
+                pass
+        obj.pessoa = pessoa
+        obj.save(update_fields=["pessoa"])
+        log_event(request, 'LINK', instance=obj, extra={'pessoa_id': pessoa.id, 'confirm_action': confirm_action})
+        messages.success(request, "Pessoa vinculada à denúncia.")
+        return redirect("denuncias:detalhe", pk=pk)
+
     pessoa = None
     if pessoa_id:
         pessoa = Pessoa.objects.filter(id=pessoa_id, prefeitura_id=pref_id, ativo=True).first()
     if not pessoa and doc_num:
-        pessoa = Pessoa.objects.filter(prefeitura_id=pref_id, doc_num=''.join(filter(str.isdigit, doc_num))).first()
+        _doc = ''.join(filter(str.isdigit, doc_num))
+        qs = Pessoa.objects.filter(prefeitura_id=pref_id, doc_num=_doc)
+        if qs.exists():
+            default_person = None
+            if qs.count() > 1 and nome:
+                default_person = qs.filter(nome_razao__iexact=nome).first()
+            if not default_person:
+                default_person = qs.order_by('-atualizado_em', '-criado_em').first()
+            # Renderiza confirmação
+            return render(request, 'core/confirmar_pessoa.html', {
+                'action_url': reverse('denuncias:vincular_pessoa', kwargs={'pk': pk}),
+                'cancel_url': reverse('denuncias:detalhe', kwargs={'pk': pk}),
+                'pessoas': list(qs),
+                'default_person_id': getattr(default_person, 'id', None),
+                'proposed': {
+                    'tipo': tipo,
+                    'nome_razao': nome,
+                    'doc_tipo': doc_tipo,
+                    'doc_num': doc_num,
+                    'email': email,
+                    'telefone': telefone,
+                },
+            })
     if not pessoa:
         pessoa = Pessoa.objects.create(
             prefeitura_id=pref_id,

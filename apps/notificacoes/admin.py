@@ -6,3 +6,4 @@ class NotificacaoAdmin(admin.ModelAdmin):
     list_display = ("protocolo","nome_razao","status","criada_em")
     search_fields = ("protocolo","nome_razao","cpf_cnpj")
     list_filter = ("status","criada_em")
+    filter_horizontal = ("fiscais",)

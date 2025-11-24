@@ -173,7 +173,7 @@
       {{ form.area_mezanino_m2.errors }}
     </div>
 
-    <div>
+    <div class="span-3">
       {{ form.descricao.label_tag }}
       {{ form.descricao }}
       {{ form.descricao.errors }}
@@ -183,11 +183,47 @@
       {{ form.prazo_regularizacao }}
       {{ form.prazo_regularizacao.errors }}
     </div>
+    <div>
+      {{ form.ocorrido_em.label_tag }}
+      {{ form.ocorrido_em }}
+      {{ form.ocorrido_em.errors }}
+    </div>
 
     <div>
       {{ form.status.label_tag }}
       {{ form.status }}
       {{ form.status.errors }}
+    </div>
+    <div class="span-3">
+      <label>Motivo da Conclusão (opcional)</label>
+      {{ form.conclusao_motivo }}
+      {{ form.conclusao_motivo.errors }}
+    </div>
+    <div class="span-3">
+      <label>Documento de Conclusão (PDF/DOC, opcional)</label>
+      {% if obj.conclusao_documento %}
+        <div class="mb-1"><a href="{{ obj.conclusao_documento.url }}" target="_blank" rel="noopener">Arquivo atual</a></div>
+      {% endif %}
+      {{ form.conclusao_documento }}
+      {{ form.conclusao_documento.errors }}
+    </div>
+    <div class="span-3">
+      {{ form.fiscais.label_tag }}
+      {{ form.fiscais.errors }}
+      {% with qs=form.fiscais.field.queryset selected=form.fiscais.value %}
+        {% if qs %}
+          <div class="checkbox-grid">
+          {% for u in qs %}
+            <label class="chk">
+              <input type="checkbox" name="fiscais" value="{{ u.pk }}" {% if selected and u.pk|stringformat:"s" in selected %}checked{% endif %}>
+              {{ u.get_full_name|default:u.email }}{% if u.matricula %} ({{ u.matricula }}){% endif %}
+            </label>
+          {% endfor %}
+          </div>
+        {% else %}
+          <div class="text-muted small">Nenhum fiscal disponível para a prefeitura ativa. <a href="/admin/usuarios/usuario/add/" target="_blank" rel="noopener">Cadastrar fiscal</a> ou <a href="/admin/usuarios/usuario/" target="_blank" rel="noopener">ativar/ajustar usuários</a>.</div>
+        {% endif %}
+      {% endwith %}
     </div>
   </div>
 

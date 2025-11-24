@@ -8,6 +8,22 @@
     <aside id="map-panel" style="width:300px; border-right:1px solid var(--border); padding:12px;">
       <h3 style="margin:0 0 8px;">Mapa de Processos</h3>
       <div style="display:flex; flex-direction:column; gap:10px;">
+        <div class="card" style="padding:8px; border:1px solid var(--border); border-radius:.5rem;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <input id="toggleHeat" type="checkbox" />
+            <label for="toggleHeat" style="margin:0;"><strong>Mapa de Calor</strong></label>
+          </div>
+          <div id="metricWrap" style="margin-top:8px; display:none;">
+            <label for="metricSel" style="margin-bottom:4px; display:block;"><strong>Métrica</strong></label>
+            <select id="metricSel" class="form-select">
+              <option value="COUNT">Contagem</option>
+              <option value="SEVERIDADE">Severidade (AIF)</option>
+            </select>
+            <div class="text-left" style="font-size:.78rem; color:var(--muted); margin-top:4px;">
+              <em>Severidade usa valor aplicado normalizado (p95).</em>
+            </div>
+          </div>
+        </div>
         <div>
           <label for="fEndereco"><strong>Endereço</strong></label>
           <input id="fEndereco" class="form-control" type="text" placeholder="Ex.: Rua, nº, bairro, cidade" />
@@ -71,6 +87,8 @@
 <link rel="stylesheet" href="{% static 'vendor/leaflet.markercluster/MarkerCluster.css' %}" />
 <link rel="stylesheet" href="{% static 'vendor/leaflet.markercluster/MarkerCluster.Default.css' %}" />
 <script src="{% static 'vendor/leaflet.markercluster/leaflet.markercluster.js' %}"></script>
+<!-- Leaflet.heat (vendor local) -->
+<script src="{% static 'vendor/leaflet.heat/leaflet-heat.js' %}"></script>
 
 <script>
 (function(){
@@ -117,6 +135,7 @@
   const clusters = (typeof L.markerClusterGroup === 'function') ? L.markerClusterGroup() : L.layerGroup();
   map.addLayer(clusters);
   let searchMarker = null;
+  let heatLayer = L.layerGroup();
 
   function colorFor(entries){
     const types = new Set(entries.map(e=>e.tipo));
@@ -125,9 +144,22 @@
     return '#f59e0b';
   }
 
-  function markerIcon(color){
-    const html = `<div style=\"background:${color}; width:12px; height:12px; border-radius:50%; border:2px solid white;\"></div>`;
-    return L.divIcon({html, className:'', iconSize:[16,16]});
+  // Ícone de PIN clássico (SVG inline) com cor da legenda e letra (N/A/M)
+  function pinIcon(color, letter){
+    const svg = `
+      <svg xmlns='http://www.w3.org/2000/svg' width='26' height='36' viewBox='0 0 26 36'>
+        <path d='M13 35 C13 35 2 26 2 14 A11 11 0 0 1 24 14 C24 26 13 35 13 35Z' fill='rgba(0,0,0,0.08)'/>
+        <path d='M13 34 C13 34 3 26 3 14 A10 10 0 1 1 23 14 C23 26 13 34 13 34Z' fill='#ffffff'/>
+        <path d='M13 33 C13 33 4 26 4 14 A9 9 0 1 1 22 14 C22 26 13 33 13 33Z' fill='${color}' stroke='${color}' stroke-width='1'/>
+        <text x='13' y='17' text-anchor='middle' font-family='Helvetica,Arial,sans-serif' font-size='11' font-weight='700' fill='#ffffff' stroke='rgba(0,0,0,0.25)' stroke-width='0.6'>${letter||''}</text>
+      </svg>`;
+    return L.divIcon({ html: svg, className: '', iconSize: [26,36], iconAnchor: [13,34], tooltipAnchor: [0,-20], popupAnchor: [0,-22] });
+  }
+
+  function labelFor(entries){
+    const types = new Set(entries.map(e=>e.tipo));
+    if(types.size>1) return 'M';
+    return types.has('NOTIFICACAO') ? 'N' : 'A';
   }
 
   // Overlay de status simples no canto superior direito do mapa
@@ -163,6 +195,7 @@
 
   let inflight = null;
   async function loadData(opts){
+    if(toggleHeat.checked){ return loadHeat(opts); }
     const opt = Object.assign({autoFit:false, onlyZoomOut:false}, opts||{});
     const b = map.getBounds();
     const bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].join(',');
@@ -202,7 +235,7 @@
         const [lng, lat] = f.geometry.coordinates;
         const entries = f.properties.entradas || [];
         const color = colorFor(entries);
-        const m = L.marker([lat, lng], {icon: markerIcon(color)});
+        const m = L.marker([lat, lng], {icon: pinIcon(color, labelFor(entries))});
         const list = entries.map(e=>`<div><small><b>${e.tipo}</b>: <a href=\"${e.url}\">${e.protocolo}</a> (${e.ano||''})</small></div>`).join('');
         m.bindTooltip(`${entries.length} processo(s)`, {direction:'top'});
         m.bindPopup(`<div style=\"min-width:220px\">${list}</div>`);
@@ -223,6 +256,72 @@
       }
       if(hasMore){ showToast('Muitos pontos na área — exibindo parte dos resultados. Aproxime ou mova o mapa para detalhar.', 'warn'); }
     }catch(e){ if(e.name!=='AbortError') { console.error(e); showToast('Erro de rede ao carregar o mapa.', 'error'); } }
+  }
+
+  async function loadHeat(opts){
+    const opt = Object.assign({autoFit:false, onlyZoomOut:false}, opts||{});
+    const b = map.getBounds();
+    const bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].join(',');
+    const tipo = tipoSel.value || 'ALL';
+    const ano = anoSel.value || 'ALL';
+    const metric = metricSel.value || 'COUNT';
+    let url = "{% url 'core_api_mapa_heat' %}?tipo="+encodeURIComponent(tipo)+"&ano="+encodeURIComponent(ano)+"&metric="+encodeURIComponent(metric)+"&bbox="+encodeURIComponent(bbox);
+    try{
+      inflight && inflight.abort && inflight.abort();
+      inflight = new AbortController();
+      setStatus('Carregando mapa de calor...');
+      const res = await fetch(url, {signal: inflight.signal});
+      if(!res.ok){ setStatus('API '+res.status); showToast('Falha no heatmap ('+res.status+').', 'error'); return; }
+      const data = await res.json();
+      const pts = Array.isArray(data.points) ? data.points : [];
+      clusters.clearLayers();
+      if(heatLayer){ map.removeLayer(heatLayer); }
+      // Se o plugin Leaflet.heat estiver disponível, usa-o; caso contrário, usa o fallback de círculos
+      if(typeof L.heatLayer === 'function'){
+        const z = map.getZoom();
+        // Raio/blur em pixels prop. ao zoom (mais difuso)
+        const radius = z <= 10 ? 14 : (z <= 12 ? 22 : (z <= 14 ? 30 : (z <= 16 ? 38 : 46)));
+        const blur = Math.round(radius * 0.9);
+        // Suaviza intensidade geral (max > 1) e curva levemente compressiva
+        const latlngs = pts.map(p=> [Number(p.lat), Number(p.lng), Math.pow(Math.max(0, Math.min(1, Number(p.weight)||0)), 1.25)]);
+        const gradient = {
+          0.0: 'rgba(0,0,0,0)',
+          0.2: '#a2c8f1',   // azul um pouco mais escuro
+          0.4: '#8bb8ee',
+          0.6: '#f5b971',   // laranja um pouco mais escuro
+          0.8: '#f49797',   // vermelho um pouco mais escuro
+          1.0: '#ef4444'    // vermelho mais escuro
+        };
+        heatLayer = L.heatLayer(latlngs, {radius, blur, max: 1.3, gradient});
+        map.addLayer(heatLayer);
+      } else {
+        heatLayer = L.layerGroup();
+        const z = map.getZoom();
+        const zoomScale = Math.max(1, (z - 8));
+        pts.forEach(p=>{
+          const w = Math.pow(Math.max(0, Math.min(1, Number(p.weight)||0)), 1.25);
+          const lat = Number(p.lat), lng = Number(p.lng);
+          if(!isFinite(lat) || !isFinite(lng)) return;
+          const r = 8 + (w * 18) * zoomScale/4;
+          const h = (1 - w) * 220;
+          const color = `hsl(${h}, 72%, 44%)`;
+          const fill = `hsla(${h}, 72%, 44%, ${0.10 + w*0.28})`;
+          const c = L.circle([lat, lng], {radius: r, color, weight: 0.6, fillColor: fill, fillOpacity: 0.6});
+          heatLayer.addLayer(c);
+        });
+        map.addLayer(heatLayer);
+      }
+      const sum = (data && data.summary) || {};
+      const sN = (sum.NOTIFICACAO && sum.NOTIFICACAO.count) || 0;
+      const sA = (sum.AUTOINFRACAO && sum.AUTOINFRACAO.count) || 0;
+      setStatus(pts.length+" ponto(s) (mapa de calor) — NTF: "+sN+" • AIF: "+sA);
+      if(opt.autoFit && pts.length){
+        const bounds = L.latLngBounds([]);
+        pts.forEach(p=> bounds.extend([p.lat, p.lng]));
+        const currentZoom = map.getZoom();
+        map.fitBounds(bounds.pad(0.2), {maxZoom: opt.onlyZoomOut ? currentZoom : 17});
+      }
+    }catch(e){ if(e.name!=='AbortError'){ console.error(e); showToast('Erro de rede no heatmap.', 'error'); } }
   }
 
   async function geocodeEndereco(q){
@@ -276,6 +375,24 @@
     map.setView([center.lat, center.lng], center.zoom || 13);
     loadData({autoFit:false});
   }); }
+  const toggleHeat = document.getElementById('toggleHeat');
+  const metricSel = document.getElementById('metricSel');
+  const metricWrap = document.getElementById('metricWrap');
+  if(toggleHeat){
+    toggleHeat.addEventListener('change', ()=>{
+      const on = toggleHeat.checked;
+      metricWrap.style.display = on ? 'block' : 'none';
+      if(on){
+        if(clusters) map.removeLayer(clusters);
+        loadHeat({autoFit:true, onlyZoomOut:true});
+      } else {
+        if(clusters) map.addLayer(clusters);
+        if(heatLayer){ map.removeLayer(heatLayer); }
+        loadData({autoFit:true, onlyZoomOut:true});
+      }
+    });
+  }
+  if(metricSel){ metricSel.addEventListener('change', ()=>{ if(toggleHeat.checked){ loadHeat({autoFit:false}); } }); }
   // primeira carga
   map.whenReady(()=>{ setTimeout(()=>{ map.invalidateSize(); loadData({autoFit:false}); }, 50); });
 })();

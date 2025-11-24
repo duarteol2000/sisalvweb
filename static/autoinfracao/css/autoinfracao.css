@@ -96,6 +96,9 @@ td.table-actions{ padding-top:.35rem; padding-bottom:.35rem; vertical-align:midd
   gap: 10px;
   margin-top: 10px;
 }
+.anexos-grid.anexos-grid--column {
+  grid-template-columns: 1fr;
+}
 .anexo-item {
   border: 1px solid #ddd;
   border-radius: 6px;
@@ -118,10 +121,24 @@ td.table-actions{ padding-top:.35rem; padding-bottom:.35rem; vertical-align:midd
 .text-right{ text-align:right; }
 
 /* Checkboxes em linha para Tipos de Infração */
-.checkbox-grid ul{ display:flex; flex-wrap:wrap; gap:8px; padding-left:0; margin:0; list-style:none; }
-.checkbox-grid li{ list-style:none; }
-.checkbox-grid input[type="checkbox"]{ width:auto !important; height:auto; margin-right:6px; }
-.checkbox-grid label{ display:inline-flex; align-items:center; gap:6px; padding:2px 6px; border:1px dashed #e5e7eb; border-radius:6px; }
+/* Grid de checkboxes para Tipos/Fiscais */
+.checkbox-grid{ display:grid; grid-template-columns: repeat(4, minmax(160px, 1fr)); gap:8px; }
+@media (max-width: 1200px){ .checkbox-grid{ grid-template-columns: repeat(3, minmax(160px, 1fr)); } }
+@media (max-width: 900px){ .checkbox-grid{ grid-template-columns: repeat(2, minmax(160px, 1fr)); } }
+@media (max-width: 600px){ .checkbox-grid{ grid-template-columns: 1fr; } }
+.checkbox-grid .chk{ display:grid; grid-template-columns: 20px 1fr; align-items:center; gap:8px; padding:6px 8px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; line-height:1.2; overflow-wrap:anywhere; }
+.checkbox-grid .chk input[type="checkbox"]{ width:18px !important; height:18px; margin:0; justify-self:start; align-self:center; }
 
 /* Mini grid para campos curtos ao lado de um longo */
 .mini-grid-2{ display:grid; grid-template-columns: 160px 1fr; gap:12px; align-items:end; }
+
+/* Grid de 2 colunas para cards lado a lado (ex.: Anexos do AIF / Defesa) */
+.form-grid-2{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:12px;
+  align-items:flex-start;
+}
+@media (max-width: 900px){
+  .form-grid-2{ grid-template-columns: 1fr; }
+}

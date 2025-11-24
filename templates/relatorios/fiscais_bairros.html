@@ -1,0 +1,78 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% block title %}Relatório — Bairros por Fiscal{% endblock %}
+{% block content %}
+<section class="card">
+  <h2 style="margin-top:0;">📍 Bairros por Fiscal</h2>
+  <form method="get" class="filters" style="display:flex; gap:10px; flex-wrap:wrap; align-items:end; margin-bottom:12px;">
+    <div>
+      <label for="de"><strong>De</strong></label>
+      <input id="de" name="de" type="date" class="form-control" value="{{ de|date:'Y-m-d' }}" />
+    </div>
+    <div>
+      <label for="ate"><strong>Até</strong></label>
+      <input id="ate" name="ate" type="date" class="form-control" value="{{ ate|date:'Y-m-d' }}" />
+    </div>
+    <div>
+      <label for="ano"><strong>Ano</strong></label>
+      <select id="ano" name="ano" class="form-select">
+        <option value="">—</option>
+        {% for y in years %}
+          <option value="{{y}}" {% if ano|default_if_none:'' == y|stringformat:'s' %}selected{% endif %}>{{ y }}</option>
+        {% endfor %}
+      </select>
+      <div class="text-left" style="font-size:.78rem; color:var(--muted);">Se informado, ignora De/Até.</div>
+    </div>
+    <div>
+      <label for="tipo"><strong>Tipo</strong></label>
+      <select id="tipo" name="tipo" class="form-select">
+        <option value="ALL" {% if tipo == 'ALL' %}selected{% endif %}>Todos</option>
+        <option value="DEN" {% if tipo == 'DEN' %}selected{% endif %}>Denúncias</option>
+        <option value="NTF" {% if tipo == 'NTF' %}selected{% endif %}>Notificações</option>
+        <option value="AIF" {% if tipo == 'AIF' %}selected{% endif %}>Autos de Infração</option>
+      </select>
+    </div>
+    <div>
+      <label for="top"><strong>Top fiscais/bairro</strong></label>
+      <input id="top" name="top" type="number" min="1" max="20" value="{{ top_n }}" class="form-control" />
+    </div>
+    <div>
+      <button class="btn btn-primary" type="submit">Aplicar</button>
+      <a class="btn" href="?">Limpar</a>
+      <a class="btn btn-outline-info" href="?{% if de %}de={{de|date:'Y-m-d'}}&{% endif %}{% if ate %}ate={{ate|date:'Y-m-d'}}&{% endif %}{% if ano %}ano={{ano}}&{% endif %}tipo={{tipo}}&export=csv">Exportar CSV</a>
+    </div>
+  </form>
+
+  <div class="table-responsive table-card">
+    <table class="table table-striped table-hover table-sm">
+      <thead>
+        <tr>
+          <th>Bairro</th>
+          <th class="text-right">Total</th>
+          <th>Fiscais (Top {{ top_n }}) — DEN / NTF / AIF</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td>{{ r.bairro }}</td>
+          <td class="text-right">{{ r.total }}</td>
+          <td>
+            {% if r.fiscais %}
+              {% for f in r.fiscais %}
+                <div><small>{{ f.nome }}</small>: <span class="badge bg-secondary">{{ f.DEN }}</span> / <span class="badge bg-secondary">{{ f.NTF }}</span> / <span class="badge bg-secondary">{{ f.AIF }}</span> <small>= {{ f.total }}</small></div>
+              {% endfor %}
+              {% if r.restantes > 0 %}
+                <div class="text-muted"><small>+ {{ r.restantes }} outros fiscais… (veja CSV)</small></div>
+              {% endif %}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

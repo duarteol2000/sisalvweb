@@ -1,0 +1,81 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% block content %}
+<div class="container mt-3">
+  <h2 class="page-title">Confirmar Vinculação de Pessoa</h2>
+  <p class="text-muted" style="margin:6px 0 12px;">
+    Documento informado já existe em um ou mais cadastros. Escolha uma opção:
+  </p>
+
+  <div class="card p-3">
+    <form method="post" action="{{ action_url }}" class="confirm-form">
+      {% csrf_token %}
+
+      <div class="section">
+        <h3>Cadastro(s) existente(s)</h3>
+        <div class="form-grid">
+          <div class="field span-3">
+            {% if pessoas|length > 1 %}
+              <label>Selecionar cadastro</label>
+              <select name="confirm_person_id" class="form-select">
+                {% for p in pessoas %}
+                  <option value="{{ p.id }}" {% if p.id == default_person_id %}selected{% endif %}>
+                    {{ p.nome_razao }} — {{ p.get_tipo_display }}{% if p.doc_num %} ({{ p.doc_num }}){% endif %}
+                  </option>
+                {% endfor %}
+              </select>
+            {% elif pessoas %}
+              {% with p=pessoas.0 %}
+              <input type="hidden" name="confirm_person_id" value="{{ p.id }}">
+              <div><strong>{{ p.nome_razao }}</strong> — {{ p.get_tipo_display }}{% if p.doc_num %} ({{ p.doc_num }}){% endif %}</div>
+              {% endwith %}
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="section" style="margin-top:10px;">
+        <h3>Dados informados agora</h3>
+        <div class="form-grid">
+          <div class="field"><label>Tipo</label><input type="text" class="form-control" value="{{ proposed.tipo }}" disabled></div>
+          <div class="field span-2"><label>Nome/Razão</label><input type="text" class="form-control" value="{{ proposed.nome_razao }}" disabled></div>
+          <div class="field"><label>Doc. Tipo</label><input type="text" class="form-control" value="{{ proposed.doc_tipo }}" disabled></div>
+          <div class="field"><label>Doc. Número</label><input type="text" class="form-control" value="{{ proposed.doc_num }}" disabled></div>
+          <div class="field"><label>E-mail</label><input type="text" class="form-control" value="{{ proposed.email }}" disabled></div>
+          <div class="field"><label>Telefone</label><input type="text" class="form-control" value="{{ proposed.telefone }}" disabled></div>
+        </div>
+      </div>
+
+      {# Mantém os dados pro próximo POST #}
+      <input type="hidden" name="tipo" value="{{ proposed.tipo }}">
+      <input type="hidden" name="nome_razao" value="{{ proposed.nome_razao }}">
+      <input type="hidden" name="doc_tipo" value="{{ proposed.doc_tipo }}">
+      <input type="hidden" name="doc_num" value="{{ proposed.doc_num }}">
+      <input type="hidden" name="email" value="{{ proposed.email }}">
+      <input type="hidden" name="telefone" value="{{ proposed.telefone }}">
+
+      <div class="form-actions" style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn btn-primary btn-sm" name="confirm_action" value="link">Vincular cadastro existente</button>
+        <button class="btn btn-outline btn-sm" name="confirm_action" value="update">Atualizar cadastro selecionado com os dados acima</button>
+        {% if cancel_url %}
+          <a href="{{ cancel_url }}" class="btn btn-secondary btn-sm">Cancelar</a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+  .section{ border:1px solid var(--border, #e5e7eb); border-radius:.75rem; overflow:hidden; }
+  .section > h3{ margin:0; padding:.75rem 1rem; background:#f8fafc; border-bottom:1px solid var(--border, #e5e7eb); }
+  .section > .form-grid, .section > .field{ padding:.75rem; }
+  .form-grid{ display:grid; grid-template-columns: repeat(3, minmax(220px,1fr)); gap:12px; }
+  @media (max-width:1100px){ .form-grid{ grid-template-columns: repeat(2, minmax(220px,1fr)); } }
+  @media (max-width:720px){ .form-grid{ grid-template-columns: 1fr; } }
+  .form-grid .field{ display:flex; flex-direction:column; }
+  .form-grid .field > label{ font-weight:600; margin-bottom:4px; }
+  .span-2{ grid-column: span 2; }
+  .span-3{ grid-column: 1 / -1; }
+</style>
+{% endblock %}
+

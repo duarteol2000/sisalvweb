@@ -1,0 +1,114 @@
+{% extends "print/base.html" %}
+{% load static %}
+{% block title %}Pessoa 360 — {{ pessoa.nome_razao }}{% endblock %}
+{% block back_link %}<a class="btn" href="{% url 'relatorio_pessoa' pessoa.id %}">Voltar</a>{% endblock %}
+{% block header_title %}Relatório — Pessoa 360{% endblock %}
+{% block header_subtitle %}{{ pref.nome }} — {{ pref.cidade }}{% endblock %}
+{% block header_meta %}
+  <div><strong>Emitido em:</strong> {% now "d/m/Y H:i" %}</div>
+  <div><strong>Pessoa:</strong> {{ pessoa.nome_razao }}</div>
+  <div><strong>Documento:</strong> {{ pessoa.doc_num|default:"—" }}</div>
+{% endblock %}
+
+{% block content %}
+  <section class="section">
+    <div class="grid cols-3">
+      <div class="field"><div class="label">Nome/Razão</div><div class="value">{{ pessoa.nome_razao }}</div></div>
+      <div class="field"><div class="label">Tipo</div><div class="value">{{ pessoa.get_tipo_display }}</div></div>
+      <div class="field"><div class="label">Documento</div><div class="value">{{ pessoa.doc_num|default:"—" }}</div></div>
+    </div>
+  </section>
+
+  {% if de or ate or endereco or bairro %}
+  <section class="section">
+    <h3>Filtros aplicados</h3>
+    <div class="grid cols-3">
+      <div class="field"><div class="label">Período inicial</div><div class="value">{{ de|default:"—" }}</div></div>
+      <div class="field"><div class="label">Período final</div><div class="value">{{ ate|default:"—" }}</div></div>
+      <div class="field"><div class="label">Endereço contém</div><div class="value">{{ endereco|default:"—" }}</div></div>
+      <div class="field"><div class="label">Bairro</div><div class="value">{{ bairro|default:"—" }}</div></div>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if tipo == 'ALL' or tipo == 'DEN' %}
+  <section class="section">
+    <h3>Denúncias</h3>
+    <table class="print-table">
+      <thead><tr><th>Protocolo</th><th>Registro</th><th>Ocorrido em</th><th>Status</th><th>Procedência</th><th>Endereço</th></tr></thead>
+      <tbody>
+        {% for x in den %}
+        <tr>
+          <td>{{ x.protocolo }}</td>
+          <td>{{ x.criada_em|date:"d/m/Y H:i" }}</td>
+          <td>{% if x.ocorrido_em %}{{ x.ocorrido_em|date:"d/m/Y H:i" }}{% else %}—{% endif %}</td>
+          <td>{{ x.get_status_display }}</td>
+          <td>{{ x.get_procedencia_display }}</td>
+          <td>{{ x.local_oco_logradouro }}{% if x.local_oco_numero %}, {{ x.local_oco_numero }}{% endif %} — {{ x.local_oco_bairro }} — {{ x.local_oco_cidade }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6"><em>Sem registros.</em></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% endif %}
+
+  {% if tipo == 'ALL' or tipo == 'NTF' %}
+  <section class="section">
+    <h3>Notificações</h3>
+    <table class="print-table">
+      <thead><tr><th>Protocolo</th><th>Registro</th><th>Ocorrido em</th><th>Status</th><th>Prazo</th><th>Endereço</th></tr></thead>
+      <tbody>
+        {% for x in nots %}
+        <tr>
+          <td>{{ x.protocolo }}</td>
+          <td>{{ x.criada_em|date:"d/m/Y H:i" }}</td>
+          <td>{% if x.ocorrido_em %}{{ x.ocorrido_em|date:"d/m/Y H:i" }}{% else %}—{% endif %}</td>
+          <td>{{ x.get_status_display }}</td>
+          <td>{{ x.prazo_regularizacao|date:"d/m/Y"|default:"—" }}</td>
+          <td>{{ x.logradouro }}{% if x.numero %}, {{ x.numero }}{% endif %} — {{ x.bairro }} — {{ x.cidade }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6"><em>Sem registros.</em></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% endif %}
+
+  {% if tipo == 'ALL' or tipo == 'AIF' %}
+  <section class="section">
+    <h3>Autos de Infração</h3>
+    <table class="print-table">
+      <thead>
+        <tr>
+          <th>Protocolo</th>
+          <th>Registro</th>
+          <th>Ocorrido em</th>
+          <th>Status</th>
+          <th class="text-right">Vlr. Aplicado</th>
+          <th class="text-right">Vlr. Homologado</th>
+          <th>Endereço</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for x in aifs %}
+        <tr>
+          <td>{{ x.protocolo }}</td>
+          <td>{{ x.criada_em|date:"d/m/Y H:i" }}</td>
+          <td>{% if x.ocorrido_em %}{{ x.ocorrido_em|date:"d/m/Y H:i" }}{% else %}—{% endif %}</td>
+          <td>{{ x.get_status_display }}</td>
+          <td>R$ {{ x.valor_multa_aplicada|floatformat:2 }}</td>
+          <td>{% if x.valor_multa_homologado %}R$ {{ x.valor_multa_homologado|floatformat:2 }}{% else %}—{% endif %}</td>
+          <td>{{ x.logradouro }}{% if x.numero %}, {{ x.numero }}{% endif %} — {{ x.bairro }} — {{ x.cidade }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6"><em>Sem registros.</em></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% endif %}
+
+{% endblock %}

@@ -1,0 +1,175 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% block extra_css %}
+<style>
+  /* Filtros: label em cima, campo abaixo, grid responsivo */
+  .filters-card{ margin-bottom: 8px; }
+  .filters-grid{ display:grid; grid-template-columns: 1fr; gap:12px; }
+  @media (min-width: 860px){ .filters-grid{ grid-template-columns: repeat(3, minmax(220px,1fr)); } }
+  @media (min-width: 1180px){ .filters-grid{ grid-template-columns: repeat(4, minmax(220px,1fr)); } }
+  .filters-grid .f{ display:flex; flex-direction:column; }
+  .filters-grid .f > label{ display:block; font-weight:600; margin-bottom:4px; }
+  .filters-actions{ display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container mt-3">
+  <div class="d-flex align-items-center" style="gap:12px; flex-wrap:wrap;">
+    {% if pref and pref.logotipo %}
+      <img src="{{ pref.logotipo.url }}" alt="Logo" style="height:48px; width:auto;">
+    {% endif %}
+    <h2 class="page-title" style="margin:0;">👤 Pessoa 360</h2>
+  </div>
+  <div class="text-muted" style="margin-top:4px;">{{ pref.nome }} — {{ pref.cidade }}</div>
+
+  <div class="card p-3" style="margin-top:10px;">
+    <div class="row" style="display:grid; grid-template-columns: repeat(3, minmax(220px,1fr)); gap:12px;">
+      <div><strong>Nome/Razão:</strong> {{ pessoa.nome_razao }}</div>
+      <div><strong>Tipo:</strong> {{ pessoa.get_tipo_display }}</div>
+      <div><strong>Documento:</strong> {{ pessoa.doc_num|default:"—" }}</div>
+    </div>
+  </div>
+
+  <div class="card p-3" style="margin-top:10px;">
+    <form method="get" class="filters-card">
+      <div class="filters-grid">
+        <div class="f"><label>Período inicial</label><input type="date" name="de" value="{{ de }}" class="form-control"></div>
+        <div class="f"><label>Período final</label><input type="date" name="ate" value="{{ ate }}" class="form-control"></div>
+        <div class="f"><label>Endereço (contém)</label><input type="text" name="endereco" value="{{ endereco }}" class="form-control"></div>
+        <div class="f"><label>Bairro</label><input type="text" name="bairro" value="{{ bairro }}" class="form-control"></div>
+        <div class="f"><label>Fiscal</label>
+          <select name="fiscal" class="form-select">
+            <option value="">— todos —</option>
+            {% for u in fiscais_opts %}
+              <option value="{{ u.id }}" {% if fiscal and fiscal|add:'0' == u.id|add:'0' %}selected{% endif %}>{{ u.get_full_name|default:u.email }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="f"><label>Tipo</label>
+          <select name="tipo" class="form-select">
+            <option value="ALL" {% if tipo == 'ALL' %}selected{% endif %}>Todos</option>
+            <option value="DEN" {% if tipo == 'DEN' %}selected{% endif %}>Denúncias</option>
+            <option value="NTF" {% if tipo == 'NTF' %}selected{% endif %}>Notificações</option>
+            <option value="AIF" {% if tipo == 'AIF' %}selected{% endif %}>Autos de Infração</option>
+          </select>
+        </div>
+      </div>
+      <div class="filters-actions">
+        <button class="btn btn-primary btn-sm">Aplicar filtros</button>
+        <a href="{% url 'relatorio_pessoa' pessoa.id %}" class="btn btn-secondary btn-sm">Limpar</a>
+        <a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="{% url 'relatorio_pessoa_imprimir' pessoa.id %}?{{ request.GET.urlencode }}">Imprimir</a>
+      </div>
+    </form>
+  </div>
+
+  {% if tipo == 'ALL' or tipo == 'DEN' %}
+  <div class="card p-3" style="margin-top:10px;">
+    <div class="d-flex align-items-center justify-content-between">
+      <h3 style="margin:0;">📣 Denúncias <span class="badge bg-secondary">{{ totals.den }}</span></h3>
+      <a class="btn btn-sm btn-outline-primary" href="{% url 'relatorio_pessoa_csv' pessoa.id %}?tipo=DEN&{{ request.GET.urlencode }}">Exportar CSV</a>
+    </div>
+    <div class="table-responsive" style="margin-top:8px;">
+      <table class="table table-striped table-sm">
+        <thead><tr><th>Protocolo</th><th>Registro</th><th>Ocorrido em</th><th>Status</th><th>Procedência</th><th>Endereço do Ocorrido</th><th>Ações</th></tr></thead>
+        <tbody>
+        {% for x in den %}
+          <tr>
+            <td><code class="proto">{{ x.protocolo }}</code></td>
+            <td>{{ x.criada_em|date:"d/m/Y H:i" }}</td>
+            <td>{% if x.ocorrido_em %}{{ x.ocorrido_em|date:"d/m/Y H:i" }}{% else %}—{% endif %}</td>
+            <td>{{ x.get_status_display }}</td>
+            <td>{{ x.get_procedencia_display }}</td>
+            <td>{{ x.local_oco_logradouro }}{% if x.local_oco_numero %}, {{ x.local_oco_numero }}{% endif %} — {{ x.local_oco_bairro }} — {{ x.local_oco_cidade }}</td>
+            <td><a class="btn btn-sm btn-primary" href="{% url 'denuncias:detalhe' x.id %}">Ver</a></td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="6"><em>Sem registros.</em></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if tipo == 'ALL' or tipo == 'NTF' %}
+  <div class="card p-3" style="margin-top:10px;">
+    <div class="d-flex align-items-center justify-content-between">
+      <h3 style="margin:0;">📄 Notificações <span class="badge bg-secondary">{{ totals.ntf }}</span></h3>
+      <a class="btn btn-sm btn-outline-primary" href="{% url 'relatorio_pessoa_csv' pessoa.id %}?tipo=NTF&{{ request.GET.urlencode }}">Exportar CSV</a>
+    </div>
+    <div class="table-responsive" style="margin-top:8px;">
+      <table class="table table-striped table-sm">
+        <thead><tr><th>Protocolo</th><th>Registro</th><th>Ocorrido em</th><th>Status</th><th>Prazo</th><th>Endereço</th><th>Ações</th></tr></thead>
+        <tbody>
+        {% for x in nots %}
+          <tr>
+            <td><code class="proto">{{ x.protocolo }}</code></td>
+            <td>{{ x.criada_em|date:"d/m/Y H:i" }}</td>
+            <td>{% if x.ocorrido_em %}{{ x.ocorrido_em|date:"d/m/Y H:i" }}{% else %}—{% endif %}</td>
+            <td>{{ x.get_status_display }}</td>
+            <td>{{ x.prazo_regularizacao|date:"d/m/Y"|default:"—" }}</td>
+            <td>{{ x.logradouro }}{% if x.numero %}, {{ x.numero }}{% endif %} — {{ x.bairro }} — {{ x.cidade }}</td>
+            <td>
+              <a class="btn btn-sm btn-primary" href="{% url 'notificacoes:detalhe' x.id %}">Ver</a>
+              <a class="btn btn-sm btn-secondary" href="{% url 'notificacoes:imprimir' x.id %}" target="_blank" rel="noopener">Imprimir</a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="6"><em>Sem registros.</em></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if tipo == 'ALL' or tipo == 'AIF' %}
+  <div class="card p-3" style="margin-top:10px;">
+    <div class="d-flex align-items-center justify-content-between">
+      <h3 style="margin:0;">⚖️ Autos de Infração <span class="badge bg-secondary">{{ totals.aif }}</span></h3>
+      <a class="btn btn-sm btn-outline-primary" href="{% url 'relatorio_pessoa_csv' pessoa.id %}?tipo=AIF&{{ request.GET.urlencode }}">Exportar CSV</a>
+    </div>
+    <div class="table-responsive" style="margin-top:8px;">
+      <table class="table table-striped table-sm">
+        <thead>
+          <tr>
+            <th>Protocolo</th>
+            <th>Registro</th>
+            <th>Ocorrido em</th>
+            <th>Status</th>
+            <th class="text-right">Vlr. Aplicado</th>
+            <th class="text-right">Vlr. Homologado</th>
+            <th>Endereço</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for x in aifs %}
+          <tr>
+            <td><code class="proto">{{ x.protocolo }}</code></td>
+            <td>{{ x.criada_em|date:"d/m/Y H:i" }}</td>
+            <td>{% if x.ocorrido_em %}{{ x.ocorrido_em|date:"d/m/Y H:i" }}{% else %}—{% endif %}</td>
+            <td>{{ x.get_status_display }}</td>
+            <td>R$ {{ x.valor_multa_aplicada|floatformat:2 }}</td>
+            <td>{% if x.valor_multa_homologado %}R$ {{ x.valor_multa_homologado|floatformat:2 }}{% else %}—{% endif %}</td>
+            <td>{{ x.logradouro }}{% if x.numero %}, {{ x.numero }}{% endif %} — {{ x.bairro }} — {{ x.cidade }}</td>
+            <td>
+              <a class="btn btn-sm btn-primary" href="{% url 'autoinfracao:detalhe' x.id %}">Ver</a>
+              <a class="btn btn-sm btn-secondary" href="{% url 'autoinfracao:imprimir' x.id %}" target="_blank" rel="noopener">Imprimir</a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="6"><em>Sem registros.</em></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="card p-3" style="margin-top:10px;">
+    <strong>Totais</strong> — Denúncias: {{ totals.den }} • Notificações: {{ totals.ntf }} • AIF: {{ totals.aif }}
+  </div>
+
+</div>
+{% endblock %}

@@ -9,19 +9,44 @@ from .models import (
     DenunciaDocumentoImovel,
     DenunciaAnexo,
 )
+from apps.usuarios.models import Usuario
 
 
 class DenunciaOrigemForm(forms.ModelForm):
     # Override dos campos para evitar validação nativa de FloatField (que rejeita vírgula)
     local_oco_lat = forms.CharField(required=False)
     local_oco_lng = forms.CharField(required=False)
+    fiscais = forms.ModelMultipleChoiceField(
+        queryset=Usuario.objects.none(), required=False, label="Fiscais"
+    )
     def __init__(self, *args, **kwargs):
+        prefeitura_id = kwargs.pop("prefeitura_id", None)
         super().__init__(*args, **kwargs)
         # Latitude/Longitude não são obrigatórias no cadastro
         if 'local_oco_lat' in self.fields:
             self.fields['local_oco_lat'].required = False
         if 'local_oco_lng' in self.fields:
             self.fields['local_oco_lng'].required = False
+        # Carrega fiscais por prefeitura (quando informado)
+        if prefeitura_id and 'fiscais' in self.fields:
+            self.fields['fiscais'].queryset = Usuario.objects.filter(
+                prefeitura_id=prefeitura_id,
+                is_active=True,
+                tipo__iexact='FISCAL',
+            ).order_by('first_name', 'last_name', 'email')
+            self.fields['fiscais'].widget = forms.CheckboxSelectMultiple()
+            try:
+                self.fields['fiscais'].label_from_instance = lambda u: (
+                    (u.get_full_name() or u.email) + (f" ({u.matricula})" if getattr(u, 'matricula', None) else '')
+                )
+            except Exception:
+                pass
+            # Garante seleção marcada no GET (editar): lista de IDs como initial
+            if not self.is_bound and getattr(self.instance, 'pk', None):
+                try:
+                    self.initial['fiscais'] = list(self.instance.fiscais.values_list('pk', flat=True))
+                except Exception:
+                    pass
     class Meta:
         model = Denuncia
         fields = [
@@ -62,6 +87,9 @@ class DenunciaOrigemForm(forms.ModelForm):
             "local_oco_lat",
             "local_oco_lng",
             "descricao_oco",
+            "ocorrido_em",
+            # fiscais responsáveis
+            "fiscais",
         ]
         widgets = {
             # Máscaras: documentos/contatos
@@ -73,6 +101,7 @@ class DenunciaOrigemForm(forms.ModelForm):
             # Geolocalização com vírgula (6 casas)
             "local_oco_lat": forms.TextInput(attrs={"class": "js-decimal-6", "inputmode": "decimal", "placeholder": "Ex.: -3,876543"}),
             "local_oco_lng": forms.TextInput(attrs={"class": "js-decimal-6", "inputmode": "decimal", "placeholder": "Ex.: -38,654321"}),
+            "ocorrido_em": forms.DateTimeInput(attrs={"type": "datetime-local"}),
         }
 
     def clean(self):
@@ -83,6 +112,18 @@ class DenunciaOrigemForm(forms.ModelForm):
         lng = to_float_or_none(self.data.get("local_oco_lng", data.get("local_oco_lng")))
         lat, lng = clamp_lat_lng(lat, lng)
         data["local_oco_lat"], data["local_oco_lng"] = lat, lng
+        # Parse ocorrido_em
+        raw = self.data.get("ocorrido_em")
+        if raw:
+            from datetime import datetime
+            for fmt in ("%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M", "%d/%m/%Y %H:%M"):
+                try:
+                    data["ocorrido_em"] = datetime.strptime(raw.strip(), fmt)
+                    break
+                except Exception:
+                    continue
+            else:
+                self.add_error("ocorrido_em", "Data/hora inválida. Use o seletor ou 'dd/mm/aaaa hh:mm'.")
         return data
 
 # Retirado o comentário para dar sequência do cadastro de fotos

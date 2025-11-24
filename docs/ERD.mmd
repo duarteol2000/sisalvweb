@@ -1,0 +1,504 @@
+erDiagram
+  autoinfracao_AutoInfracao {
+    BigAutoField id "PK"
+    CharField protocolo
+    ForeignKey prefeitura "FK->Prefeitura"
+    ForeignKey processo "FK->Processo"
+    ForeignKey denuncia "FK->Denuncia"
+    ForeignKey notificacao "FK->Notificacao"
+    CharField pessoa_tipo
+    CharField nome_razao
+    CharField cpf_cnpj
+    CharField rg
+    CharField telefone
+    CharField email
+    CharField cep
+    CharField logradouro
+    CharField numero
+    CharField complemento
+    CharField bairro
+    CharField cidade
+    CharField uf
+    ForeignKey pessoa "FK->Pessoa"
+    ForeignKey imovel "FK->Imovel"
+    FloatField latitude
+    FloatField longitude
+    TextField descricao
+    CharField status
+    DateField prazo_regularizacao_data
+    DecimalField valor_infracao
+    DecimalField valor_multa_homologado
+    ForeignKey homologado_por "FK->Usuario"
+    DateTimeField homologado_em
+    DateTimeField regularizado_em
+    BooleanField pago
+    DecimalField valor_pago
+    DateField pago_em
+    CharField forma_pagamento
+    CharField guia_numero
+    CharField observacao_pagamento
+    DecimalField area_m2
+    DecimalField testada_m
+    DecimalField pe_direito_m
+    BooleanField duplex
+    PositiveIntegerField qtd_comodos
+    BooleanField compartimentacao
+    BooleanField divisorias
+    BooleanField mezanino
+    DecimalField area_mezanino_m2
+    DateTimeField ocorrido_em
+    DateTimeField criada_em
+    DateTimeField atualizada_em
+    ForeignKey criado_por "FK->Usuario"
+    ForeignKey atualizada_por "FK->Usuario"
+    ManyToManyField fiscais "M2M->Usuario"
+    ManyToManyField tipos "M2M->InfracaoTipo"
+  }
+  autoinfracao_AutoInfracaoAnexo {
+    BigAutoField id "PK"
+    ForeignKey auto_infracao "FK->AutoInfracao"
+    CharField tipo
+    FileField arquivo
+    CharField observacao
+    PositiveIntegerField largura_px
+    PositiveIntegerField altura_px
+    CharField hash_sha256
+    BooleanField otimizada
+    DateTimeField criada_em
+  }
+  autoinfracao_AutoInfracaoMultaItem {
+    BigAutoField id "PK"
+    ForeignKey auto_infracao "FK->AutoInfracao"
+    ForeignKey enquadramento "FK->Enquadramento"
+    CharField descricao
+    DecimalField valor_unitario
+    DecimalField valor_homologado
+    DecimalField valor_total
+    DateTimeField criada_em
+  }
+  autoinfracao_Embargo {
+    BigAutoField id "PK"
+    CharField protocolo
+    ForeignKey prefeitura "FK->Prefeitura"
+    ForeignKey auto_infracao "FK->AutoInfracao"
+    CharField status
+    CharField licenca_tipo
+    TextField exigencias_texto
+    DateField prazo_regularizacao_data
+    DateTimeField afixado_no_local_em
+    DateTimeField entregue_ao_responsavel_em
+    DateTimeField criada_em
+    DateTimeField atualizada_em
+    ForeignKey criado_por "FK->Usuario"
+    ForeignKey atualizada_por "FK->Usuario"
+  }
+  autoinfracao_EmbargoAnexo {
+    BigAutoField id "PK"
+    ForeignKey embargo "FK->Embargo"
+    CharField tipo
+    FileField arquivo
+    CharField observacao
+    PositiveIntegerField largura_px
+    PositiveIntegerField altura_px
+    CharField hash_sha256
+    BooleanField otimizada
+    DateTimeField criada_em
+  }
+  autoinfracao_Enquadramento {
+    BigAutoField id "PK"
+    ForeignKey prefeitura "FK->Prefeitura"
+    CharField codigo
+    CharField artigo
+    CharField descricao
+    DecimalField valor_base
+    BooleanField ativo
+    DateTimeField criado_em
+    DateTimeField atualizado_em
+  }
+  autoinfracao_InfracaoTipo {
+    BigAutoField id "PK"
+    ForeignKey prefeitura "FK->Prefeitura"
+    CharField codigo
+    CharField nome
+    TextField descricao
+    BooleanField ativo
+    DateTimeField criado_em
+    DateTimeField atualizado_em
+  }
+  autoinfracao_Interdicao {
+    BigAutoField id "PK"
+    CharField protocolo
+    ForeignKey prefeitura "FK->Prefeitura"
+    ForeignKey auto_infracao "FK->AutoInfracao"
+    CharField status
+    CharField motivo_tipo
+    TextField condicoes_texto
+    DateField prazo_regularizacao_data
+    DateTimeField afixado_no_local_em
+    DateTimeField entregue_ao_responsavel_em
+    DateTimeField criada_em
+    DateTimeField atualizada_em
+    ForeignKey criado_por "FK->Usuario"
+    ForeignKey atualizada_por "FK->Usuario"
+  }
+  autoinfracao_InterdicaoAnexo {
+    BigAutoField id "PK"
+    ForeignKey interdicao "FK->Interdicao"
+    CharField tipo
+    FileField arquivo
+    CharField observacao
+    PositiveIntegerField largura_px
+    PositiveIntegerField altura_px
+    CharField hash_sha256
+    BooleanField otimizada
+    DateTimeField criada_em
+  }
+  cadastros_Imovel {
+    BigAutoField id "PK"
+    ForeignKey prefeitura "FK->Prefeitura"
+    CharField inscricao
+    CharField logradouro
+    CharField numero
+    CharField complemento
+    CharField bairro
+    CharField cidade
+    CharField uf
+    CharField cep
+    DecimalField latitude
+    DecimalField longitude
+    BooleanField ativo
+    DateTimeField criado_em
+    DateTimeField atualizado_em
+    ManyToManyField pessoas "M2M->Pessoa"
+  }
+  cadastros_ImovelVinculo {
+    BigAutoField id "PK"
+    ForeignKey imovel "FK->Imovel"
+    ForeignKey pessoa "FK->Pessoa"
+    CharField papel
+    DateField inicio
+    DateField fim
+    CharField observacao
+    DateTimeField criado_em
+    DateTimeField atualizado_em
+  }
+  cadastros_Pessoa {
+    BigAutoField id "PK"
+    ForeignKey prefeitura "FK->Prefeitura"
+    CharField tipo
+    CharField nome_razao
+    CharField doc_tipo
+    CharField doc_num
+    CharField email
+    CharField telefone
+    BooleanField ativo
+    DateTimeField criado_em
+    DateTimeField atualizado_em
+  }
+  denuncias_Denuncia {
+    BigAutoField id "PK"
+    ForeignKey prefeitura "FK->Prefeitura"
+    ForeignKey processo "FK->Processo"
+    ForeignKey criado_por "FK->Usuario"
+    CharField protocolo
+    CharField origem_denuncia
+    BooleanField denunciante_anonimo
+    CharField denunciante_nome
+    CharField denunciante_email
+    CharField denunciante_telefone
+    ForeignKey denunciante_fiscal "FK->Usuario"
+    CharField denunciado_tipo_pessoa
+    CharField denunciado_nome_razao
+    CharField denunciado_cpf_cnpj
+    CharField denunciado_rg_ie
+    CharField denunciado_email
+    CharField denunciado_telefone
+    CharField denunciado_res_logradouro
+    CharField denunciado_res_numero
+    CharField denunciado_res_complemento
+    CharField denunciado_res_bairro
+    CharField denunciado_res_cidade
+    CharField denunciado_res_uf
+    CharField denunciado_res_cep
+    CharField local_oco_logradouro
+    CharField local_oco_numero
+    CharField local_oco_complemento
+    CharField local_oco_pontoref
+    CharField local_oco_bairro
+    CharField local_oco_cidade
+    CharField local_oco_uf
+    CharField local_oco_cep
+    FloatField local_oco_lat
+    FloatField local_oco_lng
+    TextField descricao_oco
+    DateTimeField ocorrido_em
+    ForeignKey pessoa "FK->Pessoa"
+    ForeignKey imovel "FK->Imovel"
+    CharField status
+    CharField procedencia
+    BooleanField ativo
+    CharField canal_registro
+    GenericIPAddressField ip_origem
+    CharField user_agent
+    DateTimeField criada_em
+    DateTimeField atualizada_em
+    ManyToManyField fiscais "M2M->Usuario"
+  }
+  denuncias_DenunciaAnexo {
+    BigAutoField id "PK"
+    ForeignKey denuncia "FK->Denuncia"
+    CharField tipo
+    FileField arquivo
+    CharField observacao
+    IntegerField largura_px
+    IntegerField altura_px
+    CharField hash_sha256
+    BooleanField otimizada
+    DateTimeField criada_em
+  }
+  denuncias_DenunciaApontamento {
+    BigAutoField id "PK"
+    ForeignKey denuncia "FK->Denuncia"
+    CharField observacao
+    BooleanField atualizar_geo
+    FloatField novo_lat
+    FloatField novo_lng
+    ForeignKey criado_por "FK->Usuario"
+    DateTimeField criado_em
+  }
+  denuncias_DenunciaApontamentoAnexo {
+    BigAutoField id "PK"
+    ForeignKey apontamento "FK->DenunciaApontamento"
+    FileField arquivo
+    IntegerField largura_px
+    IntegerField altura_px
+    CharField hash_sha256
+    BooleanField otimizada
+    DateTimeField criada_em
+  }
+  denuncias_DenunciaDocumentoImovel {
+    BigAutoField id "PK"
+    ForeignKey denuncia "FK->Denuncia"
+    CharField tipo
+    FileField arquivo
+    CharField observacao
+    DateTimeField criada_em
+  }
+  denuncias_DenunciaHistorico {
+    BigAutoField id "PK"
+    ForeignKey denuncia "FK->Denuncia"
+    CharField acao
+    CharField descricao
+    ForeignKey feito_por "FK->Usuario"
+    DateTimeField feito_em
+    GenericIPAddressField ip_origem
+  }
+  notificacoes_Notificacao {
+    BigAutoField id "PK"
+    CharField protocolo
+    ForeignKey prefeitura "FK->Prefeitura"
+    ForeignKey processo "FK->Processo"
+    ForeignKey denuncia "FK->Denuncia"
+    CharField pessoa_tipo
+    CharField nome_razao
+    CharField cpf_cnpj
+    CharField rg
+    CharField telefone
+    CharField email
+    CharField cep
+    CharField logradouro
+    CharField numero
+    CharField complemento
+    CharField bairro
+    CharField cidade
+    CharField uf
+    CharField pontoref_oco
+    FloatField latitude
+    FloatField longitude
+    TextField descricao
+    CharField documento_tipo
+    DateField prazo_regularizacao
+    CharField status
+    TextField conclusao_motivo
+    FileField conclusao_documento
+    DateTimeField ocorrido_em
+    DecimalField area_m2
+    DecimalField testada_m
+    DecimalField pe_direito_m
+    BooleanField duplex
+    PositiveIntegerField qtd_comodos
+    BooleanField compartimentacao
+    BooleanField divisorias
+    BooleanField mezanino
+    DecimalField area_mezanino_m2
+    DateTimeField criada_em
+    DateTimeField atualizada_em
+    ForeignKey criado_por "FK->Usuario"
+    ForeignKey atualizada_por "FK->Usuario"
+    ForeignKey pessoa "FK->Pessoa"
+    ForeignKey imovel "FK->Imovel"
+    ManyToManyField fiscais "M2M->Usuario"
+  }
+  notificacoes_NotificacaoAnexo {
+    BigAutoField id "PK"
+    ForeignKey notificacao "FK->Notificacao"
+    CharField tipo
+    FileField arquivo
+    CharField observacao
+    PositiveIntegerField largura_px
+    PositiveIntegerField altura_px
+    CharField hash_sha256
+    BooleanField otimizada
+    DateTimeField criada_em
+  }
+  prefeituras_Prefeitura {
+    BigAutoField id "PK"
+    CharField nome
+    CharField cidade
+    CharField sigla_cidade
+    CharField codigo_ibge
+    CharField dominio_email
+    FileField logotipo
+    CharField secretario
+    CharField diretor
+    BooleanField ativo
+    DecimalField latitude
+    DecimalField longitude
+    DateTimeField criado_em
+    DateTimeField atualizado_em
+  }
+  processos_FotoProcesso {
+    BigAutoField id "PK"
+    ForeignKey processo "FK->Processo"
+    FileField arquivo
+    CharField etapa_origem
+    PositiveIntegerField origem_id
+    ForeignKey uploader "FK->Usuario"
+    PositiveIntegerField ordem
+    CharField legenda
+    FloatField latitude
+    FloatField longitude
+    PositiveIntegerField largura_px
+    PositiveIntegerField altura_px
+    CharField hash_sha256
+    BooleanField otimizada
+    BooleanField ativa
+    DateTimeField criada_em
+    DateTimeField atualizada_em
+  }
+  processos_Processo {
+    BigAutoField id "PK"
+    ForeignKey prefeitura "FK->Prefeitura"
+    CharField protocolo
+    CharField status
+    DateTimeField criado_em
+    DateTimeField atualizado_em
+    ForeignKey criado_por "FK->Usuario"
+  }
+  usuarios_AuditLog {
+    BigAutoField id "PK"
+    ForeignKey usuario "FK->Usuario"
+    ForeignKey prefeitura "FK->Prefeitura"
+    CharField acao
+    CharField recurso
+    CharField app_label
+    CharField model
+    CharField object_id
+    CharField url
+    CharField metodo
+    GenericIPAddressField ip
+    CharField user_agent
+    JSONField extra
+    DateTimeField criado_em
+  }
+  usuarios_Usuario {
+    BigAutoField id "PK"
+    CharField password
+    DateTimeField last_login
+    BooleanField is_superuser
+    CharField first_name
+    CharField last_name
+    BooleanField is_staff
+    BooleanField is_active
+    DateTimeField date_joined
+    CharField email
+    CharField tipo
+    CharField matricula
+    ForeignKey prefeitura "FK->Prefeitura"
+    ManyToManyField groups "M2M->Group"
+    ManyToManyField user_permissions "M2M->Permission"
+  }
+  usuarios_UsuarioLoginLog {
+    BigAutoField id "PK"
+    ForeignKey usuario "FK->Usuario"
+    ForeignKey prefeitura "FK->Prefeitura"
+    GenericIPAddressField ip
+    CharField user_agent
+    DateTimeField logado_em
+    DateTimeField logout_em
+  }
+  autoinfracao_AutoInfracao }o--|| cadastros_Imovel : imovel
+  autoinfracao_AutoInfracao }o--|| cadastros_Pessoa : pessoa
+  autoinfracao_AutoInfracao }o--|| denuncias_Denuncia : denuncia
+  autoinfracao_AutoInfracao }o--|| notificacoes_Notificacao : notificacao
+  autoinfracao_AutoInfracao }o--|| prefeituras_Prefeitura : prefeitura
+  autoinfracao_AutoInfracao }o--|| processos_Processo : processo
+  autoinfracao_AutoInfracao }o--|| usuarios_Usuario : atualizada_por
+  autoinfracao_AutoInfracao }o--|| usuarios_Usuario : criado_por
+  autoinfracao_AutoInfracao }o--|| usuarios_Usuario : homologado_por
+  autoinfracao_AutoInfracao }o--o{ autoinfracao_InfracaoTipo : tipos
+  autoinfracao_AutoInfracao }o--o{ usuarios_Usuario : fiscais
+  autoinfracao_AutoInfracaoAnexo }o--|| autoinfracao_AutoInfracao : auto_infracao
+  autoinfracao_AutoInfracaoMultaItem }o--|| autoinfracao_AutoInfracao : auto_infracao
+  autoinfracao_AutoInfracaoMultaItem }o--|| autoinfracao_Enquadramento : enquadramento
+  autoinfracao_Embargo }o--|| autoinfracao_AutoInfracao : auto_infracao
+  autoinfracao_Embargo }o--|| prefeituras_Prefeitura : prefeitura
+  autoinfracao_Embargo }o--|| usuarios_Usuario : atualizada_por
+  autoinfracao_Embargo }o--|| usuarios_Usuario : criado_por
+  autoinfracao_EmbargoAnexo }o--|| autoinfracao_Embargo : embargo
+  autoinfracao_Enquadramento }o--|| prefeituras_Prefeitura : prefeitura
+  autoinfracao_InfracaoTipo }o--|| prefeituras_Prefeitura : prefeitura
+  autoinfracao_Interdicao }o--|| autoinfracao_AutoInfracao : auto_infracao
+  autoinfracao_Interdicao }o--|| prefeituras_Prefeitura : prefeitura
+  autoinfracao_Interdicao }o--|| usuarios_Usuario : atualizada_por
+  autoinfracao_Interdicao }o--|| usuarios_Usuario : criado_por
+  autoinfracao_InterdicaoAnexo }o--|| autoinfracao_Interdicao : interdicao
+  cadastros_Imovel }o--|| prefeituras_Prefeitura : prefeitura
+  cadastros_Imovel }o--o{ cadastros_Pessoa : pessoas
+  cadastros_ImovelVinculo }o--|| cadastros_Imovel : imovel
+  cadastros_ImovelVinculo }o--|| cadastros_Pessoa : pessoa
+  cadastros_Pessoa }o--|| prefeituras_Prefeitura : prefeitura
+  denuncias_Denuncia }o--|| cadastros_Imovel : imovel
+  denuncias_Denuncia }o--|| cadastros_Pessoa : pessoa
+  denuncias_Denuncia }o--|| prefeituras_Prefeitura : prefeitura
+  denuncias_Denuncia }o--|| processos_Processo : processo
+  denuncias_Denuncia }o--|| usuarios_Usuario : criado_por
+  denuncias_Denuncia }o--|| usuarios_Usuario : denunciante_fiscal
+  denuncias_Denuncia }o--o{ usuarios_Usuario : fiscais
+  denuncias_DenunciaAnexo }o--|| denuncias_Denuncia : denuncia
+  denuncias_DenunciaApontamento }o--|| denuncias_Denuncia : denuncia
+  denuncias_DenunciaApontamento }o--|| usuarios_Usuario : criado_por
+  denuncias_DenunciaApontamentoAnexo }o--|| denuncias_DenunciaApontamento : apontamento
+  denuncias_DenunciaDocumentoImovel }o--|| denuncias_Denuncia : denuncia
+  denuncias_DenunciaHistorico }o--|| denuncias_Denuncia : denuncia
+  denuncias_DenunciaHistorico }o--|| usuarios_Usuario : feito_por
+  notificacoes_Notificacao }o--|| cadastros_Imovel : imovel
+  notificacoes_Notificacao }o--|| cadastros_Pessoa : pessoa
+  notificacoes_Notificacao }o--|| denuncias_Denuncia : denuncia
+  notificacoes_Notificacao }o--|| prefeituras_Prefeitura : prefeitura
+  notificacoes_Notificacao }o--|| processos_Processo : processo
+  notificacoes_Notificacao }o--|| usuarios_Usuario : atualizada_por
+  notificacoes_Notificacao }o--|| usuarios_Usuario : criado_por
+  notificacoes_Notificacao }o--o{ usuarios_Usuario : fiscais
+  notificacoes_NotificacaoAnexo }o--|| notificacoes_Notificacao : notificacao
+  processos_FotoProcesso }o--|| processos_Processo : processo
+  processos_FotoProcesso }o--|| usuarios_Usuario : uploader
+  processos_Processo }o--|| prefeituras_Prefeitura : prefeitura
+  processos_Processo }o--|| usuarios_Usuario : criado_por
+  usuarios_AuditLog }o--|| prefeituras_Prefeitura : prefeitura
+  usuarios_AuditLog }o--|| usuarios_Usuario : usuario
+  usuarios_Usuario }o--|| prefeituras_Prefeitura : prefeitura
+  usuarios_Usuario }o--o{ auth_Group : groups
+  usuarios_Usuario }o--o{ auth_Permission : user_permissions
+  usuarios_UsuarioLoginLog }o--|| prefeituras_Prefeitura : prefeitura
+  usuarios_UsuarioLoginLog }o--|| usuarios_Usuario : usuario

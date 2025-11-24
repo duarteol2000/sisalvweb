@@ -89,7 +89,7 @@
             <button id="sidebarToggle" class="btn btn-ghost" title="Alternar menu">☰</button>
             <div class="user">
               {% if request.user.is_authenticated %}
-                <span class="hello">Olá, {{ request.user.first_name|default:request.user.username }}</span>
+                <span class="hello">Olá, {{ request.user.first_name|default:request.user.email }}</span>
                 <a class="btn btn-primary" href="/admin/">Admin</a>
                 <a class="btn btn-outline" href="/logout/">Sair</a>
               {% else %}
@@ -129,6 +129,11 @@
             <div class="menu-group">
               <a href="{% url 'relatorio_operacional' %}" class="menu-item">📊 Operacional (Entradas / Saídas / Processos Ativos)</a>
               <a href="{% url 'autoinfracao:relatorio_arrecadacao' %}" class="menu-item">💵 Arrecadação AIF (Mensal)</a>
+              <a href="{% url 'relatorio_pessoa_busca' %}" class="menu-item">👤 Pessoa 360</a>
+              <a href="{% url 'relatorio_risco' %}" class="menu-item">📈 Risco &amp; Prioridade</a>
+              <a href="{% url 'relatorio_fiscais' %}" class="menu-item">👷 Carga por Fiscal</a>
+              <a href="{% url 'relatorio_fiscais_quantitativo' %}" class="menu-item">📋 Quantitativo por Fiscal</a>
+              <a href="{% url 'relatorio_fiscais_bairros' %}" class="menu-item">📍 Bairros por Fiscal</a>
             </div>
           </details>
 

@@ -37,7 +37,7 @@
     <div><strong>Status:</strong> {{ obj.get_status_display }}</div>
     <div><strong>Criado em:</strong> {{ obj.criada_em|date:"d/m/Y H:i" }}</div>
     <div><strong>Val. Infração (AIF):</strong> R$ {{ obj.valor_infracao|default:obj.total_infracao_itens|floatformat:2 }}</div>
-    <div><strong>Val. Homologado (AIF):</strong> R$ {{ obj.valor_multa_homologado|default:obj.total_multa|floatformat:2 }}</div>
+    <div><strong>Val. Homologado (AIF):</strong> R$ {{ obj.valor_multa_prevalente|floatformat:2 }}</div>
     <div>
       <strong>Pagamento:</strong>
       {% if obj.pago %}
@@ -251,7 +251,7 @@
       <div class="table-wrapper">
         <div class="text-right" style="margin:0 0 6px;">
           <strong>Val. Homologado (AIF):</strong>
-          R$ {{ obj.valor_multa_homologado|default:obj.total_multa|floatformat:2 }}
+          R$ {{ obj.valor_multa_prevalente|floatformat:2 }}
         </div>
         <table class="table table-striped table-sm">
           <thead>

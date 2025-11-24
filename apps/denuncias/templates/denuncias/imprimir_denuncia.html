@@ -15,6 +15,9 @@
   }
   /* Mapa na impressão */
   #print-map{ height:260px; min-height:220px; border:1px solid #e5e7eb; border-radius:8px; }
+  /* Fiscais em linha (lado a lado) */
+  .fiscais-line{ display:flex; flex-wrap:wrap; gap:6px 10px; align-items:center; }
+  .fiscal-pill{ display:inline-block; padding:2px 8px; border:1px solid #e5e7eb; border-radius:999px; background:#fff; }
 </style>
 <link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
 {% endblock %}
@@ -69,16 +72,16 @@
     <div class="field"><div class="value" style="white-space: pre-line;">{{ obj.descricao_oco }}</div></div>
   </section>
 
-  <section class="section">
+  <section class="section no-break">
     <h3>Fiscais</h3>
     <div class="field">
       {% with fs=obj.fiscais.all %}
         {% if fs %}
-          <ul style="margin:0; padding-left:18px;">
+          <div class="fiscais-line">
             {% for f in fs %}
-              <li>{{ f.get_full_name|default:f.email }}</li>
+              <span class="fiscal-pill">{{ f.get_full_name|default:f.email }}</span>
             {% endfor %}
-          </ul>
+          </div>
         {% else %}
           <em>Nenhum fiscal vinculado.</em>
         {% endif %}

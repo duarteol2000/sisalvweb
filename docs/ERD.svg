@@ -1,0 +1,440 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='2924' height='1772' viewBox='0 0 2924 1772'>
+<style> .t{font-family:Helvetica,Arial,sans-serif;font-size:12px;fill:#0F172A} .tt{font-weight:700} .box{fill:#ffffff;stroke:#CBD5E1;stroke-width:1.2;rx:8} .hdr{fill:#F8FAFC;stroke:#E2E8F0;stroke-width:1.2} .edge{stroke:#4F46E5;stroke-width:1.2;fill:none} .edgeNN{stroke:#0EA5E9} .lbl{font-size:10px;fill:#475569} </style>
+<defs><marker id='arrow' viewBox='0 0 10 10' refX='10' refY='5' markerWidth='6' markerHeight='6' orient='auto-start-reverse'><path d='M 0 0 L 10 5 L 0 10 z' fill='#4F46E5'/></marker><marker id='arrowNN' viewBox='0 0 10 10' refX='10' refY='5' markerWidth='6' markerHeight='6' orient='auto-start-reverse'><path d='M 0 0 L 10 5 L 0 10 z' fill='#0EA5E9'/></marker></defs>
+<text class='t tt' x='40' y='28'>prefeituras</text>
+<text class='t tt' x='452' y='28'>usuarios</text>
+<text class='t tt' x='864' y='28'>cadastros</text>
+<text class='t tt' x='1276' y='28'>processos</text>
+<text class='t tt' x='1688' y='28'>denuncias</text>
+<text class='t tt' x='2100' y='28'>notificacoes</text>
+<text class='t tt' x='2512' y='28'>autoinfracao</text>
+<rect class='box' x='40' y='40' width='340' height='164' />
+<rect class='hdr' x='40' y='40' width='340' height='32' />
+<text class='t tt' x='50' y='58'>prefeituras.Prefeitura</text>
+<text class='t' x='50' y='86'>id: BigAutoField (PK)</text>
+<text class='t' x='50' y='102'>nome: CharField</text>
+<text class='t' x='50' y='118'>cidade: CharField</text>
+<text class='t' x='50' y='134'>sigla_cidade: CharField</text>
+<text class='t' x='50' y='150'>codigo_ibge: CharField</text>
+<text class='t' x='50' y='166'>dominio_email: CharField</text>
+<text class='t' x='50' y='182'>logotipo: FileField</text>
+<text class='t' x='50' y='198'>secretario: CharField</text>
+<text class='t' x='50' y='214'>…</text>
+<rect class='box' x='452' y='228' width='340' height='164' />
+<rect class='hdr' x='452' y='228' width='340' height='32' />
+<text class='t tt' x='462' y='246'>usuarios.Usuario</text>
+<text class='t' x='462' y='274'>id: BigAutoField (PK)</text>
+<text class='t' x='462' y='290'>password: CharField</text>
+<text class='t' x='462' y='306'>last_login: DateTimeField</text>
+<text class='t' x='462' y='322'>is_superuser: BooleanField</text>
+<text class='t' x='462' y='338'>first_name: CharField</text>
+<text class='t' x='462' y='354'>last_name: CharField</text>
+<text class='t' x='462' y='370'>is_staff: BooleanField</text>
+<text class='t' x='462' y='386'>is_active: BooleanField</text>
+<text class='t' x='462' y='402'>…</text>
+<rect class='box' x='452' y='416' width='340' height='148' />
+<rect class='hdr' x='452' y='416' width='340' height='32' />
+<text class='t tt' x='462' y='434'>usuarios.UsuarioLoginLog</text>
+<text class='t' x='462' y='462'>id: BigAutoField (PK)</text>
+<text class='t' x='462' y='478'>usuario: ForeignKey (FK-&gt;Usuario)</text>
+<text class='t' x='462' y='494'>prefeitura: ForeignKey (FK-&gt;Prefeitura)</text>
+<text class='t' x='462' y='510'>ip: GenericIPAddressField</text>
+<text class='t' x='462' y='526'>user_agent: CharField</text>
+<text class='t' x='462' y='542'>logado_em: DateTimeField</text>
+<text class='t' x='462' y='558'>logout_em: DateTimeField</text>
+<rect class='box' x='452' y='40' width='340' height='164' />
+<rect class='hdr' x='452' y='40' width='340' height='32' />
+<text class='t tt' x='462' y='58'>usuarios.AuditLog</text>
+<text class='t' x='462' y='86'>id: BigAutoField (PK)</text>
+<text class='t' x='462' y='102'>usuario: ForeignKey (FK-&gt;Usuario)</text>
+<text class='t' x='462' y='118'>prefeitura: ForeignKey (FK-&gt;Prefeitura)</text>
+<text class='t' x='462' y='134'>acao: CharField</text>
+<text class='t' x='462' y='150'>recurso: CharField</text>
+<text class='t' x='462' y='166'>app_label: CharField</text>
+<text class='t' x='462' y='182'>model: CharField</text>
+<text class='t' x='462' y='198'>object_id: CharField</text>
+<text class='t' x='462' y='214'>…</text>
+<rect class='box' x='1688' y='40' width='340' height='164' />
+<rect class='hdr' x='1688' y='40' width='340' height='32' />
+<text class='t tt' x='1698' y='58'>denuncias.Denuncia</text>
+<text class='t' x='1698' y='86'>id: BigAutoField (PK)</text>
+<text class='t' x='1698' y='102'>prefeitura: ForeignKey (FK-&gt;Prefeitura)</text>
+<text class='t' x='1698' y='118'>processo: ForeignKey (FK-&gt;Processo)</text>
+<text class='t' x='1698' y='134'>criado_por: ForeignKey (FK-&gt;Usuario)</text>
+<text class='t' x='1698' y='150'>protocolo: CharField</text>
+<text class='t' x='1698' y='166'>origem_denuncia: CharField</text>
+<text class='t' x='1698' y='182'>denunciante_anonimo: BooleanField</text>
+<text class='t' x='1698' y='198'>denunciante_nome: CharField</text>
+<text class='t' x='1698' y='214'>…</text>
+<rect class='box' x='1688' y='792' width='340' height='132' />
+<rect class='hdr' x='1688' y='792' width='340' height='32' />
+<text class='t tt' x='1698' y='810'>denuncias.DenunciaDocumentoImovel</text>
+<text class='t' x='1698' y='838'>id: BigAutoField (PK)</text>
+<text class='t' x='1698' y='854'>denuncia: ForeignKey (FK-&gt;Denuncia)</text>
+<text class='t' x='1698' y='870'>tipo: CharField</text>
+<text class='t' x='1698' y='886'>arquivo: FileField</text>
+<text class='t' x='1698' y='902'>observacao: CharField</text>
+<text class='t' x='1698' y='918'>criada_em: DateTimeField</text>
+<rect class='box' x='1688' y='228' width='340' height='164' />
+<rect class='hdr' x='1688' y='228' width='340' height='32' />
+<text class='t tt' x='1698' y='246'>denuncias.DenunciaAnexo</text>
+<text class='t' x='1698' y='274'>id: BigAutoField (PK)</text>
+<text class='t' x='1698' y='290'>denuncia: ForeignKey (FK-&gt;Denuncia)</text>
+<text class='t' x='1698' y='306'>tipo: CharField</text>
+<text class='t' x='1698' y='322'>arquivo: FileField</text>
+<text class='t' x='1698' y='338'>observacao: CharField</text>
+<text class='t' x='1698' y='354'>largura_px: IntegerField</text>
+<text class='t' x='1698' y='370'>altura_px: IntegerField</text>
+<text class='t' x='1698' y='386'>hash_sha256: CharField</text>
+<text class='t' x='1698' y='402'>…</text>
+<rect class='box' x='1688' y='948' width='340' height='148' />
+<rect class='hdr' x='1688' y='948' width='340' height='32' />
+<text class='t tt' x='1698' y='966'>denuncias.DenunciaHistorico</text>
+<text class='t' x='1698' y='994'>id: BigAutoField (PK)</text>
+<text class='t' x='1698' y='1010'>denuncia: ForeignKey (FK-&gt;Denuncia)</text>
+<text class='t' x='1698' y='1026'>acao: CharField</text>
+<text class='t' x='1698' y='1042'>descricao: CharField</text>
+<text class='t' x='1698' y='1058'>feito_por: ForeignKey (FK-&gt;Usuario)</text>
+<text class='t' x='1698' y='1074'>feito_em: DateTimeField</text>
+<text class='t' x='1698' y='1090'>ip_origem: GenericIPAddressField</text>
+<rect class='box' x='1688' y='416' width='340' height='164' />
+<rect class='hdr' x='1688' y='416' width='340' height='32' />
+<text class='t tt' x='1698' y='434'>denuncias.DenunciaApontamento</text>
+<text class='t' x='1698' y='462'>id: BigAutoField (PK)</text>
+<text class='t' x='1698' y='478'>denuncia: ForeignKey (FK-&gt;Denuncia)</text>
+<text class='t' x='1698' y='494'>observacao: CharField</text>
+<text class='t' x='1698' y='510'>atualizar_geo: BooleanField</text>
+<text class='t' x='1698' y='526'>novo_lat: FloatField</text>
+<text class='t' x='1698' y='542'>novo_lng: FloatField</text>
+<text class='t' x='1698' y='558'>criado_por: ForeignKey (FK-&gt;Usuario)</text>
+<text class='t' x='1698' y='574'>criado_em: DateTimeField</text>
+<rect class='box' x='1688' y='604' width='340' height='164' />
+<rect class='hdr' x='1688' y='604' width='340' height='32' />
+<text class='t tt' x='1698' y='622'>denuncias.DenunciaApontamentoAnexo</text>
+<text class='t' x='1698' y='650'>id: BigAutoField (PK)</text>
+<text class='t' x='1698' y='666'>apontamento: ForeignKey (FK-&gt;DenunciaApontamento)</text>
+<text class='t' x='1698' y='682'>arquivo: FileField</text>
+<text class='t' x='1698' y='698'>largura_px: IntegerField</text>
+<text class='t' x='1698' y='714'>altura_px: IntegerField</text>
+<text class='t' x='1698' y='730'>hash_sha256: CharField</text>
+<text class='t' x='1698' y='746'>otimizada: BooleanField</text>
+<text class='t' x='1698' y='762'>criada_em: DateTimeField</text>
+<rect class='box' x='2100' y='40' width='340' height='164' />
+<rect class='hdr' x='2100' y='40' width='340' height='32' />
+<text class='t tt' x='2110' y='58'>notificacoes.Notificacao</text>
+<text class='t' x='2110' y='86'>id: BigAutoField (PK)</text>
+<text class='t' x='2110' y='102'>protocolo: CharField</text>
+<text class='t' x='2110' y='118'>prefeitura: ForeignKey (FK-&gt;Prefeitura)</text>
+<text class='t' x='2110' y='134'>processo: ForeignKey (FK-&gt;Processo)</text>
+<text class='t' x='2110' y='150'>denuncia: ForeignKey (FK-&gt;Denuncia)</text>
+<text class='t' x='2110' y='166'>pessoa_tipo: CharField</text>
+<text class='t' x='2110' y='182'>nome_razao: CharField</text>
+<text class='t' x='2110' y='198'>cpf_cnpj: CharField</text>
+<text class='t' x='2110' y='214'>…</text>
+<rect class='box' x='2100' y='228' width='340' height='164' />
+<rect class='hdr' x='2100' y='228' width='340' height='32' />
+<text class='t tt' x='2110' y='246'>notificacoes.NotificacaoAnexo</text>
+<text class='t' x='2110' y='274'>id: BigAutoField (PK)</text>
+<text class='t' x='2110' y='290'>notificacao: ForeignKey (FK-&gt;Notificacao)</text>
+<text class='t' x='2110' y='306'>tipo: CharField</text>
+<text class='t' x='2110' y='322'>arquivo: FileField</text>
+<text class='t' x='2110' y='338'>observacao: CharField</text>
+<text class='t' x='2110' y='354'>largura_px: PositiveIntegerField</text>
+<text class='t' x='2110' y='370'>altura_px: PositiveIntegerField</text>
+<text class='t' x='2110' y='386'>hash_sha256: CharField</text>
+<text class='t' x='2110' y='402'>…</text>
+<rect class='box' x='2512' y='1168' width='340' height='164' />
+<rect class='hdr' x='2512' y='1168' width='340' height='32' />
+<text class='t tt' x='2522' y='1186'>autoinfracao.InfracaoTipo</text>
+<text class='t' x='2522' y='1214'>id: BigAutoField (PK)</text>
+<text class='t' x='2522' y='1230'>prefeitura: ForeignKey (FK-&gt;Prefeitura)</text>
+<text class='t' x='2522' y='1246'>codigo: CharField</text>
+<text class='t' x='2522' y='1262'>nome: CharField</text>
+<text class='t' x='2522' y='1278'>descricao: TextField</text>
+<text class='t' x='2522' y='1294'>ativo: BooleanField</text>
+<text class='t' x='2522' y='1310'>criado_em: DateTimeField</text>
+<text class='t' x='2522' y='1326'>atualizado_em: DateTimeField</text>
+<rect class='box' x='2512' y='40' width='340' height='164' />
+<rect class='hdr' x='2512' y='40' width='340' height='32' />
+<text class='t tt' x='2522' y='58'>autoinfracao.AutoInfracao</text>
+<text class='t' x='2522' y='86'>id: BigAutoField (PK)</text>
+<text class='t' x='2522' y='102'>protocolo: CharField</text>
+<text class='t' x='2522' y='118'>prefeitura: ForeignKey (FK-&gt;Prefeitura)</text>
+<text class='t' x='2522' y='134'>processo: ForeignKey (FK-&gt;Processo)</text>
+<text class='t' x='2522' y='150'>denuncia: ForeignKey (FK-&gt;Denuncia)</text>
+<text class='t' x='2522' y='166'>notificacao: ForeignKey (FK-&gt;Notificacao)</text>
+<text class='t' x='2522' y='182'>pessoa_tipo: CharField</text>
+<text class='t' x='2522' y='198'>nome_razao: CharField</text>
+<text class='t' x='2522' y='214'>…</text>
+<rect class='box' x='2512' y='604' width='340' height='164' />
+<rect class='hdr' x='2512' y='604' width='340' height='32' />
+<text class='t tt' x='2522' y='622'>autoinfracao.Embargo</text>
+<text class='t' x='2522' y='650'>id: BigAutoField (PK)</text>
+<text class='t' x='2522' y='666'>protocolo: CharField</text>
+<text class='t' x='2522' y='682'>prefeitura: ForeignKey (FK-&gt;Prefeitura)</text>
+<text class='t' x='2522' y='698'>auto_infracao: ForeignKey (FK-&gt;AutoInfracao)</text>
+<text class='t' x='2522' y='714'>status: CharField</text>
+<text class='t' x='2522' y='730'>licenca_tipo: CharField</text>
+<text class='t' x='2522' y='746'>exigencias_texto: TextField</text>
+<text class='t' x='2522' y='762'>prazo_regularizacao_data: DateField</text>
+<text class='t' x='2522' y='778'>…</text>
+<rect class='box' x='2512' y='792' width='340' height='164' />
+<rect class='hdr' x='2512' y='792' width='340' height='32' />
+<text class='t tt' x='2522' y='810'>autoinfracao.EmbargoAnexo</text>
+<text class='t' x='2522' y='838'>id: BigAutoField (PK)</text>
+<text class='t' x='2522' y='854'>embargo: ForeignKey (FK-&gt;Embargo)</text>
+<text class='t' x='2522' y='870'>tipo: CharField</text>
+<text class='t' x='2522' y='886'>arquivo: FileField</text>
+<text class='t' x='2522' y='902'>observacao: CharField</text>
+<text class='t' x='2522' y='918'>largura_px: PositiveIntegerField</text>
+<text class='t' x='2522' y='934'>altura_px: PositiveIntegerField</text>
+<text class='t' x='2522' y='950'>hash_sha256: CharField</text>
+<text class='t' x='2522' y='966'>…</text>
+<rect class='box' x='2512' y='1356' width='340' height='164' />
+<rect class='hdr' x='2512' y='1356' width='340' height='32' />
+<text class='t tt' x='2522' y='1374'>autoinfracao.Interdicao</text>
+<text class='t' x='2522' y='1402'>id: BigAutoField (PK)</text>
+<text class='t' x='2522' y='1418'>protocolo: CharField</text>
+<text class='t' x='2522' y='1434'>prefeitura: ForeignKey (FK-&gt;Prefeitura)</text>
+<text class='t' x='2522' y='1450'>auto_infracao: ForeignKey (FK-&gt;AutoInfracao)</text>
+<text class='t' x='2522' y='1466'>status: CharField</text>
+<text class='t' x='2522' y='1482'>motivo_tipo: CharField</text>
+<text class='t' x='2522' y='1498'>condicoes_texto: TextField</text>
+<text class='t' x='2522' y='1514'>prazo_regularizacao_data: DateField</text>
+<text class='t' x='2522' y='1530'>…</text>
+<rect class='box' x='2512' y='1544' width='340' height='164' />
+<rect class='hdr' x='2512' y='1544' width='340' height='32' />
+<text class='t tt' x='2522' y='1562'>autoinfracao.InterdicaoAnexo</text>
+<text class='t' x='2522' y='1590'>id: BigAutoField (PK)</text>
+<text class='t' x='2522' y='1606'>interdicao: ForeignKey (FK-&gt;Interdicao)</text>
+<text class='t' x='2522' y='1622'>tipo: CharField</text>
+<text class='t' x='2522' y='1638'>arquivo: FileField</text>
+<text class='t' x='2522' y='1654'>observacao: CharField</text>
+<text class='t' x='2522' y='1670'>largura_px: PositiveIntegerField</text>
+<text class='t' x='2522' y='1686'>altura_px: PositiveIntegerField</text>
+<text class='t' x='2522' y='1702'>hash_sha256: CharField</text>
+<text class='t' x='2522' y='1718'>…</text>
+<rect class='box' x='2512' y='228' width='340' height='164' />
+<rect class='hdr' x='2512' y='228' width='340' height='32' />
+<text class='t tt' x='2522' y='246'>autoinfracao.AutoInfracaoAnexo</text>
+<text class='t' x='2522' y='274'>id: BigAutoField (PK)</text>
+<text class='t' x='2522' y='290'>auto_infracao: ForeignKey (FK-&gt;AutoInfracao)</text>
+<text class='t' x='2522' y='306'>tipo: CharField</text>
+<text class='t' x='2522' y='322'>arquivo: FileField</text>
+<text class='t' x='2522' y='338'>observacao: CharField</text>
+<text class='t' x='2522' y='354'>largura_px: PositiveIntegerField</text>
+<text class='t' x='2522' y='370'>altura_px: PositiveIntegerField</text>
+<text class='t' x='2522' y='386'>hash_sha256: CharField</text>
+<text class='t' x='2522' y='402'>…</text>
+<rect class='box' x='2512' y='980' width='340' height='164' />
+<rect class='hdr' x='2512' y='980' width='340' height='32' />
+<text class='t tt' x='2522' y='998'>autoinfracao.Enquadramento</text>
+<text class='t' x='2522' y='1026'>id: BigAutoField (PK)</text>
+<text class='t' x='2522' y='1042'>prefeitura: ForeignKey (FK-&gt;Prefeitura)</text>
+<text class='t' x='2522' y='1058'>codigo: CharField</text>
+<text class='t' x='2522' y='1074'>artigo: CharField</text>
+<text class='t' x='2522' y='1090'>descricao: CharField</text>
+<text class='t' x='2522' y='1106'>valor_base: DecimalField</text>
+<text class='t' x='2522' y='1122'>ativo: BooleanField</text>
+<text class='t' x='2522' y='1138'>criado_em: DateTimeField</text>
+<text class='t' x='2522' y='1154'>…</text>
+<rect class='box' x='2512' y='416' width='340' height='164' />
+<rect class='hdr' x='2512' y='416' width='340' height='32' />
+<text class='t tt' x='2522' y='434'>autoinfracao.AutoInfracaoMultaItem</text>
+<text class='t' x='2522' y='462'>id: BigAutoField (PK)</text>
+<text class='t' x='2522' y='478'>auto_infracao: ForeignKey (FK-&gt;AutoInfracao)</text>
+<text class='t' x='2522' y='494'>enquadramento: ForeignKey (FK-&gt;Enquadramento)</text>
+<text class='t' x='2522' y='510'>descricao: CharField</text>
+<text class='t' x='2522' y='526'>valor_unitario: DecimalField</text>
+<text class='t' x='2522' y='542'>valor_homologado: DecimalField</text>
+<text class='t' x='2522' y='558'>valor_total: DecimalField</text>
+<text class='t' x='2522' y='574'>criada_em: DateTimeField</text>
+<rect class='box' x='864' y='416' width='340' height='164' />
+<rect class='hdr' x='864' y='416' width='340' height='32' />
+<text class='t tt' x='874' y='434'>cadastros.Pessoa</text>
+<text class='t' x='874' y='462'>id: BigAutoField (PK)</text>
+<text class='t' x='874' y='478'>prefeitura: ForeignKey (FK-&gt;Prefeitura)</text>
+<text class='t' x='874' y='494'>tipo: CharField</text>
+<text class='t' x='874' y='510'>nome_razao: CharField</text>
+<text class='t' x='874' y='526'>doc_tipo: CharField</text>
+<text class='t' x='874' y='542'>doc_num: CharField</text>
+<text class='t' x='874' y='558'>email: CharField</text>
+<text class='t' x='874' y='574'>telefone: CharField</text>
+<text class='t' x='874' y='590'>…</text>
+<rect class='box' x='864' y='40' width='340' height='164' />
+<rect class='hdr' x='864' y='40' width='340' height='32' />
+<text class='t tt' x='874' y='58'>cadastros.Imovel</text>
+<text class='t' x='874' y='86'>id: BigAutoField (PK)</text>
+<text class='t' x='874' y='102'>prefeitura: ForeignKey (FK-&gt;Prefeitura)</text>
+<text class='t' x='874' y='118'>inscricao: CharField</text>
+<text class='t' x='874' y='134'>logradouro: CharField</text>
+<text class='t' x='874' y='150'>numero: CharField</text>
+<text class='t' x='874' y='166'>complemento: CharField</text>
+<text class='t' x='874' y='182'>bairro: CharField</text>
+<text class='t' x='874' y='198'>cidade: CharField</text>
+<text class='t' x='874' y='214'>…</text>
+<rect class='box' x='864' y='228' width='340' height='164' />
+<rect class='hdr' x='864' y='228' width='340' height='32' />
+<text class='t tt' x='874' y='246'>cadastros.ImovelVinculo</text>
+<text class='t' x='874' y='274'>id: BigAutoField (PK)</text>
+<text class='t' x='874' y='290'>imovel: ForeignKey (FK-&gt;Imovel)</text>
+<text class='t' x='874' y='306'>pessoa: ForeignKey (FK-&gt;Pessoa)</text>
+<text class='t' x='874' y='322'>papel: CharField</text>
+<text class='t' x='874' y='338'>inicio: DateField</text>
+<text class='t' x='874' y='354'>fim: DateField</text>
+<text class='t' x='874' y='370'>observacao: CharField</text>
+<text class='t' x='874' y='386'>criado_em: DateTimeField</text>
+<text class='t' x='874' y='402'>…</text>
+<rect class='box' x='1276' y='228' width='340' height='148' />
+<rect class='hdr' x='1276' y='228' width='340' height='32' />
+<text class='t tt' x='1286' y='246'>processos.Processo</text>
+<text class='t' x='1286' y='274'>id: BigAutoField (PK)</text>
+<text class='t' x='1286' y='290'>prefeitura: ForeignKey (FK-&gt;Prefeitura)</text>
+<text class='t' x='1286' y='306'>protocolo: CharField</text>
+<text class='t' x='1286' y='322'>status: CharField</text>
+<text class='t' x='1286' y='338'>criado_em: DateTimeField</text>
+<text class='t' x='1286' y='354'>atualizado_em: DateTimeField</text>
+<text class='t' x='1286' y='370'>criado_por: ForeignKey (FK-&gt;Usuario)</text>
+<rect class='box' x='1276' y='40' width='340' height='164' />
+<rect class='hdr' x='1276' y='40' width='340' height='32' />
+<text class='t tt' x='1286' y='58'>processos.FotoProcesso</text>
+<text class='t' x='1286' y='86'>id: BigAutoField (PK)</text>
+<text class='t' x='1286' y='102'>processo: ForeignKey (FK-&gt;Processo)</text>
+<text class='t' x='1286' y='118'>arquivo: FileField</text>
+<text class='t' x='1286' y='134'>etapa_origem: CharField</text>
+<text class='t' x='1286' y='150'>origem_id: PositiveIntegerField</text>
+<text class='t' x='1286' y='166'>uploader: ForeignKey (FK-&gt;Usuario)</text>
+<text class='t' x='1286' y='182'>ordem: PositiveIntegerField</text>
+<text class='t' x='1286' y='198'>legenda: CharField</text>
+<text class='t' x='1286' y='214'>…</text>
+<path class='edge' d='M 452 310.0 C 416.0 310.0, 416.0 122.0, 380 122.0' marker-end='url(#arrow)' />
+<text class='lbl' x='416.0' y='212.0' text-anchor='middle'>N:1 prefeitura</text>
+<path class='edgeNN' d='M 452 310.0 C 226.0 310.0, 226.0 0.0, 0 0.0' marker-end='url(#arrowNN)' />
+<text class='lbl' x='226.0' y='151.0' text-anchor='middle'>N:N groups</text>
+<path class='edgeNN' d='M 452 310.0 C 226.0 310.0, 226.0 0.0, 0 0.0' marker-end='url(#arrowNN)' />
+<text class='lbl' x='226.0' y='151.0' text-anchor='middle'>N:N user_permissions</text>
+<path class='edge' d='M 792 490.0 C 622.0 490.0, 622.0 310.0, 452 310.0' marker-end='url(#arrow)' />
+<text class='lbl' x='622.0' y='396.0' text-anchor='middle'>N:1 usuario</text>
+<path class='edge' d='M 452 490.0 C 416.0 490.0, 416.0 122.0, 380 122.0' marker-end='url(#arrow)' />
+<text class='lbl' x='416.0' y='302.0' text-anchor='middle'>N:1 prefeitura</text>
+<path class='edge' d='M 792 122.0 C 622.0 122.0, 622.0 310.0, 452 310.0' marker-end='url(#arrow)' />
+<text class='lbl' x='622.0' y='212.0' text-anchor='middle'>N:1 usuario</text>
+<path class='edge' d='M 452 122.0 C 416.0 122.0, 416.0 122.0, 380 122.0' marker-end='url(#arrow)' />
+<text class='lbl' x='416.0' y='118.0' text-anchor='middle'>N:1 prefeitura</text>
+<path class='edge' d='M 1688 122.0 C 1034.0 122.0, 1034.0 122.0, 380 122.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1034.0' y='118.0' text-anchor='middle'>N:1 prefeitura</text>
+<path class='edge' d='M 1688 122.0 C 1652.0 122.0, 1652.0 302.0, 1616 302.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1652.0' y='208.0' text-anchor='middle'>N:1 processo</text>
+<path class='edge' d='M 1688 122.0 C 1240.0 122.0, 1240.0 310.0, 792 310.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1240.0' y='212.0' text-anchor='middle'>N:1 criado_por</text>
+<path class='edge' d='M 1688 122.0 C 1240.0 122.0, 1240.0 310.0, 792 310.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1240.0' y='212.0' text-anchor='middle'>N:1 denunciante_fiscal</text>
+<path class='edge' d='M 1688 122.0 C 1446.0 122.0, 1446.0 498.0, 1204 498.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1446.0' y='306.0' text-anchor='middle'>N:1 pessoa</text>
+<path class='edge' d='M 1688 122.0 C 1446.0 122.0, 1446.0 122.0, 1204 122.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1446.0' y='118.0' text-anchor='middle'>N:1 imovel</text>
+<path class='edgeNN' d='M 1688 122.0 C 1240.0 122.0, 1240.0 310.0, 792 310.0' marker-end='url(#arrowNN)' />
+<text class='lbl' x='1240.0' y='212.0' text-anchor='middle'>N:N fiscais</text>
+<path class='edge' d='M 2028 858.0 C 1858.0 858.0, 1858.0 122.0, 1688 122.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1858.0' y='486.0' text-anchor='middle'>N:1 denuncia</text>
+<path class='edge' d='M 2028 310.0 C 1858.0 310.0, 1858.0 122.0, 1688 122.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1858.0' y='212.0' text-anchor='middle'>N:1 denuncia</text>
+<path class='edge' d='M 2028 1022.0 C 1858.0 1022.0, 1858.0 122.0, 1688 122.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1858.0' y='568.0' text-anchor='middle'>N:1 denuncia</text>
+<path class='edge' d='M 1688 1022.0 C 1240.0 1022.0, 1240.0 310.0, 792 310.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1240.0' y='662.0' text-anchor='middle'>N:1 feito_por</text>
+<path class='edge' d='M 2028 498.0 C 1858.0 498.0, 1858.0 122.0, 1688 122.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1858.0' y='306.0' text-anchor='middle'>N:1 denuncia</text>
+<path class='edge' d='M 1688 498.0 C 1240.0 498.0, 1240.0 310.0, 792 310.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1240.0' y='400.0' text-anchor='middle'>N:1 criado_por</text>
+<path class='edge' d='M 2028 686.0 C 1858.0 686.0, 1858.0 498.0, 1688 498.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1858.0' y='588.0' text-anchor='middle'>N:1 apontamento</text>
+<path class='edge' d='M 2100 122.0 C 1240.0 122.0, 1240.0 122.0, 380 122.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1240.0' y='118.0' text-anchor='middle'>N:1 prefeitura</text>
+<path class='edge' d='M 2100 122.0 C 1858.0 122.0, 1858.0 302.0, 1616 302.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1858.0' y='208.0' text-anchor='middle'>N:1 processo</text>
+<path class='edge' d='M 2100 122.0 C 2064.0 122.0, 2064.0 122.0, 2028 122.0' marker-end='url(#arrow)' />
+<text class='lbl' x='2064.0' y='118.0' text-anchor='middle'>N:1 denuncia</text>
+<path class='edge' d='M 2100 122.0 C 1446.0 122.0, 1446.0 310.0, 792 310.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1446.0' y='212.0' text-anchor='middle'>N:1 criado_por</text>
+<path class='edge' d='M 2100 122.0 C 1446.0 122.0, 1446.0 310.0, 792 310.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1446.0' y='212.0' text-anchor='middle'>N:1 atualizada_por</text>
+<path class='edge' d='M 2100 122.0 C 1652.0 122.0, 1652.0 498.0, 1204 498.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1652.0' y='306.0' text-anchor='middle'>N:1 pessoa</text>
+<path class='edge' d='M 2100 122.0 C 1652.0 122.0, 1652.0 122.0, 1204 122.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1652.0' y='118.0' text-anchor='middle'>N:1 imovel</text>
+<path class='edgeNN' d='M 2100 122.0 C 1446.0 122.0, 1446.0 310.0, 792 310.0' marker-end='url(#arrowNN)' />
+<text class='lbl' x='1446.0' y='212.0' text-anchor='middle'>N:N fiscais</text>
+<path class='edge' d='M 2440 310.0 C 2270.0 310.0, 2270.0 122.0, 2100 122.0' marker-end='url(#arrow)' />
+<text class='lbl' x='2270.0' y='212.0' text-anchor='middle'>N:1 notificacao</text>
+<path class='edge' d='M 2512 1250.0 C 1446.0 1250.0, 1446.0 122.0, 380 122.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1446.0' y='682.0' text-anchor='middle'>N:1 prefeitura</text>
+<path class='edge' d='M 2512 122.0 C 1446.0 122.0, 1446.0 122.0, 380 122.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1446.0' y='118.0' text-anchor='middle'>N:1 prefeitura</text>
+<path class='edge' d='M 2512 122.0 C 2064.0 122.0, 2064.0 302.0, 1616 302.0' marker-end='url(#arrow)' />
+<text class='lbl' x='2064.0' y='208.0' text-anchor='middle'>N:1 processo</text>
+<path class='edge' d='M 2512 122.0 C 2270.0 122.0, 2270.0 122.0, 2028 122.0' marker-end='url(#arrow)' />
+<text class='lbl' x='2270.0' y='118.0' text-anchor='middle'>N:1 denuncia</text>
+<path class='edge' d='M 2512 122.0 C 2476.0 122.0, 2476.0 122.0, 2440 122.0' marker-end='url(#arrow)' />
+<text class='lbl' x='2476.0' y='118.0' text-anchor='middle'>N:1 notificacao</text>
+<path class='edge' d='M 2512 122.0 C 1858.0 122.0, 1858.0 498.0, 1204 498.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1858.0' y='306.0' text-anchor='middle'>N:1 pessoa</text>
+<path class='edge' d='M 2512 122.0 C 1858.0 122.0, 1858.0 122.0, 1204 122.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1858.0' y='118.0' text-anchor='middle'>N:1 imovel</text>
+<path class='edge' d='M 2512 122.0 C 1652.0 122.0, 1652.0 310.0, 792 310.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1652.0' y='212.0' text-anchor='middle'>N:1 homologado_por</text>
+<path class='edge' d='M 2512 122.0 C 1652.0 122.0, 1652.0 310.0, 792 310.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1652.0' y='212.0' text-anchor='middle'>N:1 criado_por</text>
+<path class='edge' d='M 2512 122.0 C 1652.0 122.0, 1652.0 310.0, 792 310.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1652.0' y='212.0' text-anchor='middle'>N:1 atualizada_por</text>
+<path class='edgeNN' d='M 2512 122.0 C 1652.0 122.0, 1652.0 310.0, 792 310.0' marker-end='url(#arrowNN)' />
+<text class='lbl' x='1652.0' y='212.0' text-anchor='middle'>N:N fiscais</text>
+<path class='edgeNN' d='M 2852 122.0 C 2682.0 122.0, 2682.0 1250.0, 2512 1250.0' marker-end='url(#arrowNN)' />
+<text class='lbl' x='2682.0' y='682.0' text-anchor='middle'>N:N tipos</text>
+<path class='edge' d='M 2512 686.0 C 1446.0 686.0, 1446.0 122.0, 380 122.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1446.0' y='400.0' text-anchor='middle'>N:1 prefeitura</text>
+<path class='edge' d='M 2852 686.0 C 2682.0 686.0, 2682.0 122.0, 2512 122.0' marker-end='url(#arrow)' />
+<text class='lbl' x='2682.0' y='400.0' text-anchor='middle'>N:1 auto_infracao</text>
+<path class='edge' d='M 2512 686.0 C 1652.0 686.0, 1652.0 310.0, 792 310.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1652.0' y='494.0' text-anchor='middle'>N:1 criado_por</text>
+<path class='edge' d='M 2512 686.0 C 1652.0 686.0, 1652.0 310.0, 792 310.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1652.0' y='494.0' text-anchor='middle'>N:1 atualizada_por</text>
+<path class='edge' d='M 2852 874.0 C 2682.0 874.0, 2682.0 686.0, 2512 686.0' marker-end='url(#arrow)' />
+<text class='lbl' x='2682.0' y='776.0' text-anchor='middle'>N:1 embargo</text>
+<path class='edge' d='M 2512 1438.0 C 1446.0 1438.0, 1446.0 122.0, 380 122.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1446.0' y='776.0' text-anchor='middle'>N:1 prefeitura</text>
+<path class='edge' d='M 2852 1438.0 C 2682.0 1438.0, 2682.0 122.0, 2512 122.0' marker-end='url(#arrow)' />
+<text class='lbl' x='2682.0' y='776.0' text-anchor='middle'>N:1 auto_infracao</text>
+<path class='edge' d='M 2512 1438.0 C 1652.0 1438.0, 1652.0 310.0, 792 310.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1652.0' y='870.0' text-anchor='middle'>N:1 criado_por</text>
+<path class='edge' d='M 2512 1438.0 C 1652.0 1438.0, 1652.0 310.0, 792 310.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1652.0' y='870.0' text-anchor='middle'>N:1 atualizada_por</text>
+<path class='edge' d='M 2852 1626.0 C 2682.0 1626.0, 2682.0 1438.0, 2512 1438.0' marker-end='url(#arrow)' />
+<text class='lbl' x='2682.0' y='1528.0' text-anchor='middle'>N:1 interdicao</text>
+<path class='edge' d='M 2852 310.0 C 2682.0 310.0, 2682.0 122.0, 2512 122.0' marker-end='url(#arrow)' />
+<text class='lbl' x='2682.0' y='212.0' text-anchor='middle'>N:1 auto_infracao</text>
+<path class='edge' d='M 2512 1062.0 C 1446.0 1062.0, 1446.0 122.0, 380 122.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1446.0' y='588.0' text-anchor='middle'>N:1 prefeitura</text>
+<path class='edge' d='M 2852 498.0 C 2682.0 498.0, 2682.0 122.0, 2512 122.0' marker-end='url(#arrow)' />
+<text class='lbl' x='2682.0' y='306.0' text-anchor='middle'>N:1 auto_infracao</text>
+<path class='edge' d='M 2852 498.0 C 2682.0 498.0, 2682.0 1062.0, 2512 1062.0' marker-end='url(#arrow)' />
+<text class='lbl' x='2682.0' y='776.0' text-anchor='middle'>N:1 enquadramento</text>
+<path class='edge' d='M 864 498.0 C 622.0 498.0, 622.0 122.0, 380 122.0' marker-end='url(#arrow)' />
+<text class='lbl' x='622.0' y='306.0' text-anchor='middle'>N:1 prefeitura</text>
+<path class='edge' d='M 864 122.0 C 622.0 122.0, 622.0 122.0, 380 122.0' marker-end='url(#arrow)' />
+<text class='lbl' x='622.0' y='118.0' text-anchor='middle'>N:1 prefeitura</text>
+<path class='edgeNN' d='M 1204 122.0 C 1034.0 122.0, 1034.0 498.0, 864 498.0' marker-end='url(#arrowNN)' />
+<text class='lbl' x='1034.0' y='306.0' text-anchor='middle'>N:N pessoas</text>
+<path class='edge' d='M 1204 310.0 C 1034.0 310.0, 1034.0 122.0, 864 122.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1034.0' y='212.0' text-anchor='middle'>N:1 imovel</text>
+<path class='edge' d='M 1204 310.0 C 1034.0 310.0, 1034.0 498.0, 864 498.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1034.0' y='400.0' text-anchor='middle'>N:1 pessoa</text>
+<path class='edge' d='M 1276 302.0 C 828.0 302.0, 828.0 122.0, 380 122.0' marker-end='url(#arrow)' />
+<text class='lbl' x='828.0' y='208.0' text-anchor='middle'>N:1 prefeitura</text>
+<path class='edge' d='M 1276 302.0 C 1034.0 302.0, 1034.0 310.0, 792 310.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1034.0' y='302.0' text-anchor='middle'>N:1 criado_por</text>
+<path class='edge' d='M 1616 122.0 C 1446.0 122.0, 1446.0 302.0, 1276 302.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1446.0' y='208.0' text-anchor='middle'>N:1 processo</text>
+<path class='edge' d='M 1276 122.0 C 1034.0 122.0, 1034.0 310.0, 792 310.0' marker-end='url(#arrow)' />
+<text class='lbl' x='1034.0' y='212.0' text-anchor='middle'>N:1 uploader</text>
+</svg>

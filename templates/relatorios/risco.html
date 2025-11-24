@@ -1,0 +1,66 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% block content %}
+<div class="container mt-3">
+  <h2 class="page-title">📊 Risco & Prioridade — por Bairro</h2>
+
+  <div class="card p-3" style="margin-top:8px;">
+    <form method="get" class="filters-card">
+      <div style="display:grid; grid-template-columns: repeat(4, minmax(160px, 1fr)); gap:8px;">
+        <div><label>De</label><input type="date" name="de" class="form-control" value="{{ de|date:'Y-m-d' }}"></div>
+        <div><label>Até</label><input type="date" name="ate" class="form-control" value="{{ ate|date:'Y-m-d' }}"></div>
+        <div><label>Tipo</label>
+          <select name="tipo" class="form-select">
+            <option value="ALL" {% if tipo == 'ALL' %}selected{% endif %}>Todos</option>
+            <option value="DEN" {% if tipo == 'DEN' %}selected{% endif %}>Denúncias</option>
+            <option value="NTF" {% if tipo == 'NTF' %}selected{% endif %}>Notificações</option>
+            <option value="AIF" {% if tipo == 'AIF' %}selected{% endif %}>Autos de Infração</option>
+          </select>
+        </div>
+        <div style="display:flex; align-items:end; gap:8px;">
+          <button class="btn btn-primary btn-sm" type="submit">Aplicar</button>
+          <a class="btn btn-secondary btn-sm" href="{% url 'relatorio_risco' %}">Limpar</a>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="table-card shadow-sm" style="margin-top:10px;">
+    <div class="table-head"><div><strong>Ranking por Score</strong></div></div>
+    <div class="table-wrap table-responsive">
+      <table class="table table-striped table-sm mb-0">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th class="text-left">Bairro</th>
+            <th class="text-right">Volume</th>
+            <th class="text-right">Últ. 30d</th>
+            <th class="text-right">Severidade (R$)</th>
+            <th class="text-right">Score</th>
+            <th class="text-left">Tendência</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for r in rows %}
+          <tr>
+            <td>{{ forloop.counter }}</td>
+            <td>{{ r.bairro }}</td>
+            <td class="text-right">{{ r.vol }}</td>
+            <td class="text-right">{{ r.vol_rec }}</td>
+            <td class="text-right">{{ r.sev|floatformat:2 }}</td>
+            <td class="text-right">{{ r.score|floatformat:3 }}</td>
+            <td>
+              {% if r.trend == 'up' %}<span class="badge bg-danger">↑</span>
+              {% elif r.trend == 'down' %}<span class="badge bg-success">↓</span>
+              {% else %}<span class="badge bg-secondary">→</span>{% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="7"><em>Nenhum dado para o período.</em></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

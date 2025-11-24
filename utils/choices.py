@@ -19,6 +19,10 @@ PESSOA_TIPO_CHOICES = [
 ORIGEM_DENUNCIA_CHOICES = [
     ('CONTRIBUINTE', 'Contribuinte'),
     ('FISCAL', 'Fiscal'),
+    ('OUVIDORIA', 'Ouvidoria'),
+    ('PGM', 'Procuradoria Geral do Município'),
+    ('LIMPEZA PUBLICA', 'Limpeza Pública'),
+    ('MP', 'Ministério Público'),
 ]
 
 # Status da denúncia
@@ -32,7 +36,6 @@ DENUNCIA_STATUS_CHOICES = [
 
 # Procedência da denúncia
 DENUNCIA_PROCEDENCIA_CHOICES = [
-    ('INDETERMINADA', 'Indeterminada'),
     ('PROCEDE', 'Procede'),
     ('NAO_PROCEDE', 'Não procede'),
 ]

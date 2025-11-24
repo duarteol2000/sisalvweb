@@ -48,7 +48,6 @@
   </div>
 </header>
 
-{% if obj.denuncia or aif %}
 <div class="detail-links" style="margin:.25rem 0 .5rem;">
   {% if obj.denuncia %}
     <div class="doc-rel"><strong>Denúncia:</strong> <code class="proto">{{ obj.denuncia.protocolo }}</code> — <a class="link-ver" href="{% url 'denuncias:detalhe' obj.denuncia.pk %}">+ver</a></div>
@@ -62,8 +61,12 @@
   <div class="doc-rel"><strong>Imóvel vinculado:</strong>
     {% if obj.imovel %}{{ obj.imovel.logradouro }}{% if obj.imovel.numero %}, {{ obj.imovel.numero }}{% endif %} — {{ obj.imovel.bairro }} — {{ obj.imovel.cidade }}/{{ obj.imovel.uf }}{% if obj.imovel.inscricao %} • Inscrição: {{ obj.imovel.inscricao }}{% endif %}{% else %}—{% endif %}
   </div>
+  <div class="doc-rel"><strong>Fiscais:</strong>
+    {% with fs=obj.fiscais.all %}
+      {% if fs %}{{ fs|join:", " }}{% else %}—{% endif %}
+    {% endwith %}
+  </div>
 </div>
-{% endif %}
 
 {% if not obj.pessoa or not obj.imovel %}
 <div class="card p-0 table-card shadow-sm" style="margin-top:10px;">
@@ -216,6 +219,12 @@
       <div class="f"><label>Divisórias</label><div class="v">{{ obj.divisorias|yesno:"Sim,Não" }}</div></div>
       <div class="f"><label>Mezanino</label><div class="v">{{ obj.mezanino|yesno:"Sim,Não" }}</div></div>
       <div class="f"><label>Área mezanino (m²)</label><div class="v">{{ obj.area_mezanino_m2|default:"—" }}</div></div>
+      {% if obj.conclusao_motivo %}
+      <div class="f span-3"><label>Motivo da Conclusão</label><div class="v" style="white-space:pre-line;">{{ obj.conclusao_motivo }}</div></div>
+      {% endif %}
+      {% if obj.conclusao_documento %}
+      <div class="f span-3"><label>Documento de Conclusão</label><div class="v"><a href="{{ obj.conclusao_documento.url }}" target="_blank" rel="noopener">Baixar arquivo</a></div></div>
+      {% endif %}
     </div>
   </div>
 </div>

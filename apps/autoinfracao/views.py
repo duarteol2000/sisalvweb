@@ -23,6 +23,7 @@ from .forms import (
     EmbargoAnexoForm,
     InterdicaoAnexoForm,
     AutoInfracaoAnexoForm,
+    AutoInfracaoDefesaForm,
 )
 from .models import AutoInfracaoMultaItem, Enquadramento, InfracaoTipo
 from apps.notificacoes.models import Notificacao
@@ -147,11 +148,8 @@ def relatorio_arrecadacao(request):
     )
     aplicada_qs = aplicada_qs.annotate(
         valor_items=Subquery(items_sum_sq, output_field=DecimalField(max_digits=12, decimal_places=2)),
-        valor_aplicado=Greatest(
-            Coalesce('valor_infracao', dec0),
-            Coalesce('valor_items', dec0),
-            Coalesce('valor_multa_homologado', dec0)
-        )
+        # Aplicada: prevalece o valor inicialmente aplicado; não considerar homologado aqui
+        valor_aplicado=Coalesce('valor_infracao', Coalesce('valor_items', dec0))
     )
     aplicada_month = (
         aplicada_qs
@@ -312,11 +310,7 @@ def relatorio_arrecadacao_print(request):
     )
     aplicada_qs = aplicada_qs.annotate(
         valor_items=Subquery(items_sum_sq, output_field=DecimalField(max_digits=12, decimal_places=2)),
-        valor_aplicado=Greatest(
-            Coalesce('valor_infracao', dec0),
-            Coalesce('valor_items', dec0),
-            Coalesce('valor_multa_homologado', dec0)
-        )
+        valor_aplicado=Coalesce('valor_infracao', Coalesce('valor_items', dec0))
     )
     aplicada_month = (
         aplicada_qs
@@ -415,20 +409,6 @@ def cadastrar(request):
         form = AutoInfracaoCreateForm(request.POST, prefeitura_id=prefeitura_id)
         if form.is_valid():
             obj = form.save(commit=False)
-            # Normaliza 'valor_infracao' em caso de entrada com vírgula
-            raw_vi = (request.POST.get("valor_infracao") or "").strip()
-            if raw_vi and form.cleaned_data.get("valor_infracao") in (None, ""):
-                try:
-                    from decimal import Decimal
-                    s = raw_vi.replace(" ", "")
-                    if "," in s and "." in s:
-                        s = s.replace(".", "").replace(",", ".")
-                    elif "," in s:
-                        s = s.replace(",", ".")
-                    vi = Decimal(s)
-                    obj.valor_infracao = vi
-                except Exception:
-                    pass
             obj.prefeitura_id = prefeitura_id
             obj.criado_por = request.user
             obj.atualizada_por = request.user
@@ -507,7 +487,11 @@ def cadastrar(request):
                 return redirect("autoinfracao:confirmar_vinculos", pk=obj.pk)
             return redirect(reverse("autoinfracao:detalhe", kwargs={"pk": obj.pk}))
         else:
-            messages.error(request, "Erros no formulário. Verifique os campos.")
+            try:
+                errs = form.errors.get_json_data()
+            except Exception:
+                errs = form.errors.as_json() if hasattr(form.errors, 'as_json') else str(form.errors)
+            messages.error(request, f"Erros no formulário. Detalhes: {errs}")
     else:
         form = AutoInfracaoCreateForm(prefeitura_id=prefeitura_id)
 
@@ -697,15 +681,26 @@ def editar(request, pk):
             messages.info(request, "Anexo removido.")
         return redirect(request.path)
 
+    # exclusão de anexo de defesa via GET
+    del_def = request.GET.get("del_def_anexo")
+    if del_def:
+        dx = obj.anexos.filter(pk=del_def, tipo="DEFESA").first()
+        if dx:
+            dx.delete()
+            messages.info(request, "Anexo de defesa removido.")
+        return redirect(request.path)
+
     if request.method == "POST":
         action = request.POST.get("action")
         if action == "add_item":
-            # Normaliza decimais com vírgula no POST (valor_unitario/valor_homologado)
+            # Normaliza decimais com vírgula usando utils.num
+            from utils.num import normalize_decimal_str
             _post = request.POST.copy()
             for k in ("valor_unitario", "valor_homologado"):
                 raw = (_post.get(k, "") or "").strip()
-                if raw:
-                    _post[k] = raw.replace(".", "").replace(",", ".")
+                norm = normalize_decimal_str(raw)
+                if norm is not None:
+                    _post[k] = norm
             item_form = AutoInfracaoMultaItemForm(_post, prefeitura_id=prefeitura_id)
             if item_form.is_valid():
                 it = item_form.save(commit=False)
@@ -741,13 +736,11 @@ def editar(request, pk):
             if not it:
                 messages.error(request, "Item não encontrado.")
                 return redirect(request.path)
+            from utils.num import to_decimal
+            from decimal import Decimal
             raw_val = (request.POST.get("valor_homologado", "") or "").strip()
-            try:
-                # aceita vírgula como separador decimal
-                val = raw_val.replace(".", "").replace(",", ".") if "," in raw_val else raw_val
-                dh = Decimal(val)
-                dh = dh.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-            except (InvalidOperation, ValueError):
+            dh = to_decimal(raw_val, quantize_exp=Decimal('0.01'))
+            if dh is None:
                 messages.error(request, "Valor homologado inválido.")
                 return redirect(request.path)
             it.valor_homologado = dh
@@ -771,9 +764,10 @@ def editar(request, pk):
             if not justificativa:
                 messages.error(request, "Informe a justificativa para a homologação.")
                 return redirect(request.path)
+            # Normalização robusta do percentual: remove % e separadores de milhar
             try:
-                # aceita vírgula como separador decimal
-                perc_norm = perc.replace(".", "").replace(",", ".") if "," in perc else perc
+                perc_norm = perc.replace('%', '').replace(' ', '')
+                perc_norm = perc_norm.replace('.', '').replace(',', '.')
                 p = Decimal(perc_norm)
             except (InvalidOperation, ValueError):
                 messages.error(request, "Percentual inválido.")
@@ -781,13 +775,22 @@ def editar(request, pk):
             if p < 0 or p > 100:
                 messages.error(request, "Percentual deve estar entre 0 e 100.")
                 return redirect(request.path)
-            fator = (Decimal('100') - p) / Decimal('100')
+            # fator = 1 - (p/100) para evitar ambiguidades
+            fator = (Decimal('1') - (p / Decimal('100'))).quantize(Decimal('0.0001'))
             total = Decimal('0')
-            for it in obj.multas.all():
+            itens_qs = obj.multas.all()
+            # Guarda verificação por exists() (BD) para evitar qualquer caching de queryset
+            if not itens_qs.exists():
+                messages.error(request, "Inclua ao menos um enquadramento antes de aplicar desconto.")
+                return redirect(request.path)
+            for it in itens_qs:
                 base = it.valor_unitario or Decimal('0')
-                novo = (base * fator).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                try:
+                    novo = (base * fator).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                except Exception:
+                    novo = base
                 it.valor_homologado = novo
-                it.save()
+                it.save(update_fields=["valor_homologado", "valor_total"])  # valor_total é recalculado no save
                 total += novo
             obj.valor_multa_homologado = total
             obj.homologado_por = request.user
@@ -811,6 +814,18 @@ def editar(request, pk):
                 return redirect(request.path)
             else:
                 messages.error(request, "Erro ao anexar arquivo no AIF.")
+            form = AutoInfracaoEditForm(instance=obj, prefeitura_id=prefeitura_id)
+        elif action == "add_defesa_anexo":
+            defesa_form = AutoInfracaoDefesaForm(request.POST, request.FILES)
+            if defesa_form.is_valid():
+                d = defesa_form.save(commit=False)
+                d.auto_infracao = obj
+                d.tipo = "DEFESA"
+                d.save()
+                messages.success(request, "Anexo de defesa incluído.")
+                return redirect(request.path)
+            else:
+                messages.error(request, "Erro ao anexar arquivo de defesa.")
             form = AutoInfracaoEditForm(instance=obj, prefeitura_id=prefeitura_id)
         elif action == "regularizar_aif":
             # exige pelo menos um anexo do tipo Alvará
@@ -890,26 +905,41 @@ def editar(request, pk):
                 messages.success(request, "Auto de Infração atualizado com sucesso.")
                 return redirect(reverse("autoinfracao:detalhe", kwargs={"pk": obj.pk}))
             else:
-                messages.error(request, "Erros no formulário. Verifique os campos.")
+                try:
+                    errs = form.errors.get_json_data()
+                except Exception:
+                    errs = form.errors.as_json() if hasattr(form.errors, 'as_json') else str(form.errors)
+                messages.error(request, f"Erros no formulário. Detalhes: {errs}")
         item_form = AutoInfracaoMultaItemForm(prefeitura_id=prefeitura_id)
     else:
         form = AutoInfracaoEditForm(instance=obj, prefeitura_id=prefeitura_id)
         item_form = AutoInfracaoMultaItemForm(prefeitura_id=prefeitura_id)
         anexo_aif_form = AutoInfracaoAnexoForm()
+        defesa_form = AutoInfracaoDefesaForm()
 
-    anexos_existentes = obj.anexos.all().order_by("-criada_em")
+    anexos_aif = obj.anexos.exclude(tipo="DEFESA").order_by("-criada_em")
+    anexos_defesa = obj.anexos.filter(tipo="DEFESA").order_by("-criada_em")
     try:
         tipos_qs = form.fields["tipos"].queryset
     except Exception:
         tipos_qs = InfracaoTipo.objects.none()
+    # Seleção de fiscais para o template: no GET, usa vínculos do objeto;
+    # no POST (com erro), reaproveita o que veio no formulário.
+    if request.method == "POST":
+        fiscais_selected = [str(pk) for pk in request.POST.getlist("fiscais")]  # IDs como strings
+    else:
+        fiscais_selected = [str(pk) for pk in obj.fiscais.values_list("pk", flat=True)]
     return render(request, "autoinfracao/editar_autoinfracao.html", {
         "form": form,
         "obj": obj,
-        "anexos_existentes": anexos_existentes,
+        "anexos_aif": anexos_aif,
+        "anexos_defesa": anexos_defesa,
         "itens_multa": obj.multas.all(),
         "item_form": item_form,
         "anexo_aif_form": anexo_aif_form if request.method == "GET" else AutoInfracaoAnexoForm(),
+        "defesa_form": defesa_form if request.method == "GET" else AutoInfracaoDefesaForm(),
         "tipos_qs": tipos_qs,
+        "fiscais_selected": fiscais_selected,
     })
 
 
@@ -925,7 +955,8 @@ def imprimir(request, pk):
 
     obj = get_object_or_404(AutoInfracao, pk=pk, prefeitura_id=prefeitura_id)
     anexos = obj.anexos.all().order_by("-criada_em")
-    valor_homologado_total = obj.valor_multa_homologado or obj.total_multa
+    # Valor prevalente para impressão (homologado quando existir; senão aplicado)
+    valor_prevalente_total = obj.valor_multa_prevalente
     # Galeria Hierárquica (AIF + NTF + Denúncia + Apontamentos) sem duplicar
     def _build_denuncia_gallery(den):
         gal = []
@@ -985,7 +1016,7 @@ def imprimir(request, pk):
         "anexos": anexos,
         "denuncia": obj.denuncia,
         "notificacao": obj.notificacao,
-        "valor_homologado_total": valor_homologado_total,
+        "valor_prevalente_total": valor_prevalente_total,
         "galeria": galeria,
         "docs": docs,
     }
@@ -1367,9 +1398,55 @@ def vincular_pessoa(request, pk):
     doc_num = (request.POST.get("doc_num") or "").strip()
     email = (request.POST.get("email") or obj.email or "").strip()
     telefone = (request.POST.get("telefone") or obj.telefone or "").strip()
+    # Fluxo de confirmação (segunda etapa)
+    confirm_action = request.POST.get('confirm_action')
+    if confirm_action:
+        sel_id = request.POST.get('confirm_person_id')
+        pessoa = Pessoa.objects.filter(id=sel_id, prefeitura_id=pref_id, ativo=True).first()
+        if not pessoa:
+            messages.error(request, 'Pessoa selecionada não encontrado para vincular.')
+            return redirect("autoinfracao:detalhe", pk=pk)
+        if confirm_action == 'update':
+            pessoa.tipo = tipo if tipo in ("PF","PJ") else pessoa.tipo
+            pessoa.nome_razao = nome or pessoa.nome_razao
+            pessoa.doc_tipo = doc_tipo if doc_tipo in ("CPF","CNPJ","OUTRO") else pessoa.doc_tipo
+            if doc_num:
+                pessoa.doc_num = ''.join(filter(str.isdigit, doc_num))
+            pessoa.email = email or pessoa.email
+            pessoa.telefone = telefone or pessoa.telefone
+            try:
+                pessoa.save()
+            except Exception:
+                pass
+        obj.pessoa = pessoa
+        obj.save(update_fields=["pessoa"])
+        log_event(request, 'LINK', instance=obj, extra={'pessoa_id': pessoa.id, 'confirm_action': confirm_action})
+        messages.success(request, "Pessoa vinculada ao AIF.")
+        return redirect("autoinfracao:detalhe", pk=pk)
     pessoa = None
     if doc_num:
-        pessoa = Pessoa.objects.filter(prefeitura_id=pref_id, doc_num=''.join(filter(str.isdigit, doc_num))).first()
+        _doc = ''.join(filter(str.isdigit, doc_num))
+        qs = Pessoa.objects.filter(prefeitura_id=pref_id, doc_num=_doc)
+        if qs.exists():
+            default_person = None
+            if qs.count() > 1 and nome:
+                default_person = qs.filter(nome_razao__iexact=nome).first()
+            if not default_person:
+                default_person = qs.order_by('-atualizado_em', '-criado_em').first()
+            return render(request, 'core/confirmar_pessoa.html', {
+                'action_url': reverse('autoinfracao:vincular_pessoa', kwargs={'pk': pk}),
+                'cancel_url': reverse('autoinfracao:detalhe', kwargs={'pk': pk}),
+                'pessoas': list(qs),
+                'default_person_id': getattr(default_person, 'id', None),
+                'proposed': {
+                    'tipo': tipo,
+                    'nome_razao': nome,
+                    'doc_tipo': doc_tipo,
+                    'doc_num': doc_num,
+                    'email': email,
+                    'telefone': telefone,
+                },
+            })
     if not pessoa:
         pessoa = Pessoa.objects.create(
             prefeitura_id=pref_id,
@@ -1466,6 +1543,7 @@ def gerar_de_notificacao(request, notif_pk):
         latitude=notif.latitude,
         longitude=notif.longitude,
         descricao=notif.descricao,
+        ocorrido_em=getattr(notif, 'ocorrido_em', None),
         area_m2=getattr(notif, 'area_m2', None),
         testada_m=getattr(notif, 'testada_m', None),
         pe_direito_m=getattr(notif, 'pe_direito_m', None),
@@ -1479,6 +1557,15 @@ def gerar_de_notificacao(request, notif_pk):
         atualizada_por=request.user,
     )
     obj.save()
+    # Herdar fiscais da Notificação (inclui criador se for FISCAL), editáveis na sequência
+    try:
+        fs = list(getattr(notif, 'fiscais').all())
+        if getattr(request, 'user', None) and request.user.is_authenticated and getattr(request.user, 'tipo', None) == 'FISCAL' and request.user not in fs:
+            fs.append(request.user)
+        if fs:
+            obj.fiscais.set(fs)
+    except Exception:
+        pass
     # Não copiar fotos físicas: a galeria unificada já exibe as da Notificação/Denúncia sem duplicar
     messages.success(request, f"Auto de Infração criado a partir da Notificação {notif.protocolo}.")
     return redirect("autoinfracao:editar", pk=obj.pk)
@@ -1522,10 +1609,20 @@ def gerar_de_denuncia(request, den_pk):
         latitude=den.local_oco_lat,
         longitude=den.local_oco_lng,
         descricao=den.descricao_oco,
+        ocorrido_em=getattr(den, 'ocorrido_em', None),
         criado_por=request.user,
         atualizada_por=request.user,
     )
     obj.save()
+    # Herdar fiscais da Denúncia (inclui criador se for FISCAL), editáveis na sequência
+    try:
+        fs = list(getattr(den, 'fiscais').all())
+        if getattr(request, 'user', None) and request.user.is_authenticated and getattr(request.user, 'tipo', None) == 'FISCAL' and request.user not in fs:
+            fs.append(request.user)
+        if fs:
+            obj.fiscais.set(fs)
+    except Exception:
+        pass
     # Ao gerar AIF diretamente da Denúncia, marcar a Denúncia como PROCEDE + histórico
     try:
         if getattr(den, 'procedencia', None) != 'PROCEDE':

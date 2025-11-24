@@ -11,7 +11,7 @@
 <h2 class="page-title">🆕 Novo Auto de Infração — Dados Básicos</h2>
 <a href="{% url 'autoinfracao:listar' %}" class="btn btn-sm btn-secondary">← Voltar para a Listagem</a>
 
-<form method="post" enctype="multipart/form-data" class="notificacao-form">
+<form method="post" enctype="multipart/form-data" class="notificacao-form" novalidate>
   {% csrf_token %}
   {{ form.non_field_errors }}
 
@@ -157,12 +157,44 @@
       {{ form.descricao }}
       {{ form.descricao.errors }}
     </div>
+    <div>
+      {{ form.ocorrido_em.label_tag }}
+      {{ form.ocorrido_em }}
+      {% if form.ocorrido_em.errors %}<small class="text-danger">{{ form.ocorrido_em.errors }}</small>{% endif %}
+    </div>
+    
+  </div>
 
+  <!-- Prazos e Valores (alinha com edição) -->
+  <hr>
+  <h3>Prazos e Valores</h3>
+  <div class="form-grid">
+    <div>
+      {{ form.prazo_regularizacao_data.label_tag }}
+      {{ form.prazo_regularizacao_data }}
+      {{ form.prazo_regularizacao_data.errors }}
+    </div>
+    <div>
+      {{ form.valor_infracao.label_tag }}
+      {{ form.valor_infracao }}
+      {{ form.valor_infracao.errors }}
+    </div>
+    <div>
+      {{ form.valor_multa_homologado.label_tag }}
+      {{ form.valor_multa_homologado }}
+      {{ form.valor_multa_homologado.errors }}
+    </div>
+  </div>
+
+  <!-- Outros Dados (alinha com edição) -->
+  <hr>
+  <h3>Outros Dados</h3>
+  <div class="form-grid">
     <div class="span-3">
       <label>Tipos de Infração</label>
       <div class="checkbox-grid">
         {% for t in form.tipos.field.queryset %}
-          <label>
+          <label class="chk">
             <input type="checkbox" name="tipos" value="{{ t.id }}">
             {{ t.nome }}
           </label>
@@ -178,7 +210,20 @@
 
     <div class="span-3">
       <label for="id_fiscais">Fiscais</label>
-      {{ form.fiscais }}
+      {% with qs=form.fiscais.field.queryset selected=form.fiscais.value %}
+        {% if qs %}
+          <div class="checkbox-grid">
+            {% for u in qs %}
+              <label class="chk">
+                <input type="checkbox" name="fiscais" value="{{ u.pk }}" {% if selected and u.pk|stringformat:"s" in selected %}checked{% endif %}>
+                {{ u.get_full_name|default:u.email }}{% if u.matricula %} ({{ u.matricula }}){% endif %}
+              </label>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="text-muted small">Nenhum fiscal disponível para a prefeitura ativa.</div>
+        {% endif %}
+      {% endwith %}
     </div>
   </div>
 
@@ -202,7 +247,22 @@
 {% block extra_js %}
 <script src="{% static 'js/viacep.js' %}"></script>
 <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
-<script src="{% static 'autoinfracao/js/autoinfracao.js' %}?v=20251030-1"></script>
+<script src="{% static 'autoinfracao/js/autoinfracao.js' %}?v=20251112-1"></script>
+<script>
+// Fallback extra (força tipo texto nos campos decimais) — compatibilidade máxima
+(function(){
+  var names = ['area_m2','testada_m','pe_direito_m','area_mezanino_m2','valor_infracao','valor_multa_homologado'];
+  names.forEach(function(n){
+    var el = document.querySelector('input[name="'+n+'"]');
+    if(!el) return;
+    try{
+      var clone = el.cloneNode(true);
+      el.parentNode.replaceChild(clone, el);
+      clone.type='text'; clone.removeAttribute('step'); clone.removeAttribute('pattern'); clone.setAttribute('inputmode','decimal');
+    }catch(_){ }
+  });
+})();
+</script>
 <script>
 (function(){
   const latI = document.getElementById('id_latitude');

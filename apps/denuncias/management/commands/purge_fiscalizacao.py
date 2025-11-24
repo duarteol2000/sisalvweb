@@ -1,128 +1,153 @@
+# apps/denuncias/management/commands/purge_fiscalizacao.py
 from django.core.management.base import BaseCommand
 from django.db import transaction
-
-# Denúncias
-from apps.denuncias.models import (
-    Denuncia,
-    DenunciaAnexo,
-    DenunciaDocumentoImovel,
-    DenunciaHistorico,
-    DenunciaApontamento,
-    DenunciaApontamentoAnexo,
-)
-
-# Notificações
-from apps.notificacoes.models import (
-    Notificacao,
-    NotificacaoAnexo,
-)
-
-# Autos de Infração e Medidas
-from apps.autoinfracao.models import (
-    AutoInfracao,
-    AutoInfracaoAnexo,
-    Embargo,
-    EmbargoAnexo,
-    Interdicao,
-    InterdicaoAnexo,
-)
-
-
-def _delete_files(qs, file_attr="arquivo"):
-    total = 0
-    for obj in qs.iterator():
-        f = getattr(obj, file_attr, None)
-        try:
-            if f and getattr(f, 'name', None):
-                f.delete(save=False)
-                total += 1
-        except Exception:
-            # Nunca abortar por falha de remoção de arquivo
-            pass
-    # Apaga registros após os arquivos
-    qs.delete()
-    return total
+from django.db.models import Q
+import os
+import shutil
 
 
 class Command(BaseCommand):
-    help = "Remove TODOS os dados operacionais (Denúncias, Notificações, AIFs, Medidas) e seus anexos (fotos/documentos). Mantém cadastros básicos."
+    help = (
+        "Remove de forma segura todos os registros de Fiscalização: Denúncias, Notificações e Autos de Infração, "
+        "incluindo anexos (imagens/PDFs). Por padrão é DRY-RUN. Use --yes para executar."
+    )
 
     def add_arguments(self, parser):
-        parser.add_argument("--yes", action="store_true", help="Confirma a operação sem perguntar")
-        parser.add_argument("--dry-run", action="store_true", help="Apenas mostra quantidades; não exclui nada")
+        parser.add_argument(
+            "--yes",
+            action="store_true",
+            dest="confirm",
+            help="Executa a exclusão (sem esta flag é apenas DRY-RUN).",
+        )
+        parser.add_argument(
+            "--prefeitura",
+            type=int,
+            default=None,
+            help="Opcional: limita a exclusão à prefeitura informada (id).",
+        )
+
+    def _del_file(self, ffield):
+        try:
+            if ffield and getattr(ffield, "name", None):
+                storage = getattr(ffield, "storage", None)
+                name = ffield.name
+                if storage and storage.exists(name):
+                    storage.delete(name)
+        except Exception:
+            # não interrompe o fluxo
+            pass
+
+    def _count_qs(self, qs):
+        try:
+            return qs.count()
+        except Exception:
+            return 0
 
     def handle(self, *args, **opts):
-        confirm = opts.get("yes")
-        dry = opts.get("dry_run")
+        confirm = bool(opts.get("confirm"))
+        pref_id = opts.get("prefeitura")
+        filters = {}
+        if pref_id:
+            filters["prefeitura_id"] = pref_id
 
-        # Contagens (para mostrar antes)
-        counts = {
-            "den_ap_anexos": DenunciaApontamentoAnexo.objects.count(),
-            "den_ap": DenunciaApontamento.objects.count(),
-            "den_anexos": DenunciaAnexo.objects.count(),
-            "den_docs": DenunciaDocumentoImovel.objects.count(),
-            "den_hist": DenunciaHistorico.objects.count(),
-            "den": Denuncia.objects.count(),
-            "not_anexos": NotificacaoAnexo.objects.count(),
-            "not": Notificacao.objects.count(),
-            "aif_anexos": AutoInfracaoAnexo.objects.count(),
-            "emb_anexos": EmbargoAnexo.objects.count(),
-            "itd_anexos": InterdicaoAnexo.objects.count(),
-            "emb": Embargo.objects.count(),
-            "itd": Interdicao.objects.count(),
-            "aif": AutoInfracao.objects.count(),
-        }
+        # Imports locais (evita circularidades)
+        from apps.denuncias.models import (
+            Denuncia,
+            DenunciaAnexo,
+            DenunciaDocumentoImovel,
+            DenunciaApontamento,
+            DenunciaApontamentoAnexo,
+            DenunciaHistorico,
+        )
+        from apps.notificacoes.models import Notificacao, NotificacaoAnexo
+        from apps.autoinfracao.models import AutoInfracao
+        try:
+            from apps.autoinfracao.models import AutoInfracaoAnexo, AutoInfracaoMultaItem
+        except Exception:
+            AutoInfracaoAnexo = None
+            AutoInfracaoMultaItem = None
 
-        self.stdout.write(self.style.WARNING("Resumo atual para apagar:"))
-        self.stdout.write(f"- Denúncias: {counts['den']} (hist: {counts['den_hist']}, docs: {counts['den_docs']}, fotos: {counts['den_anexos']}, apontamentos: {counts['den_ap']}, fotos apont.: {counts['den_ap_anexos']})")
-        self.stdout.write(f"- Notificações: {counts['not']} (anexos: {counts['not_anexos']})")
-        self.stdout.write(f"- AIFs: {counts['aif']} (anexos: {counts['aif_anexos']})")
-        self.stdout.write(f"- Embargos: {counts['emb']} (anexos: {counts['emb_anexos']}) | Interdições: {counts['itd']} (anexos: {counts['itd_anexos']})")
+        # QuerySets
+        den_qs = Denuncia.objects.filter(**filters)
+        den_ax_qs = DenunciaAnexo.objects.filter(denuncia__in=den_qs)
+        den_doc_qs = DenunciaDocumentoImovel.objects.filter(denuncia__in=den_qs)
+        den_ap_qs = DenunciaApontamento.objects.filter(denuncia__in=den_qs)
+        den_ap_ax_qs = DenunciaApontamentoAnexo.objects.filter(apontamento__in=den_ap_qs)
+        den_hist_qs = DenunciaHistorico.objects.filter(denuncia__in=den_qs)
 
-        if dry:
-            self.stdout.write(self.style.SUCCESS("(dry-run) Nada foi excluído."))
-            return
+        ntf_qs = Notificacao.objects.filter(**filters)
+        ntf_ax_qs = NotificacaoAnexo.objects.filter(notificacao__in=ntf_qs)
+
+        aif_qs = AutoInfracao.objects.filter(**filters)
+        aif_ax_qs = AutoInfracaoAnexo.objects.filter(auto_infracao__in=aif_qs) if AutoInfracaoAnexo else None
+        aif_multa_qs = AutoInfracaoMultaItem.objects.filter(auto_infracao__in=aif_qs) if AutoInfracaoMultaItem else None
+
+        # DRY-RUN: mostra contagens
+        self.stdout.write(self.style.WARNING("=== DRY-RUN ===" if not confirm else "=== EXECUTANDO PURGE ==="))
+        self.stdout.write(f"Prefeitura alvo: {'TODAS' if not pref_id else pref_id}")
+        self.stdout.write("-- Denúncias --")
+        self.stdout.write(f"Denúncias: {self._count_qs(den_qs)}")
+        self.stdout.write(f"Denúncia Anexos: {self._count_qs(den_ax_qs)}")
+        self.stdout.write(f"Denúncia Docs Imóvel: {self._count_qs(den_doc_qs)}")
+        self.stdout.write(f"Denúncia Apontamentos: {self._count_qs(den_ap_qs)}")
+        self.stdout.write(f"Denúncia Apont. Anexos: {self._count_qs(den_ap_ax_qs)}")
+        self.stdout.write(f"Denúncia Histórico: {self._count_qs(den_hist_qs)}")
+        self.stdout.write("-- Notificações --")
+        self.stdout.write(f"Notificações: {self._count_qs(ntf_qs)}")
+        self.stdout.write(f"Notificação Anexos: {self._count_qs(ntf_ax_qs)}")
+        self.stdout.write("-- Autos de Infração --")
+        self.stdout.write(f"Autos: {self._count_qs(aif_qs)}")
+        if aif_multa_qs is not None:
+            self.stdout.write(f"AIF Multas: {self._count_qs(aif_multa_qs)}")
+        if aif_ax_qs is not None:
+            self.stdout.write(f"AIF Anexos: {self._count_qs(aif_ax_qs)}")
 
         if not confirm:
-            ans = input("CONFIRMAR a exclusão IRREVERSÍVEL desses dados? (digite 'SIM' para continuar): ")
-            if ans.strip().upper() != "SIM":
-                self.stdout.write(self.style.WARNING("Abortado pelo usuário."))
-                return
+            self.stdout.write(self.style.WARNING("Nada foi apagado. Use --yes para executar."))
+            return
 
         with transaction.atomic():
-            # Anexos: remover arquivos antes (ordem: mais específicos -> gerais)
-            self.stdout.write("Removendo anexos de Apontamentos de Denúncia...")
-            _delete_files(DenunciaApontamentoAnexo.objects.all())
-            self.stdout.write("Removendo Apontamentos de Denúncia...")
-            DenunciaApontamento.objects.all().delete()
+            # Remove arquivos primeiro
+            for ax in den_ax_qs.iterator():
+                self._del_file(ax.arquivo)
+            for doc in den_doc_qs.iterator():
+                self._del_file(doc.arquivo)
+            for ax in den_ap_ax_qs.iterator():
+                self._del_file(ax.arquivo)
+            for ax in ntf_ax_qs.iterator():
+                self._del_file(ax.arquivo)
+            if aif_ax_qs is not None:
+                for ax in aif_ax_qs.iterator():
+                    self._del_file(ax.arquivo)
 
-            self.stdout.write("Removendo anexos de Denúncia (fotos)...")
-            _delete_files(DenunciaAnexo.objects.all())
-            self.stdout.write("Removendo documentos de imóvel (arquivos)...")
-            _delete_files(DenunciaDocumentoImovel.objects.all())
-            self.stdout.write("Removendo históricos de Denúncia...")
-            DenunciaHistorico.objects.all().delete()
+            # Apaga registros em ordem segura
+            if aif_multa_qs is not None:
+                aif_multa_qs.delete()
+            if aif_ax_qs is not None:
+                aif_ax_qs.delete()
+            aif_qs.delete()
 
-            self.stdout.write("Removendo anexos de Notificação...")
-            _delete_files(NotificacaoAnexo.objects.all())
+            ntf_ax_qs.delete()
+            ntf_qs.delete()
 
-            self.stdout.write("Removendo anexos de AIF/Embargo/Interdição...")
-            _delete_files(AutoInfracaoAnexo.objects.all())
-            _delete_files(EmbargoAnexo.objects.all())
-            _delete_files(InterdicaoAnexo.objects.all())
+            den_ap_ax_qs.delete()
+            den_ap_qs.delete()
+            den_doc_qs.delete()
+            den_ax_qs.delete()
+            den_hist_qs.delete()
+            den_qs.delete()
 
-            self.stdout.write("Removendo Embargos/Interdições...")
-            Embargo.objects.all().delete()
-            Interdicao.objects.all().delete()
+        # Limpa pastas de mídia específicas (não mexe em outras)
+        from django.conf import settings
+        media_root = getattr(settings, 'MEDIA_ROOT', None)
+        if media_root and os.path.isdir(media_root):
+            for sub in ("denuncias", "notificacoes", "autoinfracao"):
+                path = os.path.join(media_root, sub)
+                if os.path.isdir(path):
+                    try:
+                        shutil.rmtree(path)
+                    except Exception:
+                        pass
 
-            self.stdout.write("Removendo AIFs...")
-            AutoInfracao.objects.all().delete()
-
-            self.stdout.write("Removendo Notificações...")
-            Notificacao.objects.all().delete()
-
-            self.stdout.write("Removendo Denúncias...")
-            Denuncia.objects.all().delete()
-
-        self.stdout.write(self.style.SUCCESS("Dados de fiscalização apagados com sucesso (Denúncias/Notificações/AIFs/Medidas e anexos)."))
+        self.stdout.write(self.style.SUCCESS("Purge concluído."))
 

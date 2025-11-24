@@ -34,6 +34,29 @@
       if(cur !== san) input.value = san;
     });
   }
+
+  // Variante sem keyguard: não bloqueia teclas, apenas saneia e limita casas
+  function attachDecimalMaskNoKeyguard(input, maxDecimals){
+    function sanitize(val){
+      if(!val) return '';
+      let s = String(val).replace(/\s+/g,'');
+      s = s.replace(/\./g, ',');
+      // mantém apenas dígitos, vírgula e sinal opcional no início (não usaremos sinal aqui)
+      s = s.replace(/[^0-9,\-]/g,'');
+      const parts = s.split(',');
+      if(parts.length > 1){
+        let int = parts.shift()||'';
+        let dec = parts.join('');
+        if(typeof maxDecimals === 'number') dec = dec.slice(0, maxDecimals);
+        s = int + (dec.length ? ','+dec : '');
+      }
+      return s;
+    }
+    input.addEventListener('input', ()=>{
+      const cur = input.value; const san = sanitize(cur);
+      if(cur !== san) input.value = san;
+    });
+  }
   function attachIntMask(input){
     input.addEventListener('input', ()=>{
       const cur = input.value; const san = String(cur).replace(/\D+/g,'');
@@ -72,7 +95,8 @@
 
   document.querySelectorAll('input.js-decimal-2').forEach(el=> {
     try{ el.type = 'text'; el.removeAttribute('pattern'); el.removeAttribute('step'); el.setAttribute('inputmode','decimal'); }catch(_){ }
-    attachDecimalMask(el, 2, false);
+    // Usa máscara sem keyguard para máxima compatibilidade com vírgula/ponto
+    attachDecimalMaskNoKeyguard(el, 2);
   });
   document.querySelectorAll('input.js-decimal-6').forEach(el=> attachDecimalMask(el, 6, true));
   document.querySelectorAll('input.js-int').forEach(el=> attachIntMask(el));

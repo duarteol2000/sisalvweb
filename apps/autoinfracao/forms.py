@@ -4,6 +4,7 @@ from apps.autoinfracao.models import AutoInfracao, InfracaoTipo, Enquadramento, 
 from apps.autoinfracao.models import Embargo, Interdicao, EmbargoAnexo, InterdicaoAnexo
 from apps.usuarios.models import Usuario
 from django.db import models
+from utils.num import to_decimal
 
 
 class HTML5DateInput(forms.DateInput):
@@ -29,6 +30,12 @@ class AutoInfracaoCreateForm(forms.ModelForm):
     # Evita validação nativa de DecimalField com vírgula; tratamos no clean
     valor_infracao = forms.CharField(required=False)
     valor_multa_homologado = forms.CharField(required=False)
+    ocorrido_em = forms.CharField(required=False)
+    # Evita validação nativa para campos decimais de construção; tratamos no clean
+    area_m2 = forms.CharField(required=False)
+    testada_m = forms.CharField(required=False)
+    pe_direito_m = forms.CharField(required=False)
+    area_mezanino_m2 = forms.CharField(required=False)
     tipos = forms.ModelMultipleChoiceField(
         queryset=InfracaoTipo.objects.none(), required=False, label="Tipos de Infração"
     )
@@ -50,7 +57,7 @@ class AutoInfracaoCreateForm(forms.ModelForm):
             # dados
             "descricao",
             # prazos/valores
-            "prazo_regularizacao_data", "valor_infracao", "valor_multa_homologado",
+            "prazo_regularizacao_data", "ocorrido_em", "valor_infracao", "valor_multa_homologado",
         ]
         widgets = {
             "descricao": forms.Textarea(attrs={"rows": 4}),
@@ -63,6 +70,7 @@ class AutoInfracaoCreateForm(forms.ModelForm):
             "area_mezanino_m2": forms.TextInput(attrs={"class": "js-decimal-2", "inputmode": "decimal", "placeholder": "ex.: 30,00"}),
             "qtd_comodos": forms.TextInput(attrs={"class": "js-int", "inputmode": "numeric", "placeholder": "ex.: 4"}),
             "prazo_regularizacao_data": HTML5DateInput(),
+            "ocorrido_em": forms.DateTimeInput(attrs={"type": "datetime-local"}),
             "valor_infracao": forms.TextInput(attrs={"class": "js-decimal-2", "inputmode": "decimal", "placeholder": "ex.: 100,00"}),
             "valor_multa_homologado": forms.TextInput(attrs={"class": "js-decimal-2", "inputmode": "decimal", "placeholder": "ex.: 100,00"}),
             # documentos/contatos
@@ -74,6 +82,28 @@ class AutoInfracaoCreateForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         prefeitura_id = kwargs.pop("prefeitura_id", None)
         super().__init__(*args, **kwargs)
+        # E-mail opcional e sem atributo required no HTML
+        if 'email' in self.fields:
+            self.fields['email'].required = False
+            try:
+                if 'required' in (self.fields['email'].widget.attrs or {}):
+                    del self.fields['email'].widget.attrs['required']
+            except Exception:
+                pass
+        # Padroniza widget/label e valor inicial do ocorrido_em para datetime-local
+        if "ocorrido_em" in self.fields:
+            try:
+                self.fields["ocorrido_em"].label = "Data/Hora do Ocorrido"
+                self.fields["ocorrido_em"].widget = forms.DateTimeInput(attrs={"type": "datetime-local"})
+                occ = self.initial.get("ocorrido_em") or getattr(self.instance, "ocorrido_em", None)
+                if occ:
+                    from datetime import datetime
+                    try:
+                        self.initial["ocorrido_em"] = occ.strftime("%Y-%m-%dT%H:%M")
+                    except Exception:
+                        pass
+            except Exception:
+                pass
         # Aceitar ISO do browser e formato BR
         if "prazo_regularizacao_data" in self.fields:
             self.fields["prazo_regularizacao_data"].input_formats = ["%Y-%m-%d", "%d/%m/%Y"]
@@ -93,10 +123,18 @@ class AutoInfracaoCreateForm(forms.ModelForm):
             # Volta para SelectMultiple (estável em todos os navegadores)
             self.fields["tipos"].widget = forms.SelectMultiple(attrs={"size": "10"})
             self.fields["fiscais"].queryset = Usuario.objects.filter(
-                prefeitura_id=prefeitura_id
+                prefeitura_id=prefeitura_id,
+                is_active=True,
+                tipo__iexact='FISCAL',
             ).order_by("first_name", "last_name", "email")
-            # Garante múltipla seleção visível
-            self.fields["fiscais"].widget = forms.SelectMultiple(attrs={"size": "8"})
+            # Checkboxes mais visíveis
+            self.fields["fiscais"].widget = forms.CheckboxSelectMultiple()
+            try:
+                self.fields['fiscais'].label_from_instance = lambda u: (
+                    (u.get_full_name() or u.email) + (f" ({u.matricula})" if getattr(u, 'matricula', None) else '')
+                )
+            except Exception:
+                pass
         # Força lat/lng com 6 casas na renderização
         from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
         for fld in ("latitude", "longitude"):
@@ -110,6 +148,18 @@ class AutoInfracaoCreateForm(forms.ModelForm):
 
     def clean(self):
         data = super().clean()
+        # Data/hora do ocorrido: aceita 'YYYY-MM-DDTHH:MM' e 'dd/mm/YYYY HH:MM'
+        raw_occ = self.data.get("ocorrido_em") if hasattr(self, 'data') else None
+        if raw_occ:
+            from datetime import datetime
+            for fmt in ("%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M", "%d/%m/%Y %H:%M"):
+                try:
+                    data["ocorrido_em"] = datetime.strptime(raw_occ.strip(), fmt)
+                    break
+                except Exception:
+                    continue
+            else:
+                self.add_error("ocorrido_em", "Data/hora inválida. Use o seletor ou 'dd/mm/aaaa hh:mm'.")
         # Normaliza lat/lng (vírgula → ponto) e valida faixa
         def _norm(v):
             if v in (None, ""): return v
@@ -133,33 +183,24 @@ class AutoInfracaoCreateForm(forms.ModelForm):
                 self.add_error("latitude", "Valor inválido. Use ponto ou vírgula como decimal.")
             if lng:
                 self.add_error("longitude", "Valor inválido. Use ponto ou vírgula como decimal.")
-        # Normaliza campos decimais (aceita vírgula)
-        from decimal import Decimal, InvalidOperation
-        def _norm_dec_field(field):
+        # Normaliza campos decimais (aceita vírgula) usando utils.num
+        # Quantiza para 2 casas os monetários/áreas
+        from decimal import Decimal
+        two = Decimal("0.01")
+        def _apply_decimal(field, quant=False):
             v = self.data.get(field, data.get(field))
+            d = to_decimal(v, quantize_exp=two if quant else None)
             if v in (None, ""):
                 data[field] = None
-                return
-            if isinstance(v, (int, float)):
-                data[field] = v
-                return
-            s = str(v).strip().replace(" ", "")
-            # Aceita formatos com vírgula (BR) e/ou ponto. Regra:
-            # - Se tiver vírgula e ponto: ponto é milhar, vírgula é decimal
-            # - Se só vírgula: vírgula é decimal
-            # - Se só ponto: ponto é decimal
-            if "," in s and "." in s:
-                s = s.replace(".", "").replace(",", ".")
-            elif "," in s:
-                s = s.replace(",", ".")
-            else:
-                s = s
-            try:
-                data[field] = Decimal(s)
-            except InvalidOperation:
+            elif d is None:
                 self.add_error(field, "Valor inválido. Use ponto ou vírgula como decimal.")
-        for f in ("area_m2", "testada_m", "pe_direito_m", "area_mezanino_m2", "valor_infracao", "valor_multa_homologado"):
-            _norm_dec_field(f)
+            else:
+                data[field] = d
+        # Áreas/valores
+        for f in ("area_m2", "testada_m", "pe_direito_m", "area_mezanino_m2"):
+            _apply_decimal(f, quant=True)
+        for f in ("valor_infracao", "valor_multa_homologado"):
+            _apply_decimal(f, quant=True)
         if data.get("mezanino") and not data.get("area_mezanino_m2"):
             self.add_error("area_mezanino_m2", "Informe a área do mezanino (m²).")
         return data
@@ -208,6 +249,14 @@ class AutoInfracaoEditForm(AutoInfracaoCreateForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if 'email' in self.fields:
+            self.fields['email'].required = False
+            try:
+                if 'required' in (self.fields['email'].widget.attrs or {}):
+                    del self.fields['email'].widget.attrs['required']
+            except Exception:
+                pass
+        # Já herdou a padronização de ocorrido_em no __init__ da classe base
         if "pago_em" in self.fields:
             self.fields["pago_em"].input_formats = ["%Y-%m-%d", "%d/%m/%Y"]
 
@@ -215,24 +264,18 @@ class AutoInfracaoEditForm(AutoInfracaoCreateForm):
         data = super().clean()
         if data.get("mezanino") and not data.get("area_mezanino_m2"):
             self.add_error("area_mezanino_m2", "Informe a área do mezanino (m²).")
-        # Normaliza valor_pago se vier com vírgula
-        from decimal import Decimal, InvalidOperation
+        # Normaliza valor_pago com quantização
+        from decimal import Decimal
+        two = Decimal("0.01")
         raw = self.data.get("valor_pago") if hasattr(self, 'data') else None
-        # Se vazio, zera para None
         if (raw in (None, "")) and (data.get("valor_pago") in (None, "")):
             data["valor_pago"] = None
-        elif raw and not data.get("valor_pago"):
-            s = str(raw).strip().replace(" ", "")
-            if "," in s and "." in s:
-                s = s.replace(".", "").replace(",", ".")
-            elif "," in s:
-                s = s.replace(",", ".")
-            else:
-                s = s
-            try:
-                data["valor_pago"] = Decimal(s)
-            except InvalidOperation:
+        else:
+            d = to_decimal(raw if raw is not None else data.get("valor_pago"), quantize_exp=two)
+            if d is None:
                 self.add_error("valor_pago", "Valor inválido. Use ponto ou vírgula como decimal.")
+            else:
+                data["valor_pago"] = d
         return data
 
 class InfracaoTipoForm(forms.ModelForm):
@@ -326,3 +369,9 @@ class AutoInfracaoAnexoForm(forms.ModelForm):
     class Meta:
         model = AutoInfracaoAnexo
         fields = ["tipo", "arquivo", "observacao"]
+
+
+class AutoInfracaoDefesaForm(forms.ModelForm):
+    class Meta:
+        model = AutoInfracaoAnexo
+        fields = ["arquivo", "observacao"]

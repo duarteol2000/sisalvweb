@@ -35,6 +35,9 @@
   #print-map{ height:260px; min-height:220px; border:1px solid #e5e7eb; border-radius:8px; }
   .muted{ color:#6b7280; }
   .mt-6{ margin-top:6px; }
+  /* Fiscais em linha (lado a lado) */
+  .fiscais-line{ display:flex; flex-wrap:wrap; gap:6px 10px; align-items:center; }
+  .fiscal-pill{ display:inline-block; padding:2px 8px; border:1px solid #e5e7eb; border-radius:999px; background:#fff; }
 </style>
 <link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
 {% endblock %}
@@ -130,16 +133,16 @@
     </div>
   </section>
 
-  <section class="section">
+  <section class="section no-break">
     <h3>Fiscais</h3>
     <div class="field">
       {% with fs=obj.fiscais.all %}
         {% if fs %}
-          <ul style="margin:0; padding-left:18px;">
+          <div class="fiscais-line">
             {% for f in fs %}
-              {% if f %}<li>{{ f.get_full_name|default:f.email }}</li>{% endif %}
+              {% if f %}<span class="fiscal-pill">{{ f.get_full_name|default:f.email }}</span>{% endif %}
             {% endfor %}
-          </ul>
+          </div>
         {% else %}
           <em>Nenhum fiscal vinculado.</em>
         {% endif %}
@@ -166,7 +169,7 @@
     <h3>Dados do Auto / Prazos e Valores</h3>
     <div class="grid cols-3">
       <div class="field"><div class="label">Prazo p/ Regularização</div><div class="value">{{ obj.prazo_regularizacao_data|date:"d/m/Y"|default:"—" }}</div></div>
-      <div class="field"><div class="label">Valor Homologado (Total)</div><div class="value">R$ {{ valor_homologado_total|floatformat:2 }}</div></div>
+      <div class="field"><div class="label">Valor (Homologado/Aplicado)</div><div class="value">R$ {{ valor_prevalente_total|floatformat:2 }}</div></div>
       <div class="field"><div class="label">Homologado em</div><div class="value">{{ obj.homologado_em|date:"d/m/Y H:i"|default:"—" }}</div></div>
       <div class="field"><div class="label">Homologado por</div><div class="value">{% with hp=obj.homologado_por %}{% if hp %}{{ hp.get_full_name|default:hp.email }}{% else %}—{% endif %}{% endwith %}</div></div>
       <div class="field"><div class="label">Regularizado em</div><div class="value">{{ obj.regularizado_em|date:"d/m/Y H:i"|default:"—" }}</div></div>
@@ -182,7 +185,7 @@
     <h3>Multas / Enquadramentos</h3>
     {% with items=obj.multas.all %}
       {% if items %}
-        <div class="text-right" style="margin:0 0 6px;"><strong>Total Homologado (AIF):</strong> R$ {{ valor_homologado_total|floatformat:2 }}</div>
+        <div class="text-right" style="margin:0 0 6px;"><strong>Total (AIF):</strong> R$ {{ valor_prevalente_total|floatformat:2 }}</div>
         <table class="print-table">
           <thead>
             <tr>

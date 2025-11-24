@@ -46,10 +46,26 @@
     </div>
     <header class="print-header">
       <div class="brand">
-        <img src="{% static 'img/logo_prefeitura.png' %}" alt="Logo">
+        {% if pref and pref.logotipo %}
+          <img src="{{ pref.logotipo.url }}" alt="Logo">
+        {% elif obj and obj.prefeitura and obj.prefeitura.logotipo %}
+          <img src="{{ obj.prefeitura.logotipo.url }}" alt="Logo">
+        {% else %}
+          <img src="{% static 'img/logo_prefeitura.png' %}" alt="Logo">
+        {% endif %}
         <div>
           <div class="title">{% block header_title %}Documento{% endblock %}</div>
-          <div class="subtitle">{% block header_subtitle %}SISALV WEB{% endblock %}</div>
+          <div class="subtitle">
+            {% block header_subtitle %}
+              {% if pref and pref.nome and pref.cidade %}
+                {{ pref.nome }} — {{ pref.cidade }}
+              {% elif obj and obj.prefeitura %}
+                {{ obj.prefeitura.nome }} — {{ obj.prefeitura.cidade }}
+              {% else %}
+                SISALV WEB
+              {% endif %}
+            {% endblock %}
+          </div>
         </div>
       </div>
       <div class="meta">
@@ -62,4 +78,3 @@
   {% block extra_js %}{% endblock %}
 </body>
 </html>
-

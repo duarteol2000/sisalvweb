@@ -29,5 +29,19 @@ Acesse: http://127.0.0.1:8000/
 - static/ (CSS/JS/Imagens)
 - docs/ (documentos, guias)
 
+## Diagrama ER
+- Visual: `docs/ERD.svg`
+- Mermaid: `docs/ERD.mmd`
+- DOT (Graphviz): `docs/ERD.dot`
+- Sumário textual: `docs/erd.pdf`
+
+Para regerar os artefatos, execute:
+
+```
+python3 scripts/generate_erd_pdf.py
+```
+
+Observação: se o `dot` (Graphviz) estiver disponível, o script também gera PNG/SVG via Graphviz; caso contrário, usa um fallback simples de SVG.
+
 ## Licença
 Defina aqui a licença do projeto (se houver). Caso não definida, o código permanece sem licença explícita.

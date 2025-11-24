@@ -47,6 +47,15 @@
           {% endfor %}
         </select>
       </div>
+      <div class="f">
+        <label class="form-label mb-1">Fiscal</label>
+        <select name="fiscal" class="form-select form-select-sm">
+          <option value="">— Todos —</option>
+          {% for f in fiscais_opts %}
+            <option value="{{ f.id }}" {% if filtros.fiscal == f.id|stringformat:'s' %}selected{% endif %}>{{ f.get_full_name|default:f.email }}</option>
+          {% endfor %}
+        </select>
+      </div>
     </div>
     <div class="filters-actions">
       <button type="submit" class="btn btn-primary btn-sm">🔍 Filtrar</button>
@@ -70,6 +79,7 @@
             <th>CPF/CNPJ</th>
             <th>Status</th>
             <th>Prazo</th>
+            <th>Fiscais</th>
             <th>Dias</th>
             <th class="text-center">Ações</th>
           </tr>
@@ -83,6 +93,7 @@
             <td>{{ n.cpf_cnpj }}</td>
             <td>{{ n.get_status_display }}</td>
             <td>{% if n.prazo_regularizacao %}{{ n.prazo_regularizacao|date:"d/m/Y" }}{% else %}—{% endif %}</td>
+            <td>{% with fs=n.fiscais.all %}{% if fs %}{{ fs|join:", " }}{% else %}—{% endif %}{% endwith %}</td>
             <td>
               {% if n.dias_restantes is not None %}
                 <span class="badge {{ n.prazo_badge_class }}">{{ n.dias_restantes }}d</span>

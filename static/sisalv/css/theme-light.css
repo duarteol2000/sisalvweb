@@ -52,6 +52,11 @@ table{ width:100%; border-collapse:separate; border-spacing:0; }
 .table-sm td, .table-sm th{ padding:.35rem .5rem; line-height:1.25; }
 .table-actions{ white-space:nowrap; }
 
+/* Utilitários de alinhamento */
+.text-right{ text-align: right !important; }
+.text-center{ text-align: center !important; }
+.text-left{ text-align: left !important; }
+
 /* Badges */
 .badge{ display:inline-block; padding:.25rem .5rem; border-radius:.35rem; font-size:.75rem; }
 .bg-warning{ background:#fde68a; color:#1f2937; }

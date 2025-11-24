@@ -195,17 +195,46 @@
 /* grid utilitário para organizar blocos (use quando quiser) */
 .denuncia-form .form-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  grid-template-columns: repeat(4, minmax(220px, 1fr));
   gap: 12px;
 }
-@media (max-width:1100px){
-  .denuncia-form .form-grid { grid-template-columns: repeat(2, minmax(220px,1fr)); }
+/* variação de 2 colunas (ex.: documentos) */
+.denuncia-form .form-grid-2{
+  display:grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 12px;
 }
+/* força layout label em cima, campo abaixo dentro das células */
+.denuncia-form .form-grid .field{
+  display: flex;
+  flex-direction: column;
+}
+.denuncia-form .form-grid .field > label{
+  display:block !important;
+  margin: 0 0 4px 0;
+  font-weight: 600;
+}
+.denuncia-form .form-grid .field > input,
+.denuncia-form .form-grid .field > select,
+.denuncia-form .form-grid .field > textarea{
+  width: 100% !important;
+}
+@media (max-width:1200px){ .denuncia-form .form-grid { grid-template-columns: repeat(3, minmax(220px,1fr)); } }
+@media (max-width:1100px){ .denuncia-form .form-grid { grid-template-columns: repeat(2, minmax(220px,1fr)); } .denuncia-form .form-grid-2 { grid-template-columns: 1fr 1fr; } }
 @media (max-width:720px){
   .denuncia-form .form-grid { grid-template-columns: 1fr; }
+  .denuncia-form .form-grid-2 { grid-template-columns: 1fr; }
 }
 .denuncia-form .span-2 { grid-column: span 2; }
 .denuncia-form .span-3 { grid-column: 1 / -1; }
+
+/* grid de checkboxes (fiscais) */
+.checkbox-grid{ display:grid; grid-template-columns: repeat(4, minmax(160px, 1fr)); gap:8px; }
+@media (max-width: 1200px){ .checkbox-grid{ grid-template-columns: repeat(3, minmax(160px, 1fr)); } }
+@media (max-width: 900px){ .checkbox-grid{ grid-template-columns: repeat(2, minmax(160px, 1fr)); } }
+@media (max-width: 600px){ .checkbox-grid{ grid-template-columns: 1fr; } }
+.checkbox-grid .chk{ display:grid; grid-template-columns: 20px 1fr; align-items:center; gap:8px; padding:6px 8px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; overflow:visible; white-space:normal; line-height:1.2; overflow-wrap:anywhere; }
+.checkbox-grid .chk input[type="checkbox"]{ width:18px !important; height:18px; margin:0; justify-self:start; align-self:center; }
 
 /* botões no rodapé do form */
 .form-actions{
