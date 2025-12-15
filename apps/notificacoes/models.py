@@ -35,7 +35,7 @@ class Notificacao(models.Model):
     # 🔹 Dados do notificado
     pessoa_tipo = models.CharField(max_length=20, choices=PESSOA_TIPO_CHOICES)
     nome_razao = models.CharField("Nome / Razão Social", max_length=255)
-    cpf_cnpj = models.CharField(max_length=18, blank=True, null=True)
+    cpf_cnpj = models.CharField("CPF/CNPJ", max_length=18, blank=True, null=True)
     rg = models.CharField(max_length=20, blank=True, null=True)
     telefone = models.CharField(max_length=20, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)

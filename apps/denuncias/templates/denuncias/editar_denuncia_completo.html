@@ -33,9 +33,9 @@
         </div>
       </div>
 
-      <!-- Denunciado -->
+      <!-- Endereço Residencial do Denunciado (alvo) -->
       <div class="section">
-        <h3>Denunciado (alvo)</h3>
+        <h3>Endereço Residencial do Denunciado (alvo)</h3>
         <div class="form-grid">
           <div class="field"><label>Tipo de pessoa</label>{{ form.denunciado_tipo_pessoa }}</div>
           <div class="field"><label>Nome/Razão social</label>{{ form.denunciado_nome_razao }}</div>
@@ -97,8 +97,8 @@
         </div>
       </div>
 
-      <!-- Documentos do imóvel -->
-      <div class="section">
+      <!-- Documentos do imóvel (oculto na UI, mantido para compatibilidade) -->
+      <div class="section" style="display:none;">
         <h3>Documentos do imóvel</h3>
         <p class="hint" style="margin:-6px 0 8px;">“Tipo” e “Arquivo” são obrigatórios para cada linha utilizada.</p>
         {{ doc_formset.management_form }}

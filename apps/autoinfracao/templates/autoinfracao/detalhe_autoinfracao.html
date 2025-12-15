@@ -210,6 +210,10 @@
           <td><strong>Obs. Pagamento</strong></td>
           <td>{{ obj.observacao_pagamento|default:"—" }}</td>
         </tr>
+        <tr>
+          <td><strong>Ocorrido em</strong></td>
+          <td colspan="3">{{ obj.ocorrido_em|date:"d/m/Y H:i"|default:"—" }}</td>
+        </tr>
       </tbody>
       <thead>
         <tr><th colspan="4">Dados Construtivos</th></tr>

@@ -135,5 +135,6 @@ PAGAMENTO_FORMA_CHOICES = [
     ("TRANSFERENCIA", "Transferência"),
     ("CARTAO", "Cartão"),
     ("DINHEIRO", "Dinheiro"),
+    ("PARCELADO", "Parcelado"),
     ("OUTRO", "Outro"),
 ]

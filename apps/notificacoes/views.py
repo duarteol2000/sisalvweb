@@ -125,7 +125,8 @@ def listar(request):
         messages.warning(request, "Nenhuma prefeitura selecionada para a sessão.")
         return redirect("/")
 
-    qs = Notificacao.objects.filter(prefeitura_id=prefeitura_id).order_by("-criada_em")
+    # Por padrão, ignora notificações CANCELADAS (soft delete operacional)
+    qs = Notificacao.objects.filter(prefeitura_id=prefeitura_id).exclude(status="CANCELADA").order_by("-criada_em")
 
     # filtros
     protocolo = request.GET.get("protocolo", "").strip()

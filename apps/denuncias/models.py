@@ -50,7 +50,7 @@ class Denuncia(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='denuncias_como_denunciante'
     )
 
-    # Denunciado (alvo)
+    # Endereço Residencial do Denunciado (alvo)
     denunciado_tipo_pessoa = models.CharField(max_length=2, choices=PESSOA_TIPO_CHOICES, default='PF')
     denunciado_nome_razao = models.CharField(max_length=180)
     denunciado_cpf_cnpj = models.CharField(max_length=20, blank=True)

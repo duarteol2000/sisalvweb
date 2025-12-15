@@ -231,6 +231,13 @@ class NotificacaoEditForm(forms.ModelForm):
                 )
             except Exception:
                 pass
+            # Em edição (GET), garante seleção inicial dos fiscais já vinculados
+            if not self.is_bound and getattr(self.instance, 'pk', None):
+                try:
+                    ids = list(self.instance.fiscais.values_list('pk', flat=True))
+                    self.initial['fiscais'] = [str(pk) for pk in ids]
+                except Exception:
+                    pass
             # (debug removido)
 
         # Ajusta widget de arquivo: aceitar PDF/DOC

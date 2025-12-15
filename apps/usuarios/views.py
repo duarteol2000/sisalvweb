@@ -186,7 +186,8 @@ def home_view(request):
         return [by_month.get(m, 0) for m in range(1,13)]
 
     den_qs = Denuncia.objects.filter(prefeitura_id=prefeitura.id, criada_em__gte=dt_ini, criada_em__lt=dt_fim)
-    not_qs = Notificacao.objects.filter(prefeitura_id=prefeitura.id, criada_em__gte=dt_ini, criada_em__lt=dt_fim)
+    # Painel inicial: ignora notificações CANCELADAS
+    not_qs = Notificacao.objects.filter(prefeitura_id=prefeitura.id, criada_em__gte=dt_ini, criada_em__lt=dt_fim).exclude(status="CANCELADA")
     aif_qs = AutoInfracao.objects.filter(prefeitura_id=prefeitura.id, criada_em__gte=dt_ini, criada_em__lt=dt_fim)
 
     stats_den = _counts_by_status(den_qs)

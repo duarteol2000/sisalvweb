@@ -53,9 +53,9 @@
         </div>
       </div>
 
-      <!-- DENUNCIADO -->
+      <!-- Endereço Residencial do Denunciado (alvo) -->
       <div class="section">
-        <h3>Denunciado (alvo)</h3>
+        <h3>Endereço Residencial do Denunciado (alvo)</h3>
         <div class="form-grid">
           <div class="field"><label>Tipo de pessoa</label>{{ form.denunciado_tipo_pessoa }}</div>
           <div class="field"><label>Nome/Razão social <span aria-hidden="true" style="color:#c00">*</span></label>{{ form.denunciado_nome_razao }}</div>
@@ -136,15 +136,16 @@
         </div>
       </div>
 
-      <!-- DOCUMENTOS DO IMÓVEL -->
+      <!-- DOCUMENTOS DO IMÓVEL (oculto na UI, mantido apenas para compatibilidade de lógica) -->
       {% if doc_formset %}
-      <div class="section">
+      <div class="section" style="display:none;">
         <h3>Documentos do imóvel</h3>
         <p class="hint" style="margin:-6px 0 8px;">“Tipo” e “Arquivo” são obrigatórios para cada linha utilizada.</p>
         {{ doc_formset.management_form }}
         <div class="form-grid-2">
           {% for f in doc_formset.forms %}
             <div style="border:1px dashed #ccc; padding:10px; border-radius:6px;">
+              {{ f.id }}
               <div class="form-grid-2">
                 <div class="field"><label>Tipo <span style="color:#c00">*</span></label>{{ f.tipo }}</div>
                 <div class="field"><label>Arquivo <span style="color:#c00">*</span></label>{{ f.arquivo }}</div>

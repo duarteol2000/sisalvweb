@@ -21,6 +21,7 @@ urlpatterns = [
     path("mapa/", core_views.mapa_view, name="core_mapa"),
     path("api/mapa/processos/", core_views.api_mapa_processos, name="core_api_mapa_processos"),
     path("api/mapa/heat/", core_views.api_mapa_heat, name="core_api_mapa_heat"),
+    path("api/mapa/bairros/", core_views.api_mapa_bairros, name="core_api_mapa_bairros"),
     # Relatórios
     path("relatorios/operacional/", core_views.relatorio_operacional, name="relatorio_operacional"),
     # Relatórios — Analytics

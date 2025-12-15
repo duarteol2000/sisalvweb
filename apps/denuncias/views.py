@@ -3,7 +3,6 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.shortcuts import redirect, render, get_object_or_404
 from django.urls import reverse
-from django.forms import inlineformset_factory
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.core.paginator import Paginator
@@ -14,6 +13,7 @@ from .models import Denuncia, DenunciaDocumentoImovel, DenunciaAnexo
 from .forms import (
     DenunciaOrigemForm,
     DenunciaFotosForm,
+    DocumentoImovelFormSet,
     process_photo_file,
     process_photo_file_custom,
 )
@@ -44,15 +44,6 @@ DEN_FIELD = {
     "tipo": "origem_denuncia",
     "status": "status",
 }
-
-# formset local só para render (sem salvar ainda), e sem campos extras na tela
-DocumentoImovelFormSet = inlineformset_factory(
-    parent_model=Denuncia,
-    model=DenunciaDocumentoImovel,
-    fields=["tipo", "arquivo", "observacao"],
-    extra=2,           # mostra 2 linhas em branco
-    can_delete=True,
-)
 
 # ==========================================================
 # CADASTRAR — STEP 1 (SEU CÓDIGO ORIGINAL, INTACTO)

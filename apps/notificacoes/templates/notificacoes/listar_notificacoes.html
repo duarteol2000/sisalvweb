@@ -19,7 +19,7 @@
       </div>
       <div class="f">
         <label class="form-label mb-1">CPF/CNPJ</label>
-        <input type="text" name="cpf_cnpj" value="{{ filtros.cpf_cnpj }}" class="form-control form-control-sm">
+        <input type="text" name="cpf_cnpj" value="{{ filtros.cpf_cnpj }}" class="form-control form-control-sm js-doc" inputmode="numeric" maxlength="18">
       </div>
       <div class="f">
         <label class="form-label mb-1">Nome/Razão</label>
@@ -146,4 +146,5 @@
 
 </div>
 
+<script src="{% static 'notificacoes/js/notificacoes.js' %}"></script>
 {% endblock %}

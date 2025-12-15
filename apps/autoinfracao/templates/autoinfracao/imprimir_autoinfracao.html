@@ -116,7 +116,7 @@
   {# Seção de Geolocalização removida para evitar duplicação com o bloco do mapa #}
 
   <section class="section">
-    <h3>Descrição/Constatação</h3>
+    <h3>Descrição</h3>
     <div class="field"><div class="value" style="white-space: pre-line;">{{ obj.descricao }}</div></div>
   </section>
 
@@ -158,6 +158,8 @@
       <div class="field"><div class="label">Pé-direito (m)</div><div class="value">{{ obj.pe_direito_m|default:"—" }}</div></div>
       <div class="field"><div class="label">Duplex</div><div class="value">{% if obj.duplex %}Sim{% else %}Não{% endif %}</div></div>
       <div class="field"><div class="label">Qtd. Cômodos</div><div class="value">{{ obj.qtd_comodos|default:"—" }}</div></div>
+      <div class="field"><div class="label">Número de quartos</div><div class="value">{{ obj.num_quartos|default:"—" }}</div></div>
+      <div class="field"><div class="label">Número de leitos</div><div class="value">{{ obj.num_leitos|default:"—" }}</div></div>
       <div class="field"><div class="label">Compartimentação (galpão)</div><div class="value">{% if obj.compartimentacao %}Sim{% else %}Não{% endif %}</div></div>
       <div class="field"><div class="label">Divisórias (galpão)</div><div class="value">{% if obj.divisorias %}Sim{% else %}Não{% endif %}</div></div>
       <div class="field"><div class="label">Mezanino</div><div class="value">{% if obj.mezanino %}Sim{% else %}Não{% endif %}</div></div>
@@ -173,6 +175,7 @@
       <div class="field"><div class="label">Homologado em</div><div class="value">{{ obj.homologado_em|date:"d/m/Y H:i"|default:"—" }}</div></div>
       <div class="field"><div class="label">Homologado por</div><div class="value">{% with hp=obj.homologado_por %}{% if hp %}{{ hp.get_full_name|default:hp.email }}{% else %}—{% endif %}{% endwith %}</div></div>
       <div class="field"><div class="label">Regularizado em</div><div class="value">{{ obj.regularizado_em|date:"d/m/Y H:i"|default:"—" }}</div></div>
+      <div class="field"><div class="label">Ocorrido em</div><div class="value">{{ obj.ocorrido_em|date:"d/m/Y H:i"|default:"—" }}</div></div>
     </div>
   </section>
 

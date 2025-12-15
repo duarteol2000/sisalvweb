@@ -53,7 +53,7 @@ class AutoInfracaoCreateForm(forms.ModelForm):
             # geolocalização
             "latitude", "longitude",
             # construtivo
-            "area_m2", "testada_m", "pe_direito_m", "duplex", "qtd_comodos", "compartimentacao", "divisorias", "mezanino", "area_mezanino_m2",
+            "area_m2", "testada_m", "pe_direito_m", "duplex", "qtd_comodos", "num_quartos", "num_leitos", "compartimentacao", "divisorias", "mezanino", "area_mezanino_m2",
             # dados
             "descricao",
             # prazos/valores
@@ -90,16 +90,21 @@ class AutoInfracaoCreateForm(forms.ModelForm):
                     del self.fields['email'].widget.attrs['required']
             except Exception:
                 pass
-        # Padroniza widget/label e valor inicial do ocorrido_em para datetime-local
+        # Padroniza widget/label e valor inicial do ocorrido_em para datetime-local (em horário local)
         if "ocorrido_em" in self.fields:
             try:
+                from django.utils import timezone
                 self.fields["ocorrido_em"].label = "Data/Hora do Ocorrido"
                 self.fields["ocorrido_em"].widget = forms.DateTimeInput(attrs={"type": "datetime-local"})
                 occ = self.initial.get("ocorrido_em") or getattr(self.instance, "ocorrido_em", None)
                 if occ:
-                    from datetime import datetime
                     try:
-                        self.initial["ocorrido_em"] = occ.strftime("%Y-%m-%dT%H:%M")
+                        # Converte para horário local se o valor estiver com timezone
+                        if timezone.is_aware(occ):
+                            occ_local = timezone.localtime(occ)
+                        else:
+                            occ_local = occ
+                        self.initial["ocorrido_em"] = occ_local.strftime("%Y-%m-%dT%H:%M")
                     except Exception:
                         pass
             except Exception:
@@ -135,6 +140,13 @@ class AutoInfracaoCreateForm(forms.ModelForm):
                 )
             except Exception:
                 pass
+            # Em edição (GET), garante seleção inicial dos fiscais já vinculados
+            if not self.is_bound and getattr(self.instance, 'pk', None):
+                try:
+                    ids = list(self.instance.fiscais.values_list('pk', flat=True))
+                    self.initial['fiscais'] = [str(pk) for pk in ids]
+                except Exception:
+                    pass
         # Força lat/lng com 6 casas na renderização
         from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
         for fld in ("latitude", "longitude"):

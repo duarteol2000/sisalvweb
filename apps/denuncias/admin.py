@@ -31,7 +31,7 @@ class DenunciaAdmin(admin.ModelAdmin):
             'fields': ('origem_denuncia', 'denunciante_anonimo', 'denunciante_nome', 'denunciante_email',
                        'denunciante_telefone', 'denunciante_fiscal')
         }),
-        ('Denunciado (alvo)', {
+        ('Endereço Residencial do Denunciado (alvo)', {
             'fields': (
                 'denunciado_tipo_pessoa', 'denunciado_nome_razao', 'denunciado_cpf_cnpj', 'denunciado_rg_ie',
                 'denunciado_email', 'denunciado_telefone',

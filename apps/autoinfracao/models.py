@@ -61,7 +61,7 @@ class AutoInfracao(models.Model):
     # Notificado
     pessoa_tipo = models.CharField(max_length=20, choices=PESSOA_TIPO_CHOICES)
     nome_razao = models.CharField(max_length=255)
-    cpf_cnpj = models.CharField(max_length=18, blank=True, null=True)
+    cpf_cnpj = models.CharField("CPF/CNPJ", max_length=18, blank=True, null=True)
     rg = models.CharField(max_length=20, blank=True, null=True)
     telefone = models.CharField(max_length=20, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
@@ -92,7 +92,7 @@ class AutoInfracao(models.Model):
     )
 
     # Dados da infração
-    descricao = models.TextField("Descrição/Constatação")
+    descricao = models.TextField("Descrição")
     status = models.CharField(max_length=20, choices=AIF_STATUS_CHOICES, default="ABERTO")
 
     # Prazos e valores
@@ -121,6 +121,8 @@ class AutoInfracao(models.Model):
     divisorias = models.BooleanField("Divisórias (galpão)", default=False)
     mezanino = models.BooleanField("Possui mezanino", default=False)
     area_mezanino_m2 = models.DecimalField("Área do mezanino (m²)", max_digits=10, decimal_places=2, null=True, blank=True)
+    num_quartos = models.PositiveIntegerField("Número de quartos", null=True, blank=True)
+    num_leitos = models.PositiveIntegerField("Número de leitos", null=True, blank=True)
     # Quando ocorreu o fato (informado pelo fiscal)
     ocorrido_em = models.DateTimeField(null=True, blank=True)
 

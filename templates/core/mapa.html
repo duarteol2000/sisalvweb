@@ -13,6 +13,10 @@
             <input id="toggleHeat" type="checkbox" />
             <label for="toggleHeat" style="margin:0;"><strong>Mapa de Calor</strong></label>
           </div>
+          <div style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+            <input id="toggleBairros" type="checkbox" />
+            <label for="toggleBairros" style="margin:0;"><strong>Mapa por Bairro</strong></label>
+          </div>
           <div id="metricWrap" style="margin-top:8px; display:none;">
             <label for="metricSel" style="margin-bottom:4px; display:block;"><strong>Métrica</strong></label>
             <select id="metricSel" class="form-select">
@@ -36,6 +40,7 @@
           <label for="fTipo"><strong>Tipo</strong></label>
           <select id="fTipo" class="form-select">
             <option value="ALL">Todos</option>
+            <option value="DENUNCIA">Denúncias</option>
             <option value="NOTIFICACAO">Notificações</option>
             <option value="AUTOINFRACAO">Autos de Infração</option>
           </select>
@@ -54,6 +59,10 @@
         <div>
           <strong>Legenda</strong>
           <div style="display:flex; gap:8px; align-items:center; margin-top:6px;">
+            <span style="display:inline-block; width:14px; height:14px; background:#10b981; border-radius:3px;"></span>
+            <span>Denúncia</span>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center; margin-top:4px;">
             <span style="display:inline-block; width:14px; height:14px; background:#2563eb; border-radius:3px;"></span>
             <span>Notificação</span>
           </div>
@@ -64,6 +73,21 @@
           <div style="display:flex; gap:8px; align-items:center; margin-top:4px;">
             <span style="display:inline-block; width:14px; height:14px; background:#7c3aed; border-radius:3px;"></span>
             <span>Misto</span>
+          </div>
+          <div style="margin-top:8px;">
+            <strong>Densidade (Mapa por Bairro)</strong>
+            <div style="display:flex; gap:8px; align-items:center; margin-top:4px;">
+              <span style="display:inline-block; width:14px; height:14px; background:#22c55e; border-radius:3px;"></span>
+              <span>Baixa</span>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center; margin-top:4px;">
+              <span style="display:inline-block; width:14px; height:14px; background:#ffd93b; border-radius:3px;"></span>
+              <span>Média</span>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center; margin-top:4px;">
+              <span style="display:inline-block; width:14px; height:14px; background:#ff4f4f; border-radius:3px;"></span>
+              <span>Alta</span>
+            </div>
           </div>
         </div>
       </div>
@@ -79,6 +103,17 @@
   #map-panel label{ display:block; margin-bottom:4px; }
   #map-panel .form-control, #map-panel .form-select{ display:block; width:100%; margin-top:4px; }
   #map-panel .actions .btn{ white-space:nowrap; }
+  .map-bairro-label{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:32px;
+    height:32px;
+    border-radius:50%;
+    font-weight:700;
+    font-size:.85rem;
+    box-shadow:0 1px 4px rgba(0,0,0,.4);
+  }
 </style>
 
 <!-- Leaflet + MarkerCluster (local, sem CDN) -->
@@ -110,6 +145,8 @@
   const btnAplicar = document.getElementById('btnAplicar');
   const btnPrefeitura = document.getElementById('btnPrefeitura');
   const btnLimpar = document.getElementById('btnLimpar');
+  const toggleHeat = document.getElementById('toggleHeat');
+  const toggleBairros = document.getElementById('toggleBairros');
 
   // anos: últimos 6 incluindo o atual
   const nowY = new Date().getFullYear();
@@ -136,12 +173,15 @@
   map.addLayer(clusters);
   let searchMarker = null;
   let heatLayer = L.layerGroup();
+  let bairrosLayer = L.layerGroup();
 
   function colorFor(entries){
     const types = new Set(entries.map(e=>e.tipo));
-    if(types.size>1) return '#7c3aed'; // misto
+    if(types.size > 1) return '#7c3aed'; // misto
+    if(types.has('DENUNCIA')) return '#10b981';
     if(types.has('NOTIFICACAO')) return '#2563eb';
-    return '#f59e0b';
+    if(types.has('AUTOINFRACAO')) return '#f59e0b';
+    return '#6b7280';
   }
 
   // Ícone de PIN clássico (SVG inline) com cor da legenda e letra (N/A/M)
@@ -158,8 +198,11 @@
 
   function labelFor(entries){
     const types = new Set(entries.map(e=>e.tipo));
-    if(types.size>1) return 'M';
-    return types.has('NOTIFICACAO') ? 'N' : 'A';
+    if(types.size > 1) return 'M';
+    if(types.has('DENUNCIA')) return 'D';
+    if(types.has('NOTIFICACAO')) return 'N';
+    if(types.has('AUTOINFRACAO')) return 'A';
+    return '';
   }
 
   // Overlay de status simples no canto superior direito do mapa
@@ -195,7 +238,12 @@
 
   let inflight = null;
   async function loadData(opts){
-    if(toggleHeat.checked){ return loadHeat(opts); }
+    if(typeof toggleBairros !== 'undefined' && toggleBairros && toggleBairros.checked){
+      return loadBairros(opts);
+    }
+    if(typeof toggleHeat !== 'undefined' && toggleHeat && toggleHeat.checked){
+      return loadHeat(opts);
+    }
     const opt = Object.assign({autoFit:false, onlyZoomOut:false}, opts||{});
     const b = map.getBounds();
     const bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].join(',');
@@ -229,6 +277,9 @@
       }
       const data = await res.json();
       clusters.clearLayers();
+      if(heatLayer && map.hasLayer(heatLayer)){ map.removeLayer(heatLayer); }
+      if(bairrosLayer && map.hasLayer(bairrosLayer)){ map.removeLayer(bairrosLayer); }
+      if(!map.hasLayer(clusters)){ map.addLayer(clusters); }
       const feats = data.features||[];
       const hasMore = (res.headers.get('X-Has-More')||'').toLowerCase()==='true';
       feats.forEach(f=>{
@@ -275,7 +326,8 @@
       const data = await res.json();
       const pts = Array.isArray(data.points) ? data.points : [];
       clusters.clearLayers();
-      if(heatLayer){ map.removeLayer(heatLayer); }
+      if(bairrosLayer && map.hasLayer(bairrosLayer)){ map.removeLayer(bairrosLayer); }
+      if(heatLayer && map.hasLayer(heatLayer)){ map.removeLayer(heatLayer); }
       // Se o plugin Leaflet.heat estiver disponível, usa-o; caso contrário, usa o fallback de círculos
       if(typeof L.heatLayer === 'function'){
         const z = map.getZoom();
@@ -322,6 +374,132 @@
         map.fitBounds(bounds.pad(0.2), {maxZoom: opt.onlyZoomOut ? currentZoom : 17});
       }
     }catch(e){ if(e.name!=='AbortError'){ console.error(e); showToast('Erro de rede no heatmap.', 'error'); } }
+  }
+
+  async function loadBairros(opts){
+    const opt = Object.assign({autoFit:false, onlyZoomOut:false}, opts||{});
+    const b = map.getBounds();
+    const bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].join(',');
+    const tipo = tipoSel.value || 'ALL';
+    const ano = anoSel.value || 'ALL';
+    let url = "{% url 'core_api_mapa_bairros' %}?tipo="+encodeURIComponent(tipo)+"&ano="+encodeURIComponent(ano)+"&bbox="+encodeURIComponent(bbox);
+    try{
+      inflight && inflight.abort && inflight.abort();
+      inflight = new AbortController();
+      setStatus('Carregando mapa por bairro...');
+      const res = await fetch(url, {signal: inflight.signal});
+      if(!res.ok){
+        setStatus('API '+res.status);
+        let msg = 'Falha ao carregar mapa por bairro ('+res.status+').';
+        if(res.status===400) msg = 'Parâmetros inválidos ou sessão sem prefeitura (400).';
+        if(res.status===403) msg = 'Sem permissão para a prefeitura atual (403).';
+        if(res.status>=500) msg = 'Erro no servidor ('+res.status+').';
+        showToast(msg, 'error');
+        return;
+      }
+      const ct = (res.headers.get('content-type')||'').toLowerCase();
+      if(!ct.includes('application/json')){
+        setStatus('API inválida');
+        showToast('Resposta inesperada da API (não JSON). Possível sessão expirada.', 'error');
+        return;
+      }
+      const data = await res.json();
+      const itens = Array.isArray(data.bairros) ? data.bairros : [];
+      clusters.clearLayers();
+      if(heatLayer && map.hasLayer(heatLayer)){ map.removeLayer(heatLayer); }
+      if(bairrosLayer && map.hasLayer(bairrosLayer)){ bairrosLayer.clearLayers(); }
+      if(!bairrosLayer){ bairrosLayer = L.layerGroup(); }
+      // cores por nível
+      function colorForNivel(nivel){
+        const n = (nivel || '').toUpperCase();
+        if(n === 'ALTA') return '#ff4f4f';   // vermelho
+        if(n === 'MEDIA') return '#ffd93b';  // amarelo
+        return '#22c55e';                    // verde (BAIXA)
+      }
+      // decide valor exibido conforme tipo atual
+      function valorVisivel(item, tipoAtual){
+        const t = (tipoAtual || 'ALL').toUpperCase();
+        if(t === 'DENUNCIA') return item.denuncia || 0;
+        if(t === 'NOTIFICACAO') return item.notificacao || 0;
+        if(t === 'AUTOINFRACAO') return item.autoinfracao || 0;
+        return item.total || 0;
+      }
+      itens.forEach(it=>{
+        const lat = Number(it.lat);
+        const lng = Number(it.lng);
+        if(!isFinite(lat) || !isFinite(lng)) return;
+        const nivel = it.nivel || 'MEDIA';
+        const base = Number(it.valor_base || 0);
+      const cor = colorForNivel(nivel);
+      const radius = 200 + Math.max(0, base) * 10;
+      const circle = L.circle([lat, lng], {
+        radius: radius,
+        color: cor,
+        weight: 1,
+        fillColor: cor,
+        fillOpacity: 0.45,
+      });
+      const valor = valorVisivel(it, tipo);
+      const textColor = (nivel && nivel.toUpperCase() === 'MEDIA') ? '#111827' : '#ffffff';
+      const iconHtml = `
+        <div class="map-bairro-label" style="background:${cor};border:2px solid ${cor};color:${textColor};">
+          ${valor}
+        </div>
+      `;
+      const icon = L.divIcon({
+        className: '',
+        html: iconHtml,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+      });
+        const marker = L.marker([lat, lng], {icon});
+        const popupHtml = `
+          <div style="min-width:220px;">
+            <div><strong>Bairro:</strong> ${it.bairro || '-'}</div>
+            <div><strong>Total:</strong> ${it.total || 0} (D: ${it.denuncia || 0} • NTF: ${it.notificacao || 0} • AIF: ${it.autoinfracao || 0})</div>
+            <div><strong>Nível:</strong> ${nivel}</div>
+          </div>
+        `;
+        circle.bindPopup(popupHtml);
+        marker.bindTooltip(it.bairro || '', {direction:'top'});
+        bairrosLayer.addLayer(circle);
+        bairrosLayer.addLayer(marker);
+      });
+      if(!map.hasLayer(bairrosLayer)){ bairrosLayer.addTo(map); }
+      const sum = (data && data.summary) || {};
+      const tipoAtual = (sum.tipo_atual || tipo || 'ALL').toUpperCase();
+      const totalGeral = sum.total_geral || 0;
+      const d = sum.denuncia || 0;
+      const n = sum.notificacao || 0;
+      const a = sum.autoinfracao || 0;
+      let statusMsg = '';
+      if(tipoAtual === 'ALL'){
+        statusMsg = `Total no mapa: ${totalGeral} — D: ${d} • NTF: ${n} • AIF: ${a}`;
+      }else if(tipoAtual === 'DENUNCIA'){
+        statusMsg = `Total de Denúncias no mapa: ${d}`;
+      }else if(tipoAtual === 'NOTIFICACAO'){
+        statusMsg = `Total de Notificações no mapa: ${n}`;
+      }else if(tipoAtual === 'AUTOINFRACAO'){
+        statusMsg = `Total de Autos de Infração no mapa: ${a}`;
+      }
+      setStatus(statusMsg || (`${itens.length} bairro(s)`));
+      if(opt.autoFit && itens.length){
+        const bounds = L.latLngBounds([]);
+        itens.forEach(it=>{
+          const lat = Number(it.lat);
+          const lng = Number(it.lng);
+          if(!isFinite(lat) || !isFinite(lng)) return;
+          bounds.extend([lat, lng]);
+        });
+        const currentZoom = map.getZoom();
+        map.fitBounds(bounds.pad(0.2), {maxZoom: opt.onlyZoomOut ? currentZoom : 17});
+      }
+    }catch(e){
+      if(e.name!=='AbortError'){
+        console.error(e);
+        showToast('Erro de rede no mapa por bairro.', 'error');
+      }
+    }
   }
 
   async function geocodeEndereco(q){
@@ -375,7 +553,6 @@
     map.setView([center.lat, center.lng], center.zoom || 13);
     loadData({autoFit:false});
   }); }
-  const toggleHeat = document.getElementById('toggleHeat');
   const metricSel = document.getElementById('metricSel');
   const metricWrap = document.getElementById('metricWrap');
   if(toggleHeat){
@@ -383,12 +560,32 @@
       const on = toggleHeat.checked;
       metricWrap.style.display = on ? 'block' : 'none';
       if(on){
+        if(toggleBairros){ toggleBairros.checked = false; }
         if(clusters) map.removeLayer(clusters);
+        if(bairrosLayer && map.hasLayer(bairrosLayer)){ map.removeLayer(bairrosLayer); }
         loadHeat({autoFit:true, onlyZoomOut:true});
       } else {
         if(clusters) map.addLayer(clusters);
         if(heatLayer){ map.removeLayer(heatLayer); }
         loadData({autoFit:true, onlyZoomOut:true});
+      }
+    });
+  }
+  if(toggleBairros){
+    toggleBairros.addEventListener('change', ()=>{
+      const on = toggleBairros.checked;
+      if(on){
+        if(toggleHeat){ toggleHeat.checked = false; }
+        metricWrap.style.display = 'none';
+        if(heatLayer && map.hasLayer(heatLayer)){ map.removeLayer(heatLayer); }
+        if(clusters && map.hasLayer(clusters)){ map.removeLayer(clusters); }
+        loadBairros({autoFit:true, onlyZoomOut:true});
+      } else {
+        if(bairrosLayer && map.hasLayer(bairrosLayer)){ bairrosLayer.clearLayers(); map.removeLayer(bairrosLayer); }
+        if(!toggleHeat || !toggleHeat.checked){
+          if(clusters && !map.hasLayer(clusters)){ map.addLayer(clusters); }
+          loadData({autoFit:true, onlyZoomOut:true});
+        }
       }
     });
   }

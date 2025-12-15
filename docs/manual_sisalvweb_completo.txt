@@ -1,0 +1,888 @@
+MANUAL DO SISALV WEB
+Guia Completo de Uso, Mapa e Relatórios
+
+
+=====================================================================
+S U M Á R I O   (Í N D I C E   S U G E R I D O)
+=====================================================================
+
+As páginas abaixo são apenas referência para diagramação em Word/PDF.
+Após copiar este conteúdo para o editor, ajuste a numeração final.
+
+Capítulo 1 – Visão Geral do Sistema ............................. p. 5
+  1.1 Objetivo do SISALV WEB
+  1.2 Fluxo básico (DEN → NTF → AIF → Medidas)
+  1.3 Perfis de usuário e permissões principais
+
+Capítulo 2 – Acesso, Login e Prefeituras ........................ p. 8
+  2.1 URL de acesso e requisitos
+  2.2 Tela de login (e-mail, senha, código IBGE)
+  2.3 Troca de senha e perfis
+  2.4 Prefeitura da sessão (multi‑prefeitura)
+
+Capítulo 3 – Cadastros de Referência ............................ p. 12
+  3.1 Pessoas
+  3.2 Imóveis
+  3.3 Usuários e perfis (Administração)
+  3.4 Tabelas auxiliares e choices
+
+Capítulo 4 – Denúncias (Entrada do Processo) .................... p. 18
+  4.1 Conceito e papel da Denúncia
+  4.2 Cadastro de Denúncia (campos / blocos)
+  4.3 Edição básica e completa
+  4.4 Endereço Residencial do Denunciado (alvo)
+  4.5 Local da ocorrência e geolocalização
+  4.6 Fiscais responsáveis
+  4.7 Documentos do imóvel (compatibilidade)
+  4.8 Fotos da ocorrência
+  4.9 Apontamento de Campo (tablet)
+  4.10 Procedência da Denúncia (PROCEDE / NÃO PROCEDE)
+
+Capítulo 5 – Notificações (NTF) ................................. p. 32
+  5.1 Conceito de Notificação
+  5.2 Gerar Notificação a partir da Denúncia
+  5.3 Criar Notificação direta (sem Denúncia)
+  5.4 Conversão de dados e geolocalização
+  5.5 Fiscais responsáveis
+  5.6 Anexos e fotos
+  5.7 Cancelamento (status CANCELADA) e impacto
+  5.8 Impressão da Notificação
+
+Capítulo 6 – Autos de Infração (AIF) ............................ p. 45
+  6.1 Conceito de AIF
+  6.2 Gerar AIF a partir da Notificação
+  6.3 Gerar AIF a partir da Denúncia
+  6.4 Cadastro direto de AIF
+  6.5 Características da edificação (área, quartos, leitos etc.)
+  6.6 Valores, homologação e pagamento
+  6.7 Fiscais responsáveis
+  6.8 Anexos, fotos e galeria unificada
+  6.9 Impressão do Auto de Infração
+
+Capítulo 7 – Medidas: Embargo e Interdição ...................... p. 60
+  7.1 Conceito de Medidas
+  7.2 Geração a partir do AIF
+  7.3 Campos principais e anexos
+  7.4 Impressão de Embargo e Interdição
+
+Capítulo 8 – Listagens e Filtros Operacionais ................... p. 70
+  8.1 Listagem de Denúncias
+  8.2 Listagem de Notificações
+  8.3 Listagem de Autos de Infração
+  8.4 Filtros por CPF/CNPJ, endereço, fiscal e status
+  8.5 Máscaras e usabilidade dos filtros
+
+Capítulo 9 – Mapa e Consultas Geográficas (DETALHADO) ........... p. 82
+  9.1 Tela principal do Mapa
+  9.2 Filtros gerais (tipo, ano, protocolo, endereço)
+  9.3 Mapa de Processos (pontos individuais)
+  9.4 Mapa de Calor (Heatmap)
+  9.5 Mapa por Bairro (agregado)
+  9.6 Legenda, ícones, densidade e níveis
+  9.7 Exemplos práticos de uso
+  9.8 Tratamento de Notificações CANCELADA no mapa
+
+Capítulo 10 – Relatórios Gerenciais (DETALHADO) ................. p. 100
+  10.1 Relatório de Risco por Bairro
+  10.2 Relatório de Carga por Fiscal
+  10.3 Relatório Quantitativo por Fiscal
+  10.4 Relatório “Bairros por Fiscal”
+  10.5 Relatório Operacional (Entradas, Saídas e Ativos)
+  10.6 Relatório Pessoa 360 (tela, CSV, impressão)
+  10.7 Relatório de Arrecadação AIF (web, impressão, CSV)
+
+Capítulo 11 – Impressões e Documentos Finais .................... p. 130
+  11.1 Impressão da Denúncia
+  11.2 Impressão da Notificação
+  11.3 Impressão do AIF
+  11.4 Impressão de Relatórios
+
+Capítulo 12 – Galeria de Fotos e Anexos ......................... p. 140
+  12.1 Limites e formatos de imagem
+  12.2 Fotos por Denúncia, Notificação e AIF
+  12.3 Apontamentos de Campo
+  12.4 Deduplicação e origem das fotos
+  12.5 Regras de exclusão de anexos
+
+Capítulo 13 – Regras de Negócio e Procedência ................... p. 150
+  13.1 Procedência da Denúncia
+  13.2 Herança de fiscais (DEN → NTF → AIF)
+  13.3 Tratamento de Notificações CANCELADA
+  13.4 Vinculação com Pessoa/Imóvel
+
+Capítulo 14 – Dicas, Erros Comuns e Suporte ..................... p. 160
+  14.1 Erros de acesso (host, CSRF)
+  14.2 Problemas com fotos
+  14.3 Dados inconsistentes (geo, documentos)
+  14.4 Auditoria e suporte
+
+Anexo A – Campos Obrigatórios (Resumo) .......................... p. 180
+Anexo B – Limpeza de Dados para Testes ......................... p. 184
+
+
+=====================================================================
+Capítulo 1 – Visão Geral do Sistema
+=====================================================================
+
+1.1 Objetivo do SISALV WEB
+
+- Centralizar a fiscalização urbana (obras, posturas, uso do solo) em um sistema único.
+- Registrar Denúncias, Notificações, Autos de Infração e Medidas vinculadas, com histórico completo.
+- Permitir consultas rápidas por lista, relatórios e mapa georreferenciado.
+- Auxiliar gestão da carga de trabalho de fiscais e a priorização de áreas de risco.
+
+1.2 Fluxo básico
+
+- Denúncia (DEN): entrada do processo – alguém reporta uma irregularidade ou o fiscal registra internamente.
+- Notificação (NTF): etapa educativa/preventiva, comunicando irregularidades e prazo para ajuste.
+- Auto de Infração (AIF): etapa sancionatória, gerando multa e medidas formais.
+- Medidas (Embargo / Interdição): quando é necessário restringir ou suspender o uso/obra.
+
+1.3 Perfis de usuário
+
+- ADMIN/FISCAL: podem cadastrar, editar, anexar fotos, gerar documentos e relatórios.
+- VISUAL: apenas consulta (sem alterar dados).
+- Cada usuário está vinculado a uma Prefeitura; todas as consultas respeitam a prefeitura da sessão.
+
+
+=====================================================================
+Capítulo 2 – Acesso, Login e Prefeituras
+=====================================================================
+
+2.1 URL de acesso
+
+- Exemplo: https://seu-subdominio.seudominio.gov.br/
+- Sempre utilizar HTTPS para evitar erros de segurança e CSRF.
+
+2.2 Tela de login
+
+- Campos:
+  - E-mail
+  - Senha
+  - Código IBGE da Prefeitura
+- O Código IBGE define para qual prefeitura a sessão será aberta.
+
+2.3 Troca de senha e perfis
+
+- A gestão de usuários e perfis é feita por administradores.
+- Recomenda-se senhas fortes e renovação periódica.
+
+2.4 Prefeitura da sessão
+
+- Muitas telas (mapa, relatórios, listagens) trabalham sempre restritas à prefeitura ativa.
+- A prefeitura é gravada na sessão e usada em todas as consultas do usuário.
+
+
+=====================================================================
+Capítulo 3 – Cadastros de Referência
+=====================================================================
+
+3.1 Pessoas
+
+- Guardam CPF/CNPJ, nome/razão social, e dados de contato.
+- Podem ser vinculadas a Denúncias, Notificações e AIF.
+- Alimentam relatórios como Pessoa 360 (histórico completo por pessoa).
+
+3.2 Imóveis
+
+- Mantêm inscrição, endereço e situação cadastral.
+- São vinculados às Denúncias/NTF/AIF quando se conhece a inscrição e endereço oficiais.
+
+3.3 Usuários e perfis
+
+- Criados normalmente via interface administrativa.
+- Campos relevantes: e-mail, nome, tipo (FISCAL/ADMIN/VISUAL), prefeitura e matrícula.
+- Fiscais são usados em filtros, mapas (responsáveis) e relatórios por fiscal.
+
+3.4 Tabelas auxiliares
+
+- Tipos de infração (InfracaoTipo).
+- Enquadramentos legais (Enquadramento) com valores de base da multa.
+- Choices de status (DEN, NTF, AIF) e outras classificações usadas em combos.
+
+
+=====================================================================
+Capítulo 4 – Denúncias (Entrada do Processo)
+=====================================================================
+
+4.1 Conceito
+
+- Registro inicial de irregularidade.
+- Contém dados de quem denunciou (quando aplicável), do denunciado (alvo) e do local da ocorrência.
+
+4.2 Cadastro de Denúncia
+
+Menu: Fiscalização → Denúncias → “Cadastrar”.
+
+Blocos principais do formulário:
+
+- Origem da Denúncia
+  - Origem (canal de entrada).
+  - Denunciante anônimo ou identificado (nome, e-mail, telefone).
+  - Fiscal denunciante (quando a denúncia nasce internamente).
+
+- Endereço Residencial do Denunciado (alvo)
+  - Tipo de pessoa (PF/PJ).
+  - Nome/Razão Social (obrigatório – pode usar “A DEFINIR” se não souber).
+  - CPF/CNPJ (com máscara dinâmica, aceita digitação livre).
+  - RG/IE, e-mail, telefone.
+  - Endereço residencial completo (logradouro, número, complemento, bairro, cidade, UF, CEP).
+
+- Local da Ocorrência
+  - Logradouro, número, complemento.
+  - Bairro, cidade, UF, CEP.
+  - Ponto de referência (texto livre).
+  - Latitude e longitude (opcionais; aceitam vírgula ou ponto).
+  - Descrição detalhada da ocorrência.
+  - Data/hora do ocorrido.
+
+- Fiscais Responsáveis
+  - Campo multi‑seleção (checkboxes).
+  - Lista filtrada por prefeitura e tipo de usuário “FISCAL”.
+
+4.3 Edição básica e completa
+
+- Edição básica:
+  - Focada em campos principais (origem, endereços, descrição, fiscais) + fotos.
+  - Interface igual ao cadastro para facilitar o uso diário.
+
+- Edição completa:
+  - Exibe todos os campos disponíveis, blocos organizados em “cards”.
+  - Permite ajustes finos, remoção de anexos e outras atualizações avançadas.
+
+4.4 Endereço Residencial do Denunciado (alvo)
+
+- Rótulo padronizado em todas as telas: cadastro, edição, detalhe, impressão e admin.
+- Ajuda o usuário a separar claramente:
+  - Endereço residencial do denunciado (alvo) e
+  - Endereço do local onde a irregularidade ocorre.
+
+4.5 Local da ocorrência e geolocalização
+
+- Latitude/Longitude são opcionais no cadastro.
+- Aceitam vírgula na digitação; o sistema converte internamente para float com 6 casas.
+- Quando preenchidas, são usadas em:
+  - Mapa de Processos (pontos individuais).
+  - Mapa de Calor (heatmap, tipo DENÚNCIA).
+  - Mapa por Bairro (agregação por bairro).
+
+4.6 Fiscais responsáveis
+
+- M2M entre Denúncia e usuários fiscais.
+- Na edição (básica ou completa), os fiscais já vinculados vêm marcados.
+- Alimenta relatórios:
+  - Carga por Fiscal.
+  - Quantitativo por Fiscal.
+  - Bairros por Fiscal.
+  - Pessoa 360 (filtros por fiscal).
+
+4.7 Documentos do imóvel
+
+- Formset opcional de documentos associados ao imóvel da Denúncia.
+- UI atual: blocos mantidos ocultos para não poluir telas operacionais.
+- Lógica interna permite:
+  - Linhas totalmente em branco serem ignoradas.
+  - Edição de tipo/observação sem reenvio de arquivo.
+  - Exclusão via campo DELETE.
+
+4.8 Fotos da ocorrência
+
+- Até 4 fotos por Denúncia.
+- Imagens são otimizadas (1000×667, ~95–103 KB), convertidas para JPG e deduplicadas por hash.
+- Aparecem no detalhe da Denúncia e na galeria unificada com Notificações/AIF relacionados.
+
+4.9 Apontamento de Campo
+
+- Tela rápida para uso em campo (tablet/celular):
+  - Observação curta.
+  - Fotos adicionais (até 4).
+  - Opção para atualizar geolocalização da Denúncia.
+- Fotos de Apontamentos são exibidas automaticamente nas galerias de DEN/NTF/AIF que estiverem na cadeia.
+
+4.10 Procedência da Denúncia
+
+- Campo que indica se a denúncia procede ou não procede.
+- Ao gerar Notificação ou AIF a partir da Denúncia:
+  - Procedência é marcada automaticamente como PROCEDE.
+  - Histórico registra o evento (quem fez, quando, IP).
+- Em geral, após essa etapa a procedência fica travada para preservar coerência.
+
+
+=====================================================================
+Capítulo 5 – Notificações (NTF)
+=====================================================================
+
+5.1 Conceito
+
+- Documento que formaliza uma irregularidade, concede prazo para regularização e serve como “alerta” antes do AIF.
+
+5.2 Gerar Notificação a partir da Denúncia
+
+- No detalhe de uma Denúncia, botão “Gerar Notificação”.
+- O sistema copia:
+  - Dados da pessoa (quando vinculada) e do denunciado.
+  - Endereço do local da ocorrência.
+  - Geolocalização disponível.
+  - Descrição padrão, incluindo referência à vistoria e base legal.
+- Herda fiscais da Denúncia; se o usuário atual for FISCAL e ainda não estiver na lista, é incluído.
+
+5.3 Criar Notificação direta
+
+- Menu: Notificações → “Nova Notificação”.
+- Campos principais:
+  - Pessoa tipo (PF/PJ), nome/razão, CPF/CNPJ (campo com máscara).
+  - Endereço (logradouro, número, complemento, bairro, cidade, UF, CEP).
+  - Descrição da irregularidade.
+  - Ponto de referência do local (pontoref_oco).
+  - Latitude/Longitude (opcional, útil para o mapa).
+  - Prazo de regularização.
+
+5.4 Conversão de dados e geolocalização
+
+- Latitude/Longitude aceitam vírgula; são normalizadas para float.
+- Campos decimais (áreas, testadas, etc.) aceitam tanto vírgula quanto ponto, com tratamento uniforme.
+
+5.5 Fiscais responsáveis
+
+- Seleção múltipla (checkboxes) carregada por prefeitura.
+- Na edição, os fiscais já vinculados aparecem marcados automaticamente.
+- Se ao criar nenhuma seleção for feita e o usuário for FISCAL, ele é adicionado por padrão.
+
+5.6 Anexos e fotos
+
+- Notificação pode ter anexos (documentos, fotos) com processamento automático de imagens:
+  - Redimensionamento e compressão.
+  - Limite de 4 fotos por Notificação.
+- Galeria da Notificação mostra:
+  - Fotos da própria Notificação.
+  - Fotos herdadas da Denúncia e Apontamentos (sem duplicar).
+
+5.7 Cancelamento (CANCELADA)
+
+- Status “CANCELADA” é tratado como soft delete operacional:
+  - Listagens padrão não exibem Notificações CANCELADA.
+  - Mapas e relatórios ignoram CANCELADA em praticamente todas as contagens.
+  - Pessoa 360 não exibe essas notificações.
+
+5.8 Impressão da Notificação
+
+- Layout de impressão inclui:
+  - Dados da prefeitura e protocolo.
+  - Pessoa notificada e endereço.
+  - Descrição da irregularidade.
+  - Prazos e base legal (quando configurado).
+  - Fiscais responsáveis.
+
+
+=====================================================================
+Capítulo 6 – Autos de Infração (AIF)
+=====================================================================
+
+6.1 Conceito
+
+- Documento sancionatório que aplica multa e registra infração formalmente.
+
+6.2 Gerar AIF a partir da Notificação
+
+- Botão na tela da Notificação (“Gerar Auto de Infração”).
+- Copia:
+  - Pessoa e endereço do local.
+  - Geolocalização.
+  - Descrição.
+  - Dados construtivos (área, testada, pé‑direito, duplex, qtd. de cômodos, compartimentação, divisórias, mezanino, área do mezanino).
+  - Fiscais (herdados da Notificação, com inclusão do fiscal atual se for o caso).
+
+6.3 Gerar AIF a partir da Denúncia
+
+- Botão equivalente na tela de Denúncia.
+- Copia endereço e descrição da denúncia, bem como a geolocalização.
+- Marca procedência da denúncia como PROCEDE e registra histórico.
+
+6.4 Cadastro direto de AIF
+
+- A partir do menu de Autos de Infração.
+- Campos semelhantes aos do fluxo “a partir de Notificação”, porém preenchidos manualmente.
+
+6.5 Características da Edificação
+
+- Campos: área (m²), testada (m), pé‑direito, duplex (sim/não),
+  quantidade de cômodos, número de quartos, número de leitos,
+  compartimentação, divisórias, mezanino e área de mezanino.
+- Esses campos aparecem na tela, na edição e na impressão do Auto,
+  permitindo leitura rápida das características físicas do imóvel.
+
+6.6 Valores, homologação e pagamento
+
+- Campos de valor de infração, valor de multa homologado, se foi pago,
+  valor pago, data de pagamento e forma de pagamento.
+- Relatório de Arrecadação AIF usa esses campos (e também itens de multa)
+  para montar séries mensais de aplicado, homologado e pago.
+
+6.7 Fiscais responsáveis
+
+- M2M com usuários do tipo FISCAL.
+- Herdados de Notificação/Denúncia quando o AIF é gerado a partir delas.
+
+6.8 Anexos, fotos e galeria
+
+- Até 4 fotos próprias de AIF, além de documentos anexos.
+- Galeria de AIF mostra fotos da cadeia completa (Denúncia → Notificação → AIF). 
+
+6.9 Impressão do Auto de Infração
+
+- Inclui: cabeçalho institucional, pessoa notificada, endereço,
+  características da edificação, descrição, multas e valores homologados.
+
+
+=====================================================================
+Capítulo 7 – Medidas: Embargo e Interdição
+=====================================================================
+
+(Resumo – pode ser expandido se desejar)
+
+- Embargo e Interdição são gerados a partir de AIF.
+- Cada medida possui:
+  - Status próprio.
+  - Prazos.
+  - Anexos de suporte (alvarás, documentos, fotos).
+- Há telas específicas de cadastro, edição, listagem e impressão.
+
+
+=====================================================================
+Capítulo 8 – Listagens e Filtros Operacionais
+=====================================================================
+
+(Resumo – alinhado às telas de listagem)
+
+8.1 Denúncias
+
+- Filtros: protocolo, CPF/CNPJ, nome/razão, RG/IE, telefone, endereço e ponto de referência.
+- Campos de CPF/CNPJ usam máscara com js-doc.
+- A listagem mostra colunas principais e ações (ver, editar, imprimir).
+
+8.2 Notificações
+
+- Filtros: protocolo, CPF/CNPJ, nome/razão, RG, telefone, endereço, status e fiscal.
+- Notificações CANCELADA são excluídas da listagem por padrão.
+- Ordenação: pela proximidade do prazo (dias restantes).
+
+8.3 Autos de Infração
+
+- Filtros: protocolo, CPF/CNPJ, nome/razão, endereço, status.
+- Mostra embargos/interdições associados, prazo e valor de multa prevalente.
+
+8.4 Filtros com máscara CPF/CNPJ
+
+- Em todas as listagens o campo CPF/CNPJ usa a mesma máscara,
+  ajudando o usuário a digitar com menos erros.
+
+
+=====================================================================
+Capítulo 9 – Mapa e Consultas Geográficas (DETALHADO)
+=====================================================================
+
+9.1 Tela principal do Mapa
+
+- Menu: Consultas → Mapa de Processos.
+- Estrutura da tela:
+  - Painel lateral esquerdo: filtros e legendas.
+  - Área principal: mapa Leaflet com zoom, arrasto e marcadores.
+  - Indicador de status no canto superior direito (quantidade de pontos, mensagens).
+
+9.2 Filtros gerais
+
+- Endereço:
+  - Campo de texto (“Ex.: Rua, nº, bairro, cidade”).
+  - Ao clicar em “Aplicar”, o sistema geocodifica o endereço (via Nominatim) e centraliza o mapa no ponto encontrado.
+  - Depois disso, carrega os dados (processos/heatmap/bairros) dentro da área visível.
+
+- Protocolo:
+  - Filtro por código (DEN, NTF, AIF).
+  - Quando preenchido, o mapa centraliza no primeiro resultado encontrado, ignorando temporariamente a exigência de bbox.
+
+- Tipo:
+  - “Todos”, “Denúncias”, “Notificações”, “Autos de Infração”.
+  - Usado para limitar o que aparece no mapa de processos, no heatmap e no mapa por bairro.
+
+- Ano:
+  - Lista com “Todos” + últimos anos (6 anos) calculada automaticamente.
+  - Utilizada para filtrar os registros pela data de criação (criada_em).
+
+- Toggles:
+  - “Mapa de Calor” – aciona o modo heatmap.
+  - “Mapa por Bairro” – aciona o modo agregado por bairro.
+  - Quando nenhum toggle está ativo, o mapa mostra os processos (pontos) individuais.
+
+9.3 Mapa de Processos (pontos individuais)
+
+Endpoint: /api/mapa/processos
+
+- Filtros aplicados:
+  - prefeitura_id: prefeitura da sessão.
+  - tipo: ALL, DENUNCIA, NOTIFICACAO, AUTOINFRACAO.
+  - ano: ALL ou ano específico (filtra em criada_em__year).
+  - protocolo: opcional; quando presente, bbox fica opcional.
+  - bbox: retângulo da área visível atual do mapa (minLon,minLat,maxLon,maxLat).
+
+- O que aparece:
+  - Denúncias com latitude/longitude do local da ocorrência.
+  - Notificações com latitude/longitude do local da ocorrência (exceto CANCELADA).
+  - Autos de Infração com latitude/longitude.
+
+- Agrupamento:
+  - Para cada coordenada (lat,lng), o backend agrupa todos os documentos naquele ponto
+    e retorna uma Feature do GeoJSON com lista de entradas (tipo, protocolo, URL, ano).
+  - Na interface, um único marcador representa esse conjunto.
+
+- Cores e rótulos:
+  - Denúncia: marcador verde (letra “D”).
+  - Notificação: marcador azul (letra “N”).
+  - Auto de Infração: marcador laranja (letra “A”).
+  - Misto (mais de um tipo no mesmo ponto): marcador roxo (letra “M”).
+
+- Comportamento na UI:
+  - Tooltip: mostra “X processo(s)” ao passar o mouse.
+  - Popup: lista de protocolos com links para as telas de detalhe (DEN, NTF, AIF).
+  - Quando filtro de protocolo está preenchido, ao encontrar resultados o mapa centraliza no primeiro.
+  - Se houver muitos pontos (> 5000), o backend corta a lista e o cabeçalho indica que o resultado é parcial, orientando o usuário a aproximar o zoom.
+
+9.4 Mapa de Calor (Heatmap)
+
+Endpoint: /api/mapa/heat
+
+- Parâmetros:
+  - tipo: ALL | DENUNCIA | NOTIFICACAO | AUTOINFRACAO.
+  - ano: ALL | ano específico.
+  - bbox: limitado à área visível do mapa.
+  - metric: COUNT | SEVERIDADE.
+
+- Métrica COUNT:
+  - Quando tipo = ALL: considera DEN + NTF (exceto CANCELADA) + AIF.
+  - Quando tipo = DENUNCIA: considera apenas denúncias com geo.
+  - Quando tipo = NOTIFICACAO: apenas notificações não canceladas, com geo.
+  - Quando tipo = AUTOINFRACAO: apenas AIF com geo.
+  - Cada registro vira um ponto com weight = 1.0.
+
+- Métrica SEVERIDADE:
+  - Considera apenas Autos de Infração.
+  - Calcula um “valor aplicado” para cada AIF (valor de infração ou soma dos itens de multa).
+  - Normaliza o peso pelo percentil 95 (p95) para não distorcer o mapa com outliers.
+  - Usa esse peso normalizado como intensidade do heatmap.
+
+- Representação visual:
+  - Se o plugin leaflet.heat estiver disponível:
+    - Mapa de calor com gradiente de cores (azul → laranja → vermelho).
+    - Raio/blur variando com o nível de zoom.
+  - Se o plugin não estiver disponível:
+    - Fallback com círculos coloridos, com raio proporcional ao peso e cor variando em escala de calor.
+
+- Status do mapa de calor:
+  - Resume o número de pontos e contagens de NTF/AIF (e, com a extensão, também de DEN quando aplicável).
+
+9.5 Mapa por Bairro (agregado)
+
+Endpoint: /api/mapa/bairros
+
+- Parâmetros:
+  - tipo: ALL | DENUNCIA | NOTIFICACAO | AUTOINFRACAO.
+  - ano: ALL | ano específico.
+  - bbox: área visível do mapa (obrigatória).
+
+- Processamento:
+  - Denúncias: agrupadas por bairro do local da ocorrência.
+  - Notificações: agrupadas por bairro (exclui CANCELADA).
+  - Autos de Infração: agrupados por bairro.
+  - Para cada bairro:
+    - Contagem de denúncias, notificações, autos.
+    - Soma das coordenadas (quando há geo) para calcular centro aproximado.
+
+- valor_base:
+  - Quando tipo = DENUNCIA: usa apenas o total de denúncias.
+  - Quando tipo = NOTIFICACAO: usa total de notificações.
+  - Quando tipo = AUTOINFRACAO: usa total de autos.
+  - Quando tipo = ALL: soma de todas as categorias.
+  - Bairros com valor_base = 0 para o tipo atual não entram no resultado.
+
+- Classificação de densidade:
+  - Coleta todos os valores_base > 0.
+  - Se houver apenas um bairro ou todos tiverem o mesmo valor: todos recebem nível MÉDIA.
+  - Se houver variação:
+    - Bairro(s) com maior valor_base → nível ALTA.
+    - Bairro(s) com menor valor_base → nível BAIXA.
+    - Demais → nível MÉDIA.
+
+- UI:
+  - Cada bairro vira:
+    - Um círculo com raio proporcional ao valor_base (impacto visual).
+    - Um marcador com rótulo numérico (quantidade) no centro.
+  - O número exibido no rótulo depende do tipo atual (ALL, DENUNCIA, NOTIFICACAO, AUTOINFRACAO).
+  - A cor do círculo/ícone segue a legenda de densidade (verde = baixa, amarelo = média, vermelho = alta).
+  - O painel de status mostra:
+    - ALL: “Total no mapa: X — D: Y • NTF: Z • AIF: W”.
+    - DEN/NTF/AIF: “Total de [tipo] no mapa: N”.
+
+9.6 Legenda, ícones, densidade e níveis
+
+- Legenda de tipos (painel):
+  - Denúncia → quadrado verde.
+  - Notificação → quadrado azul.
+  - Auto de Infração → quadrado laranja.
+  - Misto → quadrado roxo.
+
+- Ícones dos marcadores:
+  - Pino (pin) colorido com letra:
+    - D = Denúncia.
+    - N = Notificação.
+    - A = Auto de Infração.
+    - M = Misto.
+
+- Legenda de densidade (mapa por bairro):
+  - Baixa → verde (#22c55e).
+  - Média → amarelo (#ffd93b).
+  - Alta → vermelho (#ff4f4f).
+
+9.7 Exemplos práticos de uso
+
+- Exemplo 1 – Ver apenas Denúncias no mapa:
+  - Selecione Tipo = Denúncia.
+  - Ano = Todos ou um ano específico.
+  - Deixe “Mapa de Calor” e “Mapa por Bairro” desativados.
+  - Navegue/aproxime na área desejada: os pinos verdes “D” representam denúncias.
+
+- Exemplo 2 – Ver concentração de Autos de Infração por severidade:
+  - Selecione Tipo = Autos de Infração.
+  - Ative o “Mapa de Calor”.
+  - Em Métrica, escolha “Severidade (AIF)”. 
+  - Áreas em vermelho mais intenso indicam autos com valores mais altos de multa (normalizados pelo p95).
+
+- Exemplo 3 – Comparar bairros mais críticos (todos os tipos):
+  - Selecione Tipo = Todos.
+  - Ative “Mapa por Bairro”.
+  - O mapa mostrará bolhas com o total de DEN+NTF+AIF por bairro, classificadas em Baixa/Média/Alta densidade.
+
+9.8 Tratamento de Notificações CANCELADA no mapa
+
+- Tanto no mapa de processos quanto no mapa de calor e no mapa por bairro,
+  notificações com status CANCELADA são automaticamente excluídas das contagens,
+  funcionando como se tivessem sido removidas do mapa operacional.
+
+
+=====================================================================
+Capítulo 10 – Relatórios Gerenciais (DETALHADO)
+=====================================================================
+
+10.1 Relatório de Risco por Bairro
+
+- Objetivo:
+  - Classificar bairros considerando volume de demandas (DEN/NTF/AIF),
+    recência (últimos 30 dias) e severidade (valores de AIF).
+
+- Entradas:
+  - Período (de/até) – o sistema sugere 90 dias por padrão.
+  - Tipo (ALL, DEN, NTF, AIF).
+
+- Métricas por bairro:
+  - Volume total (vol) no período.
+  - Volume recente (vol_rec) nos últimos 30 dias do período.
+  - Volume anterior (vol_prev) em janela histórica equivalente.
+  - Severidade (sev): soma de valores aplicados de AIF.
+
+- Normalização:
+  - Cada métrica é normalizada entre 0 e 1 (min–max).
+  - Score = 0.4 * volume + 0.2 * recência + 0.4 * severidade.
+
+- Tendência:
+  - Compara vol_prev com vol:
+    - up (subindo), down (caindo) ou flat (estável).
+
+- Resultado:
+  - Tabela ordenada por score, mostrando bairros mais críticos, seus volumes,
+    severidade e tendência.
+
+10.2 Relatório de Carga por Fiscal
+
+- Objetivo:
+  - Entender quantos atendimentos cada fiscal teve em um período
+    e qual o backlog atual de NTF/AIF sob cada um.
+
+- Entradas:
+  - Período (de/até) – padrão: 90 dias.
+
+- Métricas por fiscal:
+  - Notificações atendidas no período (exclui CANCELADA).
+  - Autos de Infração atendidos no período.
+  - Backlog de Notificações (em aberto e não canceladas).
+  - Backlog de AIF (status não encerrado).
+
+- Resultado:
+  - Tabela com colunas NTF, AIF, total, NTF_abertos, AIF_abertos, total_aberto.
+  - Ordenada por total de atendimentos e backlog.
+
+10.3 Relatório Quantitativo por Fiscal
+
+- Objetivo:
+  - Comparar, por fiscal, quantidades de Denúncias, Notificações e Autos
+    em um período ou ano, e ver os “top bairros” de atuação.
+
+- Entradas:
+  - Período (de/até) ou ano específico.
+
+- Métricas:
+  - Denúncias atendidas pelo fiscal.
+  - Notificações atendidas (exclui CANCELADA).
+  - AIF atendidos.
+  - Bairros onde o fiscal mais atuou (top N por total de demandas).
+
+- Resultado:
+  - Tabela com totais e percentuais (para construção de gráficos de barra proporcional).
+
+10.4 Relatório “Bairros por Fiscal”
+
+- Objetivo:
+  - Ver quais fiscais atuam mais em cada bairro, somando DEN/NTF/AIF.
+
+- Entradas:
+  - Período ou ano.
+  - Tipo (ALL, DEN, NTF, AIF).
+
+- Métricas:
+  - Para cada bairro, e para cada fiscal:
+    - Contagem de DEN, NTF, AIF e total.
+
+- Resultado:
+  - Tabela (e CSV) com matriz bairro × fiscal.
+
+10.5 Relatório Operacional (Entradas, Saídas e Ativos)
+
+- Objetivo:
+  - Resumir a “contabilidade” de processos em um período:
+    quantos entraram, quantos saíram e quantos permanecem ativos.
+
+- Entradas:
+  - Período (de/até).
+
+- Métricas por módulo (DEN, NTF, AIF):
+  - Entradas: registros criados no período.
+  - Saídas: registros encerrados no período.
+  - Ativos: registros em andamento ao fim do período.
+
+- Tratamento de CANCELADA:
+  - Notificações CANCELADA não contam como entradas nem ativos;
+    podem ou não ser contadas como saídas conforme configuração desejada.
+
+10.6 Relatório Pessoa 360
+
+- Objetivo:
+  - Ver todo o histórico de uma pessoa em DEN/NTF/AIF, com filtros por período,
+    endereço, bairro e fiscal.
+
+- Entradas:
+  - Pessoa selecionada.
+  - Filtros opcionais (período, endereço, bairro, fiscal, tipo).
+
+- Saídas:
+  - Tela de visão 360 com listas de DEN, NTF (sem CANCELADA) e AIF.
+  - CSVs separados por tipo.
+  - Versão de impressão resumida.
+
+10.7 Relatório de Arrecadação AIF
+
+- Objetivo:
+  - Acompanhar a evolução de multa aplicada, homologada e paga ao longo do tempo.
+
+- Entradas:
+  - Período (de/até).
+  - Status de AIF (opcional).
+  - Formas de pagamento (opcional, para filtro do “pago”).
+
+- Métricas mensais:
+  - Valor de multa aplicada (por data de criação).
+  - Valor de multa homologada (por data de homologação ou criação quando apropriado).
+  - Valor pago (por data de pagamento).
+
+- Resultado:
+  - Séries mensais usadas em gráficos.
+  - Tabelas com quantitativos e valores mensais.
+  - Totais no período e ticket médio pago.
+  - CSV exportável e versão de impressão.
+
+
+=====================================================================
+Capítulo 11 – Impressões e Documentos Finais
+=====================================================================
+
+(Resumo alinhado às telas de impressão – pode ser detalhado depois)
+
+
+=====================================================================
+Capítulo 12 – Galeria de Fotos e Anexos
+=====================================================================
+
+(Resumo)
+
+- Limite padrão de 4 fotos por documento (Denúncia, Notificação, AIF) e Apontamento.
+- Tamanho otimizável (~95–100 KB), conversão automática para JPG.
+- Galerias mostram fotos herdadas da cadeia de documentos sem duplicar.
+- Exclusão é possível apenas para fotos pertencentes ao módulo atual.
+
+
+=====================================================================
+Capítulo 13 – Regras de Negócio e Procedência
+=====================================================================
+
+(Resumo)
+
+- Procedência da Denúncia impacta geração de NTF/AIF e histórico.
+- Herança de fiscais reduz retrabalho e garante rastreabilidade da equipe.
+- CANCELADA em Notificação funciona como exclusão lógica em quase todas as consultas.
+- Vinculação com Pessoa e Imóvel enriquece relatórios e consultas de 360º.
+
+
+=====================================================================
+Capítulo 14 – Dicas, Erros Comuns e Suporte
+=====================================================================
+
+(Resumo)
+
+- Erros de host/CSRF geralmente são resolvidos utilizando o domínio HTTPS correto.
+- Erros com fotos costumam vir de formatos incomuns ou arquivos extremos; fotos padrão de smartphone funcionam bem.
+- Dados sem geolocalização continuam utilizáveis, porém não aparecem no mapa.
+- Auditoria registra ações críticas (criação, edição, impressão, vínculos).
+
+
+=====================================================================
+Anexo A – Campos Obrigatórios (Resumo)
+=====================================================================
+
+- Denúncia:
+  - Endereço do ocorrido: Logradouro, Bairro, Cidade, UF.
+  - Descrição da ocorrência.
+  - Nome/Razão Social do denunciado (pode ser genérico: “A DEFINIR”). 
+
+- Notificação:
+  - Pessoa (tipo + nome/razão).
+  - Endereço do local (logradouro, bairro, cidade, UF).
+  - Descrição da irregularidade.
+
+- Auto de Infração:
+  - Pessoa (tipo + nome/razão).
+  - Endereço do local (logradouro, bairro, cidade, UF).
+  - Descrição da infração.
+
+
+=====================================================================
+Anexo B – Limpeza de Dados para Testes
+=====================================================================
+
+- Em ambiente de testes, existe comando para limpar dados operacionais
+  de fiscalização (Denúncias, Notificações, AIF, Embargos, Interdições),
+  preservando cadastros básicos.
+
+- Exemplos (em console):
+
+  python manage.py purge_fiscalizacao --dry-run   # mostra o que seria apagado
+  python manage.py purge_fiscalizacao --yes       # executa a limpeza
+
+
+FIM DO MANUAL (VERSÃO TEXTO)
+

@@ -41,10 +41,12 @@ class DenunciaOrigemForm(forms.ModelForm):
                 )
             except Exception:
                 pass
-            # Garante seleção marcada no GET (editar): lista de IDs como initial
+            # Em edição (GET), garante seleção inicial dos fiscais vinculados
             if not self.is_bound and getattr(self.instance, 'pk', None):
                 try:
-                    self.initial['fiscais'] = list(self.instance.fiscais.values_list('pk', flat=True))
+                    ids = list(self.instance.fiscais.values_list('pk', flat=True))
+                    # Converte para string para bater com o teste do template
+                    self.initial['fiscais'] = [str(pk) for pk in ids]
                 except Exception:
                     pass
     class Meta:
@@ -163,6 +165,47 @@ class DenunciaDocumentoImovelForm(forms.ModelForm):
     class Meta:
         model = DenunciaDocumentoImovel
         fields = ["tipo", "arquivo", "observacao"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Campos não são obrigatórios por padrão; validamos a combinação no clean()
+        if "tipo" in self.fields:
+            self.fields["tipo"].required = False
+        if "arquivo" in self.fields:
+            self.fields["arquivo"].required = False
+
+    def clean(self):
+        cleaned = super().clean()
+        tipo = cleaned.get("tipo")
+        arquivo = cleaned.get("arquivo")
+        observacao = (cleaned.get("observacao") or "").strip()
+        marcar_delete = cleaned.get("DELETE")
+
+        # Se o usuário marcou para excluir, não força validações extras
+        if marcar_delete:
+            return cleaned
+
+        # Form totalmente em branco: deixa o formset ignorar (linha opcional)
+        if not tipo and not arquivo and not observacao:
+            # BaseInlineFormSet adiciona o campo DELETE; marcamos para não salvar
+            cleaned["DELETE"] = True
+            return cleaned
+
+        # Diferenciar criação x edição:
+        # - Na criação, exige tipo + arquivo quando algo foi preenchido.
+        # - Na edição, aceita deixar arquivo em branco para manter o arquivo já existente.
+        is_new = not getattr(self.instance, "pk", None)
+
+        errors = {}
+        if not tipo:
+            errors["tipo"] = ["Informe o tipo do documento."]
+        if is_new and not arquivo:
+            # Novo registro sem arquivo não faz sentido se usuário começou a preencher
+            errors["arquivo"] = ["Envie o arquivo do documento."]
+        if errors:
+            raise ValidationError(errors)
+
+        return cleaned
 
 class DenunciaAnexoForm(forms.ModelForm):
     class Meta:

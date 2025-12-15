@@ -68,16 +68,16 @@ def _discretize_bbox(b):
 @login_required
 @require_GET
 def api_mapa_heat(request):
-    """Heatmap de Notificações/AIF por bbox/ano/tipo.
+    """Heatmap de Denúncias/Notificações/AIF por bbox/ano/tipo.
 
     Parâmetros:
-    - tipo: ALL|NOTIFICACAO|AUTOINFRACAO
+    - tipo: ALL|DENUNCIA|NOTIFICACAO|AUTOINFRACAO
     - ano: ALL|YYYY
     - bbox: minLon,minLat,maxLon,maxLat (obrigatório)
     - metric: COUNT|SEVERIDADE
 
     Para metric=SEVERIDADE: considera apenas AIF e usa peso normalizado pelo p95
-    do valor aplicado (cap no p95). Notificações não entram na severidade.
+    do valor aplicado (cap no p95). Denúncias/Notificações não entram na severidade.
     """
     prefeitura_id = _get_prefeitura_id(request)
     if not prefeitura_id:
@@ -89,7 +89,7 @@ def api_mapa_heat(request):
             return HttpResponseForbidden("Usuário sem permissão para a prefeitura da sessão.")
 
     tipo = (request.GET.get("tipo") or "ALL").upper()
-    if tipo not in {"ALL", "NOTIFICACAO", "AUTOINFRACAO"}:
+    if tipo not in {"ALL", "DENUNCIA", "NOTIFICACAO", "AUTOINFRACAO"}:
         tipo = "ALL"
     ano = (request.GET.get("ano") or "ALL").upper()
     metric = (request.GET.get("metric") or "COUNT").upper()
@@ -107,10 +107,34 @@ def api_mapa_heat(request):
     if cached:
         return JsonResponse(cached)
 
-    # Notificações (COUNT apenas)
+    # Denúncias / Notificações (COUNT apenas) + Autos (COUNT/SEVERIDADE)
     points = []
+    den_count = 0
     ntf_count = 0
     aif_count = 0
+
+    # Denúncias (COUNT apenas)
+    if metric == "COUNT" and tipo in ("ALL", "DENUNCIA"):
+        den_qs = Denuncia.objects.filter(
+            prefeitura_id=prefeitura_id,
+            local_oco_lat__isnull=False,
+            local_oco_lng__isnull=False,
+            local_oco_lng__gte=min_lon,
+            local_oco_lng__lte=max_lon,
+            local_oco_lat__gte=min_lat,
+            local_oco_lat__lte=max_lat,
+        ).only("local_oco_lat", "local_oco_lng", "criada_em")
+        if ano != "ALL":
+            try:
+                year = int(ano)
+                den_qs = den_qs.filter(criada_em__year=year)
+            except Exception:
+                pass
+        for d in den_qs:
+            points.append({"lat": float(d.local_oco_lat), "lng": float(d.local_oco_lng), "weight": 1.0})
+            den_count += 1
+
+    # Notificações (COUNT apenas)
     if metric == "COUNT" and tipo in ("ALL", "NOTIFICACAO"):
         qs = Notificacao.objects.filter(
             prefeitura_id=prefeitura_id,
@@ -120,7 +144,7 @@ def api_mapa_heat(request):
             longitude__lte=max_lon,
             latitude__gte=min_lat,
             latitude__lte=max_lat,
-        ).only("latitude", "longitude", "criada_em")
+        ).exclude(status="CANCELADA").only("latitude", "longitude", "criada_em")
         if ano != "ALL":
             try:
                 year = int(ano)
@@ -202,7 +226,14 @@ def api_mapa_heat(request):
     if len(points) > 5000:
         points = points[:5000]
         has_more = True
-    resp = {"points": points, "summary": {"NOTIFICACAO": {"count": ntf_count}, "AUTOINFRACAO": {"count": aif_count}}}
+    resp = {
+        "points": points,
+        "summary": {
+            "DENUNCIA": {"count": den_count},
+            "NOTIFICACAO": {"count": ntf_count},
+            "AUTOINFRACAO": {"count": aif_count},
+        },
+    }
     cache.set(cache_key, resp, 90)
     jr = JsonResponse(resp)
     if has_more:
@@ -223,7 +254,7 @@ def api_mapa_processos(request):
             return HttpResponseForbidden("Usuário sem permissão para a prefeitura da sessão.")
 
     tipo = (request.GET.get("tipo") or "ALL").upper()
-    if tipo not in {"ALL", "NOTIFICACAO", "AUTOINFRACAO"}:
+    if tipo not in {"ALL", "DENUNCIA", "NOTIFICACAO", "AUTOINFRACAO"}:
         tipo = "ALL"
     ano = (request.GET.get("ano") or "ALL").upper()
     protocolo_q = (request.GET.get("protocolo") or "").strip()
@@ -255,13 +286,44 @@ def api_mapa_processos(request):
             features[key] = []
         features[key].append(entry)
 
+    # DENÚNCIAS
+    if tipo in ("ALL", "DENUNCIA"):
+        dqs = Denuncia.objects.filter(
+            prefeitura_id=prefeitura_id,
+            local_oco_lat__isnull=False,
+            local_oco_lng__isnull=False,
+        ).only("id", "protocolo", "local_oco_lat", "local_oco_lng", "criada_em")
+        if bbox:
+            dqs = dqs.filter(
+                local_oco_lng__gte=min_lon,
+                local_oco_lng__lte=max_lon,
+                local_oco_lat__gte=min_lat,
+                local_oco_lat__lte=max_lat,
+            )
+        if protocolo_q:
+            dqs = dqs.filter(protocolo__icontains=protocolo_q)
+        if ano != "ALL":
+            try:
+                year = int(ano)
+                dqs = dqs.filter(criada_em__year=year)
+            except Exception:
+                pass
+        for d in dqs:
+            entry = {
+                "tipo": "DENUNCIA",
+                "protocolo": d.protocolo,
+                "url": reverse("denuncias:detalhe", args=[d.id]),
+                "ano": d.criada_em.year if d.criada_em else None,
+            }
+            add_entry(d.local_oco_lat, d.local_oco_lng, entry)
+
     # NOTIFICAÇÕES
     if tipo in ("ALL", "NOTIFICACAO"):
         qs = Notificacao.objects.filter(
             prefeitura_id=prefeitura_id,
             latitude__isnull=False,
             longitude__isnull=False,
-        ).only("id", "protocolo", "latitude", "longitude", "criada_em")
+        ).exclude(status="CANCELADA").only("id", "protocolo", "latitude", "longitude", "criada_em")
         if bbox:
             qs = qs.filter(
                 longitude__gte=min_lon,
@@ -357,6 +419,232 @@ def api_mapa_processos(request):
 
 
 @login_required
+@require_GET
+def api_mapa_bairros(request):
+    """
+    Mapa agregado por bairro (Denúncia/Notificação/AIF), com centro aproximado e nível de densidade.
+
+    Parâmetros:
+    - tipo: ALL|DENUNCIA|NOTIFICACAO|AUTOINFRACAO
+    - ano: ALL|YYYY
+    - bbox: minLon,minLat,maxLon,maxLat (obrigatório)
+    """
+    prefeitura_id = _get_prefeitura_id(request)
+    if not prefeitura_id:
+        return HttpResponseBadRequest("Prefeitura não definida na sessão.")
+
+    # valida usuário vinculado à prefeitura da sessão (exceto superusuário)
+    if not getattr(request.user, "is_superuser", False):
+        if getattr(request.user, "prefeitura_id", None) != prefeitura_id:
+            return HttpResponseForbidden("Usuário sem permissão para a prefeitura da sessão.")
+
+    tipo = (request.GET.get("tipo") or "ALL").upper()
+    if tipo not in {"ALL", "DENUNCIA", "NOTIFICACAO", "AUTOINFRACAO"}:
+        tipo = "ALL"
+
+    ano_param = (request.GET.get("ano") or "ALL").upper()
+    year = None
+    if ano_param != "ALL":
+        try:
+            year = int(ano_param)
+        except Exception:
+            ano_param = "ALL"
+            year = None
+
+    bbox_str = request.GET.get("bbox")
+    bbox = _parse_bbox(bbox_str) if bbox_str else None
+    if not bbox:
+        return HttpResponseBadRequest("Parâmetro bbox inválido. Esperado: minLon,minLat,maxLon,maxLat")
+
+    min_lon, min_lat, max_lon, max_lat = bbox
+    bbox_key = _discretize_bbox(bbox)
+
+    cache_key = f"mapa_bairros:{prefeitura_id}:{tipo}:{ano_param}:{bbox_key}"
+    cached = cache.get(cache_key)
+    if cached:
+        return JsonResponse(cached)
+
+    # Acumuladores por bairro (texto)
+    bairros = {}
+
+    def _add_entry(nome_bairro, lat, lng, kind):
+        if not nome_bairro:
+            return
+        nome = (str(nome_bairro) or "").strip()
+        if not nome:
+            return
+        row = bairros.get(nome)
+        if not row:
+            row = {
+                "bairro": nome,
+                "denuncia": 0,
+                "notificacao": 0,
+                "autoinfracao": 0,
+                "lat_sum": 0.0,
+                "lng_sum": 0.0,
+                "lat_count": 0,
+                "lng_count": 0,
+            }
+            bairros[nome] = row
+        if kind == "DENUNCIA":
+            row["denuncia"] += 1
+        elif kind == "NOTIFICACAO":
+            row["notificacao"] += 1
+        elif kind == "AUTOINFRACAO":
+            row["autoinfracao"] += 1
+        if lat is not None and lng is not None:
+            try:
+                flat = float(lat)
+                flng = float(lng)
+            except Exception:
+                return
+            row["lat_sum"] += flat
+            row["lng_sum"] += flng
+            row["lat_count"] += 1
+            row["lng_count"] += 1
+
+    # Denúncias
+    if tipo in {"ALL", "DENUNCIA"}:
+        den_qs = Denuncia.objects.filter(
+            prefeitura_id=prefeitura_id,
+            local_oco_bairro__isnull=False,
+        ).exclude(local_oco_bairro__exact="")
+        den_qs = den_qs.filter(
+            local_oco_lat__isnull=False,
+            local_oco_lng__isnull=False,
+            local_oco_lng__gte=min_lon,
+            local_oco_lng__lte=max_lon,
+            local_oco_lat__gte=min_lat,
+            local_oco_lat__lte=max_lat,
+        ).only("local_oco_bairro", "local_oco_lat", "local_oco_lng", "criada_em")
+        if year is not None:
+            try:
+                den_qs = den_qs.filter(criada_em__year=year)
+            except Exception:
+                pass
+        for d in den_qs.iterator():
+            _add_entry(d.local_oco_bairro, d.local_oco_lat, d.local_oco_lng, "DENUNCIA")
+
+    # Notificações
+    if tipo in {"ALL", "NOTIFICACAO"}:
+        ntf_qs = Notificacao.objects.filter(
+            prefeitura_id=prefeitura_id,
+            bairro__isnull=False,
+        ).exclude(bairro__exact="")
+        ntf_qs = ntf_qs.filter(
+            latitude__isnull=False,
+            longitude__isnull=False,
+            longitude__gte=min_lon,
+            longitude__lte=max_lon,
+            latitude__gte=min_lat,
+            latitude__lte=max_lat,
+        ).only("bairro", "latitude", "longitude", "criada_em")
+        if year is not None:
+            try:
+                ntf_qs = ntf_qs.filter(criada_em__year=year)
+            except Exception:
+                pass
+        for n in ntf_qs.iterator():
+            _add_entry(n.bairro, n.latitude, n.longitude, "NOTIFICACAO")
+
+    # Autos de Infração
+    if tipo in {"ALL", "AUTOINFRACAO"}:
+        aif_qs = AutoInfracao.objects.filter(
+            prefeitura_id=prefeitura_id,
+            bairro__isnull=False,
+        ).exclude(bairro__exact="")
+        aif_qs = aif_qs.filter(
+            latitude__isnull=False,
+            longitude__isnull=False,
+            longitude__gte=min_lon,
+            longitude__lte=max_lon,
+            latitude__gte=min_lat,
+            latitude__lte=max_lat,
+        ).only("bairro", "latitude", "longitude", "criada_em")
+        if year is not None:
+            try:
+                aif_qs = aif_qs.filter(criada_em__year=year)
+            except Exception:
+                pass
+        for a in aif_qs.iterator():
+            _add_entry(a.bairro, a.latitude, a.longitude, "AUTOINFRACAO")
+
+    # Monta lista final de bairros com centro aproximado e classificação
+    bairros_list = []
+    for nome, row in bairros.items():
+        total_den = int(row["denuncia"])
+        total_ntf = int(row["notificacao"])
+        total_aif = int(row["autoinfracao"])
+        total = total_den + total_ntf + total_aif
+        # valor_base depende do filtro de tipo atual
+        if tipo == "DENUNCIA":
+            valor_base = total_den
+        elif tipo == "NOTIFICACAO":
+            valor_base = total_ntf
+        elif tipo == "AUTOINFRACAO":
+            valor_base = total_aif
+        else:  # ALL
+            valor_base = total
+        if valor_base <= 0:
+            # não entra no mapa quando não há nada do tipo atual
+            continue
+        lat = row["lat_sum"] / row["lat_count"] if row["lat_count"] > 0 else None
+        lng = row["lng_sum"] / row["lng_count"] if row["lng_count"] > 0 else None
+        bairros_list.append({
+            "bairro": nome,
+            "lat": lat,
+            "lng": lng,
+            "total": total,
+            "denuncia": total_den,
+            "notificacao": total_ntf,
+            "autoinfracao": total_aif,
+            "valor_base": valor_base,
+            # nivel será preenchido depois
+        })
+
+    # Classificação de densidade (BAIXA/MEDIA/ALTA) baseada em ordem relativa:
+    # - Se houver mais de 1 bairro:
+    #   - maior(es) valor_base => ALTA
+    #   - menor(es) valor_base => BAIXA
+    #   - intermediários => MEDIA
+    # - Se só existir 1 bairro ou não houver variação => MEDIA
+    valores = [b["valor_base"] for b in bairros_list if b["valor_base"] > 0]
+    if len(valores) <= 1:
+        for b in bairros_list:
+            b["nivel"] = "MEDIA"
+    else:
+        max_v = max(valores)
+        min_v = min(valores)
+        if max_v == min_v:
+            for b in bairros_list:
+                b["nivel"] = "MEDIA"
+        else:
+            for b in bairros_list:
+                vb = b["valor_base"]
+                if vb == max_v:
+                    b["nivel"] = "ALTA"
+                elif vb == min_v:
+                    b["nivel"] = "BAIXA"
+                else:
+                    b["nivel"] = "MEDIA"
+
+    summary = {
+        "total_geral": sum(b["total"] for b in bairros_list),
+        "denuncia": sum(b["denuncia"] for b in bairros_list),
+        "notificacao": sum(b["notificacao"] for b in bairros_list),
+        "autoinfracao": sum(b["autoinfracao"] for b in bairros_list),
+        "tipo_atual": tipo,
+    }
+
+    resp = {
+        "bairros": bairros_list,
+        "summary": summary,
+    }
+    cache.set(cache_key, resp, 60)
+    return JsonResponse(resp)
+
+
+@login_required
 def relatorio_risco(request):
     """Relatório de Risco & Prioridade por bairro (simplificado):
     - Volume (Den/NTF/AIF) no período
@@ -433,9 +721,9 @@ def relatorio_risco(request):
             row = add_row(r["local_oco_bairro"]);  
             if row: row["vol_prev"] += r["c"]
 
-    # Notificações
+    # Notificações (ignora CANCELADA)
     if tipo in ("ALL","NTF"):
-        qs = Notificacao.objects.filter(prefeitura_id=pref_id, criada_em__gte=dt_ini, criada_em__lt=dt_fim_ex)
+        qs = Notificacao.objects.filter(prefeitura_id=pref_id, criada_em__gte=dt_ini, criada_em__lt=dt_fim_ex).exclude(status="CANCELADA")
         for r in qs.values("bairro").annotate(c=models.Count("id")):
             row = add_row(r["bairro"]);  
             if row: row["vol"] += r["c"]
@@ -443,7 +731,7 @@ def relatorio_risco(request):
         for r in rec_qs.values("bairro").annotate(c=models.Count("id")):
             row = add_row(r["bairro"]);  
             if row: row["vol_rec"] += r["c"]
-        prev_qs = Notificacao.objects.filter(prefeitura_id=pref_id, criada_em__gte=prev_dt_ini, criada_em__lt=prev_dt_fim_ex)
+        prev_qs = Notificacao.objects.filter(prefeitura_id=pref_id, criada_em__gte=prev_dt_ini, criada_em__lt=prev_dt_fim_ex).exclude(status="CANCELADA")
         for r in prev_qs.values("bairro").annotate(c=models.Count("id")):
             row = add_row(r["bairro"]);  
             if row: row["vol_prev"] += r["c"]
@@ -544,6 +832,7 @@ def relatorio_fiscais(request):
     ntf_counts = (
         Notificacao.objects
         .filter(prefeitura_id=pref_id, criada_em__gte=dt_ini, criada_em__lt=dt_fim_ex)
+        .exclude(status="CANCELADA")
         .values("fiscais")
         .annotate(c=models.Count("id"))
     )
@@ -558,8 +847,8 @@ def relatorio_fiscais(request):
     )
     aif_map = { r["fiscais"]: r["c"] for r in aif_counts if r["fiscais"] }
 
-    # Backlog em aberto (sem período)
-    ntf_abertos = Notificacao.objects.filter(prefeitura_id=pref_id).exclude(status="CONCLUIDA").values("fiscais").annotate(c=models.Count("id"))
+    # Backlog em aberto (sem período) — desconsidera CANCELADA
+    ntf_abertos = Notificacao.objects.filter(prefeitura_id=pref_id).exclude(status__in=["CONCLUIDA", "CANCELADA"]).values("fiscais").annotate(c=models.Count("id"))
     # Backlog AIF: exclui REGULARIZADO e CANCELADO (considerados encerrados)
     aif_abertos = (
         AutoInfracao.objects
@@ -651,7 +940,7 @@ def relatorio_fiscais_quantitativo(request):
         # Denúncias atendidas (M2M fiscais)
         den_count = Denuncia.objects.filter(prefeitura_id=pref_id, criada_em__gte=dt_ini, criada_em__lt=dt_fim_ex, fiscais=u).count()
         # Notificações atendidas
-        ntf_count = Notificacao.objects.filter(prefeitura_id=pref_id, criada_em__gte=dt_ini, criada_em__lt=dt_fim_ex, fiscais=u).count()
+        ntf_count = Notificacao.objects.filter(prefeitura_id=pref_id, criada_em__gte=dt_ini, criada_em__lt=dt_fim_ex, fiscais=u).exclude(status="CANCELADA").count()
         # AIF atendidos
         aif_count = AutoInfracao.objects.filter(prefeitura_id=pref_id, criada_em__gte=dt_ini, criada_em__lt=dt_fim_ex, fiscais=u).count()
         total = den_count + ntf_count + aif_count
@@ -669,6 +958,7 @@ def relatorio_fiscais_quantitativo(request):
         # Notificações por bairro
         for r in (Notificacao.objects
                   .filter(prefeitura_id=pref_id, criada_em__gte=dt_ini, criada_em__lt=dt_fim_ex, fiscais=u)
+                  .exclude(status="CANCELADA")
                   .values("bairro")
                   .annotate(c=models.Count("id"))):
             b = (r.get("bairro") or "—").strip() or "—"
@@ -796,6 +1086,7 @@ def relatorio_fiscais_bairros(request):
     if tipo in ("ALL","NTF"):
         ntf_qs = (Notificacao.objects
                  .filter(prefeitura_id=pref_id, criada_em__gte=dt_ini, criada_em__lt=dt_fim_ex)
+                 .exclude(status="CANCELADA")
                  .values("bairro", "fiscais")
                  .annotate(c=models.Count("id")))
         for r in ntf_qs:
@@ -907,12 +1198,13 @@ def relatorio_operacional(request):
 
     # Entradas
     den_entradas = Denuncia.objects.filter(prefeitura_id=prefeitura_id, criada_em__gte=dt_ini, criada_em__lt=dt_fim_ex).count()
-    not_entradas = Notificacao.objects.filter(prefeitura_id=prefeitura_id, criada_em__gte=dt_ini, criada_em__lt=dt_fim_ex).count()
+    # Notificações CANCELADAS não entram no operacional (como se fossem excluídas)
+    not_entradas = Notificacao.objects.filter(prefeitura_id=prefeitura_id, criada_em__gte=dt_ini, criada_em__lt=dt_fim_ex).exclude(status="CANCELADA").count()
     aif_entradas = AutoInfracao.objects.filter(prefeitura_id=prefeitura_id, criada_em__gte=dt_ini, criada_em__lt=dt_fim_ex).count()
 
     # Saídas
     den_saidas = Denuncia.objects.filter(prefeitura_id=prefeitura_id, status__in=DEN_FECHADOS, atualizada_em__gte=dt_ini, atualizada_em__lt=dt_fim_ex).count()
-    not_saidas = Notificacao.objects.filter(prefeitura_id=prefeitura_id, status__in=NOT_FECHADOS, atualizada_em__gte=dt_ini, atualizada_em__lt=dt_fim_ex).count()
+    not_saidas = Notificacao.objects.filter(prefeitura_id=prefeitura_id, status__in=NOT_FECHADOS, atualizada_em__gte=dt_ini, atualizada_em__lt=dt_fim_ex).exclude(status="CANCELADA").count()
     # AIF: REGULARIZADO usa regularizado_em; CANCELADO usa atualizada_em
     aif_saidas_reg = AutoInfracao.objects.filter(prefeitura_id=prefeitura_id, status="REGULARIZADO", regularizado_em__isnull=False, regularizado_em__date__gte=d_ini, regularizado_em__date__lte=d_fim).count()
     aif_saidas_canc = AutoInfracao.objects.filter(prefeitura_id=prefeitura_id, status="CANCELADO", atualizada_em__gte=dt_ini, atualizada_em__lt=dt_fim_ex).count()
@@ -920,7 +1212,7 @@ def relatorio_operacional(request):
 
     # Processos Ativos (saldo) no fim do período: status não-encerrado e criados até o fim do período
     den_ativos = Denuncia.objects.filter(prefeitura_id=prefeitura_id, criada_em__lt=dt_fim_ex).exclude(status__in=DEN_FECHADOS).count()
-    not_ativos = Notificacao.objects.filter(prefeitura_id=prefeitura_id, criada_em__lt=dt_fim_ex).exclude(status__in=NOT_FECHADOS).count()
+    not_ativos = Notificacao.objects.filter(prefeitura_id=prefeitura_id, criada_em__lt=dt_fim_ex).exclude(status__in=NOT_FECHADOS).exclude(status="CANCELADA").count()
     aif_ativos = AutoInfracao.objects.filter(prefeitura_id=prefeitura_id, criada_em__lt=dt_fim_ex).exclude(status__in=AIF_FECHADOS).count()
 
     data = {
@@ -1043,7 +1335,7 @@ def relatorio_pessoa(request, pessoa_id: int):
         total_den = len(den)
     # Notificações
     if tipo in ("ALL", "NTF"):
-        ntf_qs = Notificacao.objects.filter(prefeitura_id=pref_id, pessoa_id=pessoa.id).order_by("-criada_em")
+        ntf_qs = Notificacao.objects.filter(prefeitura_id=pref_id, pessoa_id=pessoa.id).exclude(status="CANCELADA").order_by("-criada_em")
         ntf_qs = _apply_common_filters(ntf_qs, "NTF", request)
         nots = list(ntf_qs)
         total_ntf = len(nots)
@@ -1106,7 +1398,7 @@ def relatorio_pessoa_csv(request, pessoa_id: int):
         header = ["Protocolo","Data Registro","Ocorrido em","Status","Procedência","Endereço do Ocorrido"]
         filename = f"pessoa_{pessoa.id}_denuncias.csv"
     elif tipo == "NTF":
-        qs = Notificacao.objects.filter(prefeitura_id=pref_id, pessoa_id=pessoa.id).order_by("-criada_em")
+        qs = Notificacao.objects.filter(prefeitura_id=pref_id, pessoa_id=pessoa.id).exclude(status="CANCELADA").order_by("-criada_em")
         qs = _apply_common_filters(qs, "NTF", request)
         rows = [
             (
@@ -1167,7 +1459,7 @@ def relatorio_pessoa_imprimir(request, pessoa_id: int):
         den_qs = _apply_common_filters(den_qs, "DEN", request)
         den = list(den_qs)
     if tipo in ("ALL","NTF"):
-        ntf_qs = Notificacao.objects.filter(prefeitura_id=pref_id, pessoa_id=pessoa.id).order_by("-criada_em")
+        ntf_qs = Notificacao.objects.filter(prefeitura_id=pref_id, pessoa_id=pessoa.id).exclude(status="CANCELADA").order_by("-criada_em")
         ntf_qs = _apply_common_filters(ntf_qs, "NTF", request)
         nots = list(ntf_qs)
     if tipo in ("ALL","AIF"):
