@@ -275,30 +275,42 @@ def denuncia_edit_basico(request, pk):
                 pass
             doc_formset.save()
 
-            # Fotos opcionais (como no cadastro)
-            if request.FILES.getlist("fotos"):
-                if fotos_form.is_valid():
-                    created = fotos_form.save()
+            # Fotos opcionais (como no cadastro), com limite global de 4 por denúncia
+            files_list = request.FILES.getlist("fotos")
+            if files_list:
+                existentes = obj.anexos.filter(tipo="FOTO").count()
+                novas = len(files_list)
+                if existentes + novas > 4:
+                    restante = max(0, 4 - existentes)
+                    messages.error(
+                        request,
+                        f"Limite de 4 fotos por denúncia. Você já tem {existentes}. "
+                        f"Envie no máximo {restante} agora.",
+                    )
+                else:
+                    created = []
+                    obs = (request.POST.get("observacao") or "").strip()
+                    for f in files_list:
+                        try:
+                            processed_file, w, h, hsh = process_photo_file(f)
+                            anexo = DenunciaAnexo(
+                                denuncia=obj_edit,
+                                tipo="FOTO",
+                                arquivo=processed_file,
+                                observacao=obs[:140] if obs else "",
+                                largura_px=w,
+                                altura_px=h,
+                                hash_sha256=hsh,
+                                otimizada=True,
+                            )
+                            anexo.save()
+                            created.append(anexo)
+                        except ValidationError as e:
+                            messages.error(request, f"Erro ao processar foto: {e}")
+                        except Exception as e:
+                            messages.error(request, f"Erro inesperado ao processar foto: {e}")
                     if created:
                         messages.success(request, f"{len(created)} foto(s) anexada(s) com sucesso.")
-                else:
-                    # Exibe mensagens de erro mais específicas do formulário de fotos
-                    foto_errors = []
-                    try:
-                        # field + non-field errors
-                        for field, errs in fotos_form.errors.items():
-                            for err in errs:
-                                foto_errors.append(str(err))
-                        for err in fotos_form.non_field_errors():
-                            foto_errors.append(str(err))
-                    except Exception:
-                        foto_errors = []
-
-                    if foto_errors:
-                        for err in foto_errors:
-                            messages.error(request, f"Erro ao anexar fotos: {err}")
-                    else:
-                        messages.error(request, "Erros ao anexar fotos. Verifique os arquivos e tente novamente.")
 
             log_event(request, 'UPDATE', instance=obj_edit)
             messages.success(request, "Denúncia atualizada com sucesso (dados básicos).")
