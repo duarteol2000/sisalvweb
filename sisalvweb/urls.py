@@ -1,9 +1,9 @@
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
 from apps.usuarios.views import login_view, logout_view, home_view
 from django.conf import settings
 from sisalvweb import core_views
-from django.conf.urls.static import static
+from django.views.static import serve as media_serve
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -36,8 +36,9 @@ urlpatterns = [
     path("relatorios/pessoa/<int:pessoa_id>/imprimir/", core_views.relatorio_pessoa_imprimir, name="relatorio_pessoa_imprimir"),
 ]
 
-# Em produção (Render), o DEBUG fica False e o bloco abaixo
-# não seria executado, o que faria as URLs de /media/ darem 404.
-# Aqui liberamos o serviço dos arquivos de mídia sempre, já que
-# o volume é pequeno e fica no próprio servidor.
-urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Servir arquivos de mídia (uploads) tanto em desenvolvimento quanto em produção.
+# O helper django.conf.urls.static.static só funciona com DEBUG=True;
+# por isso usamos a view direta do Django para /media/.
+urlpatterns += [
+    re_path(r"^media/(?P<path>.*)$", media_serve, {"document_root": settings.MEDIA_ROOT}),
+]
