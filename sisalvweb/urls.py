@@ -34,8 +34,10 @@ urlpatterns = [
     path("relatorios/pessoa/<int:pessoa_id>/", core_views.relatorio_pessoa, name="relatorio_pessoa"),
     path("relatorios/pessoa/<int:pessoa_id>/csv/", core_views.relatorio_pessoa_csv, name="relatorio_pessoa_csv"),
     path("relatorios/pessoa/<int:pessoa_id>/imprimir/", core_views.relatorio_pessoa_imprimir, name="relatorio_pessoa_imprimir"),
-    
-    ]
+]
 
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Em produção (Render), o DEBUG fica False e o bloco abaixo
+# não seria executado, o que faria as URLs de /media/ darem 404.
+# Aqui liberamos o serviço dos arquivos de mídia sempre, já que
+# o volume é pequeno e fica no próprio servidor.
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
