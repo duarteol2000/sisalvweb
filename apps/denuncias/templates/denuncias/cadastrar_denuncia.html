@@ -163,6 +163,15 @@
       <div class="section">
         <h3>Fotos da ocorrência <small>(até 4)</small></h3>
         <div class="field">
+          {% if fotos_form.fotos.errors %}
+            <div class="alert alert-danger" style="margin-bottom:8px;">
+              <ul style="margin:0 0 0 18px;">
+                {% for err in fotos_form.fotos.errors %}
+                  <li>{{ err }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+          {% endif %}
           <label>Fotos</label>
           {{ fotos_form.fotos }}
           <div style="margin-top:6px; font-size:0.9rem; color:#555;">

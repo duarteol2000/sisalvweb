@@ -282,7 +282,23 @@ def denuncia_edit_basico(request, pk):
                     if created:
                         messages.success(request, f"{len(created)} foto(s) anexada(s) com sucesso.")
                 else:
-                    messages.error(request, "Erros ao anexar fotos. Verifique os arquivos e tente novamente.")
+                    # Exibe mensagens de erro mais específicas do formulário de fotos
+                    foto_errors = []
+                    try:
+                        # field + non-field errors
+                        for field, errs in fotos_form.errors.items():
+                            for err in errs:
+                                foto_errors.append(str(err))
+                        for err in fotos_form.non_field_errors():
+                            foto_errors.append(str(err))
+                    except Exception:
+                        foto_errors = []
+
+                    if foto_errors:
+                        for err in foto_errors:
+                            messages.error(request, f"Erro ao anexar fotos: {err}")
+                    else:
+                        messages.error(request, "Erros ao anexar fotos. Verifique os arquivos e tente novamente.")
 
             log_event(request, 'UPDATE', instance=obj_edit)
             messages.success(request, "Denúncia atualizada com sucesso (dados básicos).")
